@@ -20,9 +20,9 @@ CI 桌面包内含 SQLite。Linux 构建在依赖可用时同时编译 PostgreSQ
 
 ## JDBC 和达梦 DM8
 
-在原生单架构桌面构建机上，将 `JAVA_HOME` 指向 OpenJDK 25 LTS 的 JDK 目录，并配置 `-DNAVIDOG_WITH_JDBC=ON`。构建使用 `jlink` 生成内置运行时，用户端无需安装 Java。macOS Universal、Windows 7 / 8、鸿蒙和交叉编译构建当前关闭这项功能。
+在受支持的桌面构建机上，将 `JAVA_HOME` 指向 OpenJDK 25 LTS 的 JDK 目录，并配置 `-DNAVIDOG_WITH_JDBC=ON`。安装包包含 JDBC 桥接 JAR，Java 运行时通过应用的「驱动与运行时」按需获取。macOS Universal 使用当前 CPU 架构的运行时包。Windows 7 / 8、鸿蒙和交叉编译构建关闭 JDBC 桥接。
 
-新建达梦连接时，在「高级」选择本机的达梦官方 JDBC JAR。首次连接时启动辅助进程，最后一个 JDBC 会话关闭后退出。SQL 查询结果按现有 Navidog 的行数和内存限额读取。
+新建达梦连接时，可下载托管驱动，也可在「高级」选择厂商提供的本地 JAR。首次连接时启动辅助进程，最后一个 JDBC 会话关闭后退出。SQL 查询结果按现有 Navidog 的行数和内存限额读取。
 
 达梦 SSL 页使用包含 `.keystore` 的厂商证书目录和对应密钥库密码。数据库服务器需启用带证书认证的加密模式，`ENABLE_ENCRYPT` 取 `1` 或 `5`。同一连接可以启用 SSH 隧道。
 
