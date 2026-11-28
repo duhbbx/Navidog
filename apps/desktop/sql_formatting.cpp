@@ -431,7 +431,7 @@ bool editApplicationSettings(QWidget *parent, const QString &globalConfig,
   categories->setMinimumWidth(145);
   categories->setMaximumWidth(190);
   categories->addItems({"常规", "SQL 编辑器", "查询与结果", "SQL 格式化",
-                        "元数据", "SQL 分析与优化"});
+                        "元数据", "SQL 分析与优化", "SQL 执行安全"});
   auto *settingsPages = new QStackedWidget;
   settingsPages->setObjectName("settingsPages");
   all->addWidget(categories);
@@ -600,7 +600,51 @@ bool editApplicationSettings(QWidget *parent, const QString &globalConfig,
       "COST；达到预算会保留已完成的计划。目录统计在已连接时随元数据静默更新。");
   costNote->setWordWrap(true);
   cost->addRow(costNote);
-  categories->setCurrentRow(qBound(0, category, 5));
+  auto *safety = formPage("SQL 执行安全");
+  const auto safetyToggle = [&](const QString &text, const char* name, bool checked) {
+    auto *box = new navidog::ui::CheckBox(text);
+    box->setObjectName(name);
+    box->setChecked(checked);
+    safety->addRow(box);
+    return box;
+  };
+  const auto safetyNumber = [&](const QString &label, const char* name, int value,
+                                int minimum, int maximum, const QString &suffix) {
+    auto *input = new navidog::ui::NumberInput;
+    input->setObjectName(name);
+    input->setRange(minimum, maximum);
+    input->setValue(value);
+    input->setSuffix(suffix);
+    safety->addRow(label, input);
+    return input;
+  };
+  const auto &risk = settings.querySafety;
+  auto *safetyEnabled = safetyToggle("启用写入风险检查", "settingsSqlSafetyEnabled", risk.enabled);
+  auto *safetyWarnings = safetyToggle("在编辑器显示波浪线和行号标记", "settingsSqlSafetyWarnings", risk.warnings);
+  auto *safetyConfirm = safetyToggle("危险语句执行前要求确认", "settingsSqlSafetyConfirm", risk.confirm);
+  auto *safetyBeforeRun = safetyToggle("执行前只读预查影响范围", "settingsSqlSafetyBeforeRun", risk.previewBeforeRun);
+  auto *safetyWhileEditing = safetyToggle("停止输入后预查当前已连接的查询", "settingsSqlSafetyWhileEditing", risk.previewWhileEditing);
+  auto *safetyUnmeasured = safetyToggle("范围无法预查时也要求确认", "settingsSqlSafetyUnmeasured", risk.confirmUnmeasured);
+  auto *safetyRows = safetyNumber("匹配行数达到", "settingsSqlSafetyRows", risk.rowThreshold, 1, 10000, " 行");
+  auto *safetyPercent = safetyNumber("匹配比例达到", "settingsSqlSafetyPercent", risk.percentThreshold, 50, 100, " %");
+  auto *safetyTimeout = safetyNumber("本次预查最多等待", "settingsSqlSafetyTimeout", risk.timeoutMs, 250, 10000, " ms");
+  auto *safetyNote = new QLabel("预查使用独立会话，结果可能随并发写入变化。含前序语句、临时对象或未提交事务时，只做能确认的静态检查。");
+  safetyNote->setWordWrap(true);
+  safety->addRow(safetyNote);
+  const auto updateSafety = [=] {
+    const bool enabled = safetyEnabled->isChecked();
+    const bool probe = enabled && (safetyBeforeRun->isChecked() || safetyWhileEditing->isChecked());
+    for (auto *control : {safetyWarnings, safetyConfirm, safetyBeforeRun, safetyWhileEditing})
+      control->setEnabled(enabled);
+    safetyUnmeasured->setEnabled(enabled && safetyConfirm->isChecked() && safetyBeforeRun->isChecked());
+    safetyRows->setEnabled(enabled);
+    safetyPercent->setEnabled(probe);
+    safetyTimeout->setEnabled(probe);
+  };
+  for (auto *box : {safetyEnabled, safetyConfirm, safetyBeforeRun, safetyWhileEditing})
+    QObject::connect(box, &QCheckBox::toggled, &dialog, updateSafety);
+  updateSafety();
+  categories->setCurrentRow(qBound(0, category, settingsPages->count() - 1));
 
   auto *top = new QHBoxLayout;
   auto *preset = new navidog::ui::Select;
@@ -833,6 +877,9 @@ bool editApplicationSettings(QWidget *parent, const QString &globalConfig,
       settings.queryRowLimit = rowLimit->currentData().toInt();
       settings.resultsBeside = resultLayout->currentIndex() == 1;
       settings.autoMetadata = autoMetadata->isChecked();
+      settings.querySafety = {safetyEnabled->isChecked(), safetyConfirm->isChecked(),
+          safetyWarnings->isChecked(), safetyBeforeRun->isChecked(), safetyWhileEditing->isChecked(),
+          safetyUnmeasured->isChecked(), safetyRows->value(), safetyPercent->value(), safetyTimeout->value()};
       settings.optimizerAssumedRows = assumed->value();
       settings.optimizerMemoryMiB = operatorMemory->value();
       settings.optimizerTimeMs = planningTime->value();

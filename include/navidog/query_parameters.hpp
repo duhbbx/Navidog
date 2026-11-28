@@ -18,6 +18,7 @@ struct ParameterizedStatement {
     int index = 0;
     QString original, sql;
     QVector<int> parameters;
+    QVector<BoundQueryMarker> markers;
 };
 struct QueryParameterPlan {
     QVector<QueryParameter> parameters;
@@ -27,6 +28,8 @@ bool mayHaveQueryParameters(DatabaseKind, const QString&);
 QueryParameterPlan inspectQueryParameters(DatabaseKind, const QString& sql, const QString& database,
                                           const QString& schema, MetadataSnapshotPtr metadata = {});
 QVector<BoundQueryStatement> bindQueryParameters(const QueryParameterPlan&, const QVector<QVariant>&);
+bool rewriteQueryPredicate(DatabaseKind, QByteArray& predicate, int originalOffset,
+                           const BoundQueryStatement*, QVector<QVariant>&);
 QString queryParameterTypeName(QueryParameterType);
 std::optional<QVariant> parseQueryParameterValue(QueryParameterType, const QString& text, bool isNull);
 }

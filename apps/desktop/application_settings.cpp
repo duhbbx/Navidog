@@ -86,6 +86,16 @@ ApplicationSettings loadApplicationSettings(const QString &path) {
     s.editorFontSize = number("editorFontSize", 12, 8, 24);
     s.editorIndentWidth = number("editorIndentWidth", 4, 1, 8);
     s.queryRowLimit = number("queryRowLimit", 1000, 1000, 10000);
+    auto &safety = s.querySafety;
+    safety.enabled = flag("sqlSafetyEnabled", safety.enabled);
+    safety.confirm = flag("sqlSafetyConfirm", safety.confirm);
+    safety.warnings = flag("sqlSafetyWarnings", safety.warnings);
+    safety.previewBeforeRun = flag("sqlSafetyPreviewBeforeRun", safety.previewBeforeRun);
+    safety.previewWhileEditing = flag("sqlSafetyPreviewWhileEditing", safety.previewWhileEditing);
+    safety.confirmUnmeasured = flag("sqlSafetyConfirmUnmeasured", safety.confirmUnmeasured);
+    safety.rowThreshold = number("sqlSafetyRowThreshold", safety.rowThreshold, 1, 10000);
+    safety.percentThreshold = number("sqlSafetyPercentThreshold", safety.percentThreshold, 50, 100);
+    safety.timeoutMs = number("sqlSafetyTimeoutMs", safety.timeoutMs, 250, 10000);
     if (s.queryRowLimit != 1000 && s.queryRowLimit != 5000 &&
         s.queryRowLimit != 10000)
         throw std::runtime_error("查询行数设置无效");
@@ -146,6 +156,11 @@ void saveApplicationSettings(const QString &path,
     if (s.optimizerCpuWeight + s.optimizerIoWeight + s.optimizerMemoryWeight <=
         0)
         throw std::runtime_error("成本权重不能全部为零");
+    const auto &safety = s.querySafety;
+    if (safety.rowThreshold < 1 || safety.rowThreshold > 10000 ||
+        safety.percentThreshold < 50 || safety.percentThreshold > 100 ||
+        safety.timeoutMs < 250 || safety.timeoutMs > 10000)
+        throw std::runtime_error("SQL 安全预查设置超出范围");
     QJsonObject root{{"optimizerAssumedRows", s.optimizerAssumedRows},
                      {"optimizerMemoryMiB", s.optimizerMemoryMiB},
                      {"optimizerTimeMs", s.optimizerTimeMs},
@@ -171,6 +186,15 @@ void saveApplicationSettings(const QString &path,
                      {"editorFontSize", s.editorFontSize},
                      {"editorIndentWidth", s.editorIndentWidth},
                      {"queryRowLimit", s.queryRowLimit},
+                     {"sqlSafetyEnabled", safety.enabled},
+                     {"sqlSafetyConfirm", safety.confirm},
+                     {"sqlSafetyWarnings", safety.warnings},
+                     {"sqlSafetyPreviewBeforeRun", safety.previewBeforeRun},
+                     {"sqlSafetyPreviewWhileEditing", safety.previewWhileEditing},
+                     {"sqlSafetyConfirmUnmeasured", safety.confirmUnmeasured},
+                     {"sqlSafetyRowThreshold", safety.rowThreshold},
+                     {"sqlSafetyPercentThreshold", safety.percentThreshold},
+                     {"sqlSafetyTimeoutMs", safety.timeoutMs},
                      {"formatting", QString::fromStdString(format)}};
     auto bytes = QJsonDocument(root).toJson();
     if (path.endsWith(".sqlite")) {

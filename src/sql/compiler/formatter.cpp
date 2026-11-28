@@ -458,6 +458,11 @@ class Layout {
     if (is(before, "NOT")) before = previousCodeToken(before);
     return !is(before, "IS");
   }
+  bool lockingClauseStart(std::size_t i) const {
+    return dialect == Dialect::MySQL && options.language.extension == SqlExtension::None &&
+           ((is(i, "FOR") && (next(i, "UPDATE") || next(i, "SHARE"))) ||
+            (is(i, "LOCK") && next(i, "IN")));
+  }
   bool loopJumpCondition(std::size_t i) const {
     auto previous = previousCodeToken(i);
     if (is(previous, "EXIT") || is(previous, "CONTINUE")) return true;
@@ -512,6 +517,7 @@ class Layout {
         "BODY",      "TRIGGER",     "BEGIN",     "DECLARE",    "RETURN",
         "RETURNS",   "SONAME",      "AGGREGATE", "ELSIF",      "ELSEIF",    "LOOP",       "WHILE",
         "FOR",       "REVERSE",     "EACH",      "DO",        "REPEAT", "UNTIL", "EXIT", "CONTINUE", "LEAVE", "ITERATE",
+        "LOCK",      "SHARE",       "MODE",      "NOWAIT",    "SKIP",   "LOCKED",
         "EXCEPTION", "RAISE",       "EXECUTE",   "EXEC",       "CALL",
         "MERGE",     "MATCHED",     "TOP",       "PERCENT",    "TRY",
         "CATCH",     "TRANSACTION", "TRAN",      "COMMIT",     "ROLLBACK",
@@ -810,7 +816,7 @@ public:
                  tokens[j].is("GROUP") || tokens[j].is("ORDER") ||
                  tokens[j].is("HAVING") || tokens[j].is("WINDOW") || tokens[j].is("RETURNING") ||
                  tokens[j].is("OUTPUT") || tokens[j].is("VALUES") ||
-                 tokens[j].is("UNION"))
+                 tokens[j].is("UNION") || lockingClauseStart(j))
           clauseEnds[i] = j;
         else
           clauseEnds[i] = clauseEnds[j];
@@ -1219,6 +1225,7 @@ public:
            (t.is("GROUP") && next(i, "BY")) ||
            (t.is("ORDER") && next(i, "BY")) || t.is("HAVING") || t.is("WINDOW") ||
            t.is("LIMIT") || t.is("OFFSET") || t.is("FETCH") ||
+           (state.kind == Kind::Select && lockingClauseStart(i)) ||
            t.is("RETURNING") || t.is("OUTPUT") ||
            (t.is("VALUES") && state.kind == Kind::Insert) ||
            (t.is("SET") && state.kind == Kind::Update) || t.is("UNION") ||

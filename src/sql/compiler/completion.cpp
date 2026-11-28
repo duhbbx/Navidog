@@ -2919,8 +2919,11 @@ class Completer {
         "FROM", "JOIN", "WHERE", "ON", "GROUP", "HAVING", "ORDER",
         "LIMIT", "OFFSET", "FETCH", "WINDOW", "UNION", "EXCEPT", "INTERSECT",
         "INTO", "FOR", "RETURNING", "QUALIFY", "CONNECT", "START", "USING"};
+    const bool mysqlRowLocks = dialect == Dialect::MySQL &&
+                               options.language.extension == SqlExtension::None;
     for (std::size_t i = 1; i <= lastIndex; ++i) {
-      if (clauses.count(word(i)) && terms[i-1]->value != ".") head = i;
+      if ((clauses.count(word(i)) || (mysqlRowLocks && word(i) == "LOCK" && word(i+1) == "IN")) &&
+          terms[i-1]->value != ".") head = i;
     }
     const auto clause = word(head);
     const auto &end = *terms.back();
@@ -2945,7 +2948,14 @@ class Completer {
       });
     };
     const bool postgresSample = dialect == Dialect::PostgreSQL && extension == SqlExtension::None;
-    if (namedTable && postgresSample && last == "TABLESAMPLE") {
+    if (mysqlRowLocks && clause == "FOR" && head == lastIndex) {
+      choices = {"UPDATE", "SHARE"};
+    } else if (mysqlRowLocks && clause == "FOR" && head + 1 == lastIndex &&
+               (last == "UPDATE" || last == "SHARE")) {
+      choices = {"OF", "NOWAIT", "SKIP LOCKED"};
+    } else if (mysqlRowLocks && clause == "FOR" && last == "SKIP") {
+      choices = {"LOCKED"};
+    } else if (namedTable && postgresSample && last == "TABLESAMPLE") {
       choices = {"SYSTEM", "BERNOULLI"};
     } else if (namedTable && extension == SqlExtension::CockroachDb && last == "OF" &&
                previous == "AS") {
@@ -3051,6 +3061,12 @@ class Completer {
       if (dialect == Dialect::Oracle || dialect == Dialect::PostgreSQL)
         choices.push_back("FETCH FIRST");
       if (dialect == Dialect::SQLServer && clause == "ORDER") choices.push_back("OFFSET");
+    }
+    if (mysqlRowLocks && !joinModifier &&
+        (clause == "FROM" || clause == "USING" || clause == "LIMIT" ||
+         (clause == "WHERE" && finishedPredicate) ||
+         (clause == "ORDER" && word(head + 1) == "BY"))) {
+      choices.insert(choices.end(), {"FOR UPDATE", "FOR SHARE", "LOCK IN SHARE MODE"});
     }
     const auto nextToken = std::lower_bound(tokens.begin(), tokens.end(), result.replacement.end,
         [](const Token &token, std::size_t at) { return token.range.begin < at; });

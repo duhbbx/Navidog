@@ -4,6 +4,7 @@
 #include "editor.hpp"
 #include "navigation_pane.hpp"
 #include "query_pane.hpp"
+#include "query_session_controller.hpp"
 #include "database_job.hpp"
 #include "dictionary_wizard.hpp"
 #include "workspace_pane.hpp"
@@ -63,8 +64,9 @@ class DatabaseConsole final : public WorkspacePane {
 public:
     QString session = QUuid::createUuid().toString(QUuid::Id128);
     TransactionState transactionState = TransactionState::Idle;
+    bool sessionContextChanged = false;
     QString schema;
-    std::function<bool(const QString&)> execute;
+    std::function<void(const QString&)> execute;
     std::function<void()> stop;
 
     DatabaseConsole(const ConnectionProfile& profile, const CatalogNode& node) {
@@ -102,14 +104,10 @@ public:
         connect(stop_, &QToolButton::clicked, this, [this] { if (stop) stop(); });
         connect(input_, &QLineEdit::returnPressed, this, [this] {
             const auto sql = input_->text().trimmed();
-            if (sql.isEmpty() || !execute || !execute(sql)) return;
-            output_->appendPlainText(prompt_ + (sql.size() > 4096 ? sql.left(4096) + "…" : sql));
-            if (history_.size() == 100) history_.removeFirst();
-            if (sql.size() <= 65536) history_.push_back(sql);
-            historyIndex_ = history_.size();
-            input_->clear();
+            if (sql.isEmpty() || !execute) return;
             input_->setEnabled(false);
             stop_->setEnabled(true);
+            execute(sql);
         });
         input_->browseHistory = [this](int step) {
             historyIndex_ = qBound(0, historyIndex_ + step, int(history_.size()));
@@ -117,8 +115,27 @@ public:
         };
     }
 
+    void submitted(const QString& sql) {
+        output_->appendPlainText(prompt_ + queryTraceText(sql));
+        if (history_.size() == 100) history_.removeFirst();
+        if (sql.size() <= 65536) history_.push_back(sql);
+        historyIndex_ = history_.size();
+        input_->clear();
+    }
+    void previewSubmitted(ImpactQueryKind kind, const QString& command) {
+        output_->appendPlainText(kind == ImpactQueryKind::MatchingRows ? "执行前预查 · 匹配行数" : "执行前预查 · 目标总行数");
+        output_->appendPlainText(command);
+    }
+
+    void ready() {
+        input_->setEnabled(true);
+        stop_->setEnabled(false);
+        if (isVisible()) input_->setFocus();
+    }
+
     void accept(const QueryOutcome& outcome) {
         transactionState = outcome.transactionState;
+        sessionContextChanged |= outcome.sessionContextChanged;
         for (const auto& result : outcome.results) {
             if (result.columns.isEmpty()) continue;
             QStringList lines{result.columns.join(" | ")};
@@ -137,9 +154,7 @@ public:
         else if (!outcome.result.error.isEmpty()) output_->appendPlainText(outcome.result.error.left(4096));
         else output_->appendPlainText(QString("完成 · %1 ms · 影响行数 %2")
                                       .arg(outcome.result.elapsedMs).arg(outcome.result.affectedRows));
-        input_->setEnabled(true);
-        stop_->setEnabled(false);
-        if (isVisible()) input_->setFocus();
+        ready();
     }
 
     QJsonObject sessionState() const override {
@@ -409,9 +424,11 @@ void MainWindow::openDatabaseConsole(const QString& id, const navidog::CatalogNo
     auto scoped = navidog::scopeDatabase(*profile, node);
     const auto database = scoped.database;
     const auto session = pane->session;
-    pane->execute = [this, id, node, session](const QString& sql) {
+    const auto pending = std::make_shared<navidog::Cancellation>();
+    pane->execute = [this, id, node, session, pending, guard = QPointer<DatabaseConsole>(pane)](const QString& sql) {
         const auto target = databaseToolProfile(id, node);
-        if (!target) return false;
+        if (!guard) return;
+        if (!target) { guard->ready(); return; }
         navidog::QueryExecutionOptions options;
         options.sessionId = session;
         if (node.kind == "schema" && !target->http.enabled &&
@@ -420,16 +437,44 @@ void MainWindow::openDatabaseConsole(const QString& id, const navidog::CatalogNo
         navidog::QueryLimits limit;
         limit.maxRows = 100;
         limit.maxBytes = 2 * 1024 * 1024;
-        const auto accepted = service_.run(*target, sql, limit, options);
-        if (!accepted) status_->setText("当前无法启动命令，请等待正在运行的数据库操作");
-        else refreshWorkspaceActivity();
-        return accepted;
+        const auto policy = preferences_.querySafety;
+        const auto token = *pending = navidog::cancellation();
+        querySessions_->safetyController().assess(*target, options.schema, sql, {}, policy,
+            policy.previewBeforeRun && !guard->sessionContextChanged &&
+                (guard->transactionState == TransactionState::Idle || guard->transactionState == TransactionState::Unavailable),
+            false, token, [this, guard, pending, token, target = *target, options, limit, sql, policy]
+            (QuerySafetyController::Findings findings) {
+                if (!guard || *pending != token) return;
+                const auto confirmed = QuerySafetyController::confirm(this, target, options.schema, policy, findings);
+                if (!guard || *pending != token) return;
+                pending->reset();
+                if (confirmed && !workspaceCloseFlow_ && !guard->property("closingWorkspace").toBool() &&
+                    service_.run(target, sql, limit, options)) {
+                    guard->submitted(sql);
+                    refreshWorkspaceActivity();
+                    return;
+                }
+                guard->ready();
+                status_->setText(confirmed ? "当前无法启动命令，请等待正在运行的数据库操作" : "已取消危险语句执行");
+            }, [guard](int, ImpactQueryKind kind, const QString& command) {
+                if (guard) guard->previewSubmitted(kind, command);
+            });
     };
-    pane->stop = [this, id, database, session] { service_.cancelQuery(id, database, session); };
+    pane->stop = [this, pane, id, database, session, pending] {
+        if (*pending) {
+            (*pending)->store(true);
+            pending->reset();
+            pane->ready();
+            status_->setText("已停止写入风险检查");
+        } else {
+            service_.cancelQuery(id, database, session);
+        }
+    };
     connect(&service_, &navidog::QueryService::completed, pane, [pane, session](const auto& result) {
         if (result.sessionId == session) pane->accept(result);
     });
-    connect(pane, &QObject::destroyed, &service_, [this, id, database, session] {
+    connect(pane, &QObject::destroyed, &service_, [this, id, database, session, pending] {
+        if (*pending) (*pending)->store(true);
         service_.disconnectSession(id, database, session);
     });
 }

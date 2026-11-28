@@ -52,6 +52,8 @@ navidog::sql::compiler::Dialect displayDialect(navidog::DatabaseKind kind) {
   return navidog::compilerDialectFor(kind).value_or(navidog::sql::compiler::Dialect::PostgreSQL);
 }
 void setSqlTextStyle(QPlainTextEdit* view) {
+  view->setProperty("sqlTextViewport", true);
+  view->document()->setDocumentMargin(0);
   QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
   font.setStyleHint(QFont::Monospace);
   font.setPointSize(12);
@@ -114,7 +116,8 @@ bool highlightSqlBlock(const QString &text, navidog::sql::Dialect dialect,
       else if (token.kind == navidog::sql::TokenKind::Word) {
         const auto word = spelling.toUpper().toStdString();
         if (words.count(word) || (dialect == navidog::sql::Dialect::MySQL &&
-                                  (word == "DIV" || word == "MOD")))
+                                  (word == "DIV" || word == "MOD" || word == "FOR" ||
+                                   word == "LOCK" || word == "NOWAIT" || word == "LOCKED")))
           color = QColor("#315bb0");
       }
       if (color.isValid())
@@ -234,19 +237,14 @@ SqlEditor::SqlEditor(QWidget *parent)
       this);
   connect(diagnosticController_, &SqlDiagnosticController::updated, this,
           [this](const SqlCheckResult &result) {
-            diagnostics_ = result.diagnostics;
+            localDiagnostics_ = result.diagnostics;
             diagnosticStatus_ = result.status;
             const auto sync = property("metadataSyncState").toString();
             if (!largeDocument_ && !sync.isEmpty())
               diagnosticStatus_ += " · " + sync;
-            QToolTip::hideText();
-            diagnosticCard_->hide();
-            scheduleEditorSelections();
-            gutter_->update();
-            setAccessibleDescription("SQL 本地检查：" + diagnosticStatus_);
-            emit diagnosticsChanged();
-            emit diagnosticStatusChanged(diagnosticStatus_);
+            refreshDiagnostics();
           });
+  connect(this, &QPlainTextEdit::textChanged, this, [this] { setLiveSafetyMarks({}); });
   completionController_ = new SqlCompletionController(
       [this] {
         return std::pair<QString, int>{document()->characterCount() > sqlSelectionLimit + 1
@@ -413,16 +411,22 @@ void SqlEditor::paintGutter(QPaintEvent *event) {
   while (block.isValid() && top <= event->rect().bottom()) {
     const int height = qRound(blockBoundingRect(block).height());
     if (block.isVisible() && top + height >= event->rect().top()) {
-      bool problem = false,note=false;
+      bool problem = false,note=false,safety=false;
       for (const auto &mark : diagnostics_)
         if (mark.end > block.position() && mark.begin < block.position()+block.length()) {
           problem |= mark.error || mark.metadata;note |= !mark.error && !mark.metadata;
+          safety |= mark.safety;
         }
       painter.setPen(QColor(problem ? "#d00020" : note?"#a56309":"#9aa8b6"));
       if (problem || note) {
         painter.setBrush(QColor(problem?"#d00020":"#b57516"));
-        painter.drawEllipse(QPointF(6, top + fontMetrics().height() / 2.0), 2.5,
-                            2.5);
+        const auto center = top + fontMetrics().height() / 2.0;
+        if (safety && !problem) {
+          const QPointF triangle[] = {{6, center - 4}, {2, center + 3}, {10, center + 3}};
+          painter.drawConvexPolygon(triangle, 3);
+        } else {
+          painter.drawEllipse(QPointF(6, center), 2.5, 2.5);
+        }
       }
       painter.drawText(0, top, gutter_->width() - 12, fontMetrics().height(),
                        Qt::AlignRight,
@@ -643,6 +647,34 @@ void SqlEditor::setDiagnosticContext(navidog::DatabaseKind kind,
   diagnosticController_->setContext(kind, database, schema, calciteExtensions);
   completionController_->setContext(kind, database, schema, calciteExtensions);
 }
+void SqlEditor::setQuerySafetyPolicy(const navidog::QuerySafetyPolicy& policy) {
+  setLiveSafetyMarks({});
+  diagnosticController_->setQuerySafetyPolicy(policy);
+}
+void SqlEditor::setLiveSafetyMarks(QVector<SqlEditorDiagnostic> marks) {
+  if (liveSafetyMarks_.isEmpty() && marks.isEmpty()) return;
+  liveSafetyMarks_ = std::move(marks);
+  refreshDiagnostics();
+}
+void SqlEditor::refreshDiagnostics() {
+  diagnostics_ = localDiagnostics_;
+  for (const auto& mark : liveSafetyMarks_) {
+    auto duplicate = std::find_if(diagnostics_.begin(), diagnostics_.end(), [&](const auto& old) {
+      return old.safety && old.begin == mark.begin && old.end == mark.end;
+    });
+    if (duplicate == diagnostics_.end()) diagnostics_.push_back(mark);
+    else *duplicate = mark;
+  }
+  const auto status = liveSafetyMarks_.isEmpty() ? diagnosticStatus_ :
+      diagnosticStatus_ + QString(" · %1 处影响范围较大").arg(liveSafetyMarks_.size());
+  QToolTip::hideText();
+  diagnosticCard_->hide();
+  scheduleEditorSelections();
+  gutter_->update();
+  setAccessibleDescription("SQL 本地检查：" + status);
+  emit diagnosticsChanged();
+  emit diagnosticStatusChanged(status);
+}
 void SqlEditor::scheduleEditorSelections() {
   if (selectionUpdatePending_)
     return;
@@ -665,7 +697,7 @@ void SqlEditor::updateEditorSelections() {
     mark.cursor = QTextCursor(document());
     mark.cursor.setPosition(diagnostic.begin);
     mark.cursor.setPosition(diagnostic.end, QTextCursor::KeepAnchor);
-    mark.format.setUnderlineStyle(diagnostic.error || diagnostic.metadata
+    mark.format.setUnderlineStyle(diagnostic.error || diagnostic.metadata || diagnostic.safety
                                       ? QTextCharFormat::WaveUnderline
                                       : QTextCharFormat::DotLine);
     mark.format.setUnderlineColor(QColor(
@@ -682,6 +714,7 @@ QString SqlEditor::diagnosticAtPosition(int position) const {
         !messages.contains(mark.message)) {
       messages << (mark.error      ? "SQL 错误："
                    : mark.metadata ? "元数据提示："
+                   : mark.safety   ? "写入风险："
                                    : "SQL 检查说明：") +
                       mark.message;
       if (messages.size() == 3)
@@ -708,15 +741,15 @@ bool SqlEditor::viewportEvent(QEvent *event) {
                           : QString{};
     QToolTip::hideText();
     if (!text.isEmpty() && !completionList_->isVisible()) {
-      QStringList messages;bool error=false,metadata=false;
+      QStringList messages;bool error=false,metadata=false,safety=false;
       for(const auto &mark:diagnostics_)if(mark.begin<=pos && pos<mark.end) {
-        error|=mark.error;metadata|=mark.metadata;
+        error|=mark.error;metadata|=mark.metadata;safety|=mark.safety;
         if(!messages.contains(mark.message))messages<<mark.message.left(500);
         if(messages.size()==3)break;
       }
-      const auto title=metadata?QString("对象与元数据检查"):error?QString("SQL 语法与语义错误"):QString("SQL 检查说明");
+      const auto title=metadata?QString("对象与元数据检查"):error?QString("SQL 语法与语义错误"):safety?QString("写入风险"):QString("SQL 检查说明");
       const auto footer=QString("第 %1 行 · 第 %2 列%3").arg(cursor.blockNumber()+1).arg(cursor.positionInBlock()+1)
-        .arg(metadata?" · 依据本地目录快照":error?" · 本地检查":" · 此语法可能尚未覆盖");
+        .arg(metadata?" · 依据本地目录快照":error||safety?" · 执行前检查":" · 此语法可能尚未覆盖");
       diagnosticCard_->present(title,messages.join("\n\n"),footer,error,
         QRect(viewport()->mapToGlobal(rect.topLeft()),rect.size()));
     } else diagnosticCard_->hide();

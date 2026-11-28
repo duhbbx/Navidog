@@ -76,6 +76,8 @@ public:
                               bool calciteExtensions=false);
     void setMetadataSyncState(const QString&);
     void setMetadataSnapshot(navidog::MetadataSnapshotPtr);
+    void setQuerySafetyPolicy(const navidog::QuerySafetyPolicy&);
+    void setLiveSafetyMarks(QVector<SqlEditorDiagnostic>);
     const QVector<SqlEditorDiagnostic>& diagnostics() const { return diagnostics_; }
     QString diagnosticAtPosition(int position) const;
     QString diagnosticStatus() const { return diagnosticStatus_; }
@@ -119,7 +121,8 @@ private:
     int completionPrefix_=1;
     bool conversionEnabled_=false,optimizationEnabled_=false;
     SqlDiagnosticController* diagnosticController_;
-    QVector<SqlEditorDiagnostic> diagnostics_;
+    QVector<SqlEditorDiagnostic> diagnostics_, localDiagnostics_, liveSafetyMarks_;
+    void refreshDiagnostics();
     QString diagnosticStatus_;
     navidog::sql::compiler::SqlExtension extension_ = navidog::sql::compiler::SqlExtension::None;
     void updateEditorSelections();

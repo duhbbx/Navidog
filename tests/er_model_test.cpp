@@ -1,5 +1,6 @@
 #include <QUrl>
 #include "navidog/er_model.hpp"
+#include "navidog/er_routing.hpp"
 #include "er_canvas.hpp"
 #include "report_export.hpp"
 #include "navidog/database_tools.hpp"
@@ -155,6 +156,50 @@ private slots:
         model.entities[0].table.columns[0].type = "VARCHAR(32)";
         QVERIFY(!m::validate(model,m::makeGraph(model)).isEmpty());
     }
+    void orthogonalRelationshipsAvoidInterveningTables() {
+        m::Arrangement scene;
+        scene.boxes = {{0,0,250,128}, {624,0,250,128}, {312,0,250,128}, {0,183,250,128}};
+        m::SpatialIndex index;
+        index.reset(scene);
+        const auto verify = [&](const QVector<QPointF>& route, int from, int to) {
+            QVERIFY(route.size() >= 2);
+            for (int i = 1; i < route.size(); ++i) {
+                const auto a = route[i - 1], b = route[i];
+                QVERIFY(a != b);
+                QVERIFY(a.x() == b.x() || a.y() == b.y());
+                const auto corridor = QRectF(a,b).normalized().adjusted(-1,-1,1,1);
+                for (int card = 0; card < scene.boxes.size(); ++card) {
+                    if ((i == 1 && card == from) || (i == route.size() - 1 && card == to)) continue;
+                    QVERIFY(!corridor.intersects(scene.boxes[card]));
+                }
+            }
+        };
+        const auto direct = m::routeRelation(scene, index, 0, 2, 57, 57);
+        QCOMPARE(direct, (QVector<QPointF>{{250,57},{312,57}}));
+        const auto bypass = m::routeRelation(scene, index, 0, 1, 57, 57);
+        verify(bypass, 0, 1);
+        QCOMPARE(bypass.size(), 6);
+        const auto nextLane = m::routeRelation(scene, index, 0, 1, 57, 57, 1);
+        verify(nextLane, 0, 1);
+        QVERIFY(bypass != nextLane);
+        const auto stacked = m::routeRelation(scene, index, 0, 3, 57, 240);
+        verify(stacked, 0, 3);
+        QCOMPARE(stacked.size(), 4);
+        const auto self = m::routeRelation(scene, index, 0, 0, 57, 37);
+        verify(self, 0, 0);
+        QCOMPARE(self.back().y(), qreal(37));
+        const auto sameField = m::routeRelation(scene, index, 0, 0, 57, 57);
+        verify(sameField, 0, 0);
+        QCOMPARE(sameField.front().y(), qreal(51));
+        QCOMPARE(sameField.back().y(), qreal(63));
+
+        const auto blocker = scene.boxes[2];
+        scene.boxes[2].adjust(0, -120, 0, 172);
+        index.move(2, blocker, scene.boxes[2]);
+        const auto aroundTallCard = m::routeRelation(scene, index, 0, 1, 57, 57);
+        verify(aroundTallCard, 0, 1);
+        QCOMPARE(aroundTallCard.size(), 6);
+    }
     void expandingColumnsExtendsTheCardAndMakesRoomBelow() {
         m::Project project;
         auto wide = table("sales_a");
@@ -167,7 +212,15 @@ private slots:
             wide.columns.push_back(column);
         }
         project.add(std::move(wide));
-        for (const auto* name : {"sales_b", "sales_c", "sales_d"}) project.add(table(name));
+        auto second = table("sales_b");
+        for (int i = 0; i < 4; ++i) {
+            TableColumn column;
+            column.name = QString("extra_field_%1").arg(i);
+            column.type = "TEXT";
+            second.columns.push_back(column);
+        }
+        project.add(std::move(second));
+        for (const auto* name : {"sales_c", "sales_d"}) project.add(table(name));
 
         const auto graph = m::makeGraph(project);
         const auto original = m::arrange(project,graph);
@@ -198,6 +251,23 @@ private slots:
         QVERIFY(!expanded.intersects(directlyBelow));
         const auto below = canvas.arrangement().boxes[3];
         QCOMPARE(below,original.boxes[3].translated(0,extra));
+
+        const auto clickFields = [&](const QRectF& box) {
+            QTest::mouseClick(&canvas,Qt::LeftButton,Qt::NoModifier,toView({box.center().x(),box.bottom()-12}));
+        };
+        clickFields(original.boxes[1]);
+        const auto secondExpanded = canvas.arrangement().boxes[1];
+        QVERIFY(secondExpanded.height() > original.boxes[1].height());
+        QCOMPARE(canvas.arrangement().boxes[0],expanded);
+        QCOMPARE(canvas.arrangement().boxes[3],below);
+        m::SpatialIndex rebuilt;
+        rebuilt.reset(original);
+        canvas.reset(project,graph,original,std::move(rebuilt),true);
+        QCOMPARE(canvas.arrangement().boxes[0],expanded);
+        QCOMPARE(canvas.arrangement().boxes[1],secondExpanded);
+        clickFields(secondExpanded);
+        QCOMPARE(canvas.arrangement().boxes[1],original.boxes[1]);
+        QCOMPARE(canvas.arrangement().boxes[0],expanded);
 
         int selected = -1;
         canvas.selected = [&](int i) { selected = i; };

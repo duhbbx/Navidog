@@ -29,11 +29,14 @@ public:
     void create(const QString &groupId);
     void edit(const QString &id);
     void duplicate(const QString &id);
+    void importConnections();
+    void exportConnections(const QString& preferredId = {});
     bool promptPassword(navidog::ConnectionProfile &);
     std::optional<navidog::ConnectionProfile> authenticatedProfile(const QString &id);
 
 signals:
     void connectionSaved(const QString &id, bool edited, bool endpointChanged);
+    void connectionsImported(QVector<navidog::ConnectionGroup> groups);
     void statusChanged(const QString &message);
 
 private:

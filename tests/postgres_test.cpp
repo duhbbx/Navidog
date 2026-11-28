@@ -18,6 +18,7 @@
 #include "navidog/query_service.hpp"
 #include "navidog/query_plan.hpp"
 #include "navidog/query_parameters.hpp"
+#include "navidog/query_safety.hpp"
 #include "navidog/object_management.hpp"
 #include "navidog/namespace_design.hpp"
 #include "navidog/sql.hpp"
@@ -59,6 +60,26 @@ private slots:
         QVERIFY(command(pgCtl_,{"-D",dir_.filePath("data"),"-l",dir_.filePath("server.log"),"-o","-c listen_addresses='' -c unix_socket_directories='"+dir_.path()+"' -p 55438","-w","start"}));
         started_=true; profile_.id="owned-pg-test"; profile_.name="Owned temporary PG"; profile_.driver=navidog::DatabaseKind::PostgreSQL;
         profile_.host=dir_.path(); profile_.port=55438; profile_.database="postgres"; profile_.user="navidog_test"; profile_.tls=false;
+    }
+    void querySafetyRebindsPostgresParametersInsideSelectedSchema() {
+        using namespace navidog;
+        auto db = connectDatabase(profile_);
+        const auto token = cancellation();
+        QVERIFY(db->execute("CREATE SCHEMA impact_fixture", {}, token).error.isEmpty());
+        QVERIFY(db->execute("CREATE TABLE impact_fixture.items(id INT PRIMARY KEY, state INT)", {}, token).error.isEmpty());
+        QVERIFY(db->execute("INSERT INTO impact_fixture.items VALUES (1,4), (2,4), (3,4)", {}, token).error.isEmpty());
+        const QString sql = "UPDATE items i SET state = $1 WHERE (i.state = $2 OR i.id = $2)";
+        const auto bindings = bindQueryParameters(inspectQueryParameters(profile_.driver, sql, {}, "impact_fixture"),
+                                                  {99, 4});
+        const QuerySafetyPolicy policy;
+        auto findings = inspectQuerySafety(profile_.driver, sql, policy);
+        QCOMPARE(findings.size(), 1);
+        measureQueryImpact(profile_, "impact_fixture", policy, bindings, findings, token);
+        QCOMPARE(findings.front().impact.status, ImpactStatus::Measured);
+        QCOMPARE(findings.front().impact.matched, 3);
+        QCOMPARE(findings.front().impact.total, 3);
+        QVERIFY(requiresQueryConfirmation(findings.front(), policy));
+        QCOMPARE(db->execute("SELECT COUNT(*) FROM impact_fixture.items WHERE state = 4", {}, token).rows.front().front().toInt(), 3);
     }
     void navigationObjectActionsUseExactRoutineSignatureAndCascade() {
         using namespace navidog;

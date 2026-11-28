@@ -73,6 +73,7 @@ public:
                 return;
             if (large) {
                 auto document = std::make_unique<QTextDocument>();
+                document->setDocumentMargin(0);
                 document->setUndoRedoEnabled(false);
                 document->setDefaultFont(editorFont);
                 document->setDefaultTextOption(editorTextOptions);
@@ -225,7 +226,13 @@ void QueryPane::setConnectionCapabilities(navidog::DatabaseKind driver,
 }
 
 bool QueryPane::canRun(bool exclusiveOperation) const {
-    return scriptReady() && !exclusiveOperation && !executing && !property("closingWorkspace").toBool();
+    return scriptReady() && !exclusiveOperation && !executing && !safetyReviewPending_ &&
+        !property("closingWorkspace").toBool();
+}
+
+void QueryPane::setSafetyReviewPending(bool pending) {
+    safetyReviewPending_ = pending;
+    updateWorkspaceActivity(activity_);
 }
 
 void QueryPane::updateWorkspaceActivity(Activity activity) {
@@ -234,7 +241,7 @@ void QueryPane::updateWorkspaceActivity(Activity activity) {
     databaseContext->setEnabled(interactive && databaseContext->property("databaseSelectable").toBool());
     schemaContext->setEnabled(interactive && schemaContext->property("schemaSelectable").toBool());
     connection->setEnabled(interactive && kind == navidog::WorkspaceTabKind::Query);
-    stop->setEnabled(executing);
+    stop->setEnabled(executing || safetyReviewPending_);
     updateTransaction(!interactive);
     updateSqlActions();
 }
@@ -287,13 +294,18 @@ void QueryPane::updateScriptPolicy(const QString &progress) {
     }
 }
 
-QString QueryPane::statementAtCursor() const {
-    if (statementDriver_ == navidog::DatabaseKind::MongoDb) return editor->selectedSqlOrAll();
+QString QueryPane::statementAtCursor(int *documentStart) const {
+    if (documentStart) *documentStart = 0;
+    if (statementDriver_ == navidog::DatabaseKind::MongoDb) {
+        if (documentStart) *documentStart = editor->textCursor().selectionStart();
+        return editor->selectedSqlOrAll();
+    }
     if (!scriptReady() || editor->largeDocument())
         return {};
     if (statementDriver_ == navidog::DatabaseKind::Redis) {
         auto cursor = editor->textCursor();
         cursor.select(QTextCursor::LineUnderCursor);
+        if (documentStart) *documentStart = cursor.selectionStart();
         return cursor.selectedText();
     }
     const auto sql = editor->toPlainText();
@@ -307,6 +319,7 @@ QString QueryPane::statementAtCursor() const {
         return offset <= entry.end;
     });
     const auto &current = span == spans.end() ? spans.back() : *span;
+    if (documentStart) *documentStart = int(QString::fromUtf8(bytes.constData(), int(current.begin)).size());
     return QString::fromUtf8(bytes.mid(current.begin, current.end - current.begin));
 }
 
@@ -316,10 +329,11 @@ void QueryPane::explainCurrent() {
         return;
 
     auto sql = editor->textCursor().selectedText();
+    int begin = editor->textCursor().selectionStart();
     sql.replace(QChar::ParagraphSeparator, '\n');
     if (sql.trimmed().isEmpty()) {
         try {
-            sql = statementAtCursor();
+            sql = statementAtCursor(&begin);
         } catch (const std::exception &error) {
             emit errorRequested("SQL 无法解释", QString::fromUtf8(error.what()));
             return;
@@ -329,7 +343,7 @@ void QueryPane::explainCurrent() {
         emit statusRequested("当前位置没有可解释的 SQL");
         return;
     }
-    emit explainRequested(sql);
+    emit explainRequested(sql, begin);
 }
 
 QString QueryPane::resultSummary(const navidog::QueryResult &result) {
@@ -402,7 +416,8 @@ void QueryPane::showReturnedDefinition(const navidog::QueryOutcome &outcome) {
 
 void QueryPane::applyOutcome(const navidog::QueryOutcome &outcome,
                              const QString &summaryText,
-                             const navidog::ConnectionProfile *profile) {
+                             const navidog::ConnectionProfile *profile,
+                             const QueryMessageSource& source) {
     executing = false;
     sessionContextChanged |= outcome.sessionContextChanged;
     if (outcome.analyzedOnly) {
@@ -413,6 +428,12 @@ void QueryPane::applyOutcome(const navidog::QueryOutcome &outcome,
     }
 
     const bool hasResults = outcome.transactionAction == navidog::TransactionAction::None;
+    for (const auto& statement : outcome.statementTrace)
+        messages->appendSql(QString("执行 SQL · 第 %1 条").arg(statement.index + 1),
+                            statement.sql, source, statement.begin, statement.end);
+    if (outcome.explained)
+        for (const auto& command : outcome.estimatedPlan.request.commands)
+            messages->appendSql("执行计划请求", navidog::queryTraceText(command), source, 0, source.length);
     if (hasResults)
         summary->setText(summaryText);
     messages->appendPlainText(QDateTime::currentDateTime().toString("HH:mm:ss") +

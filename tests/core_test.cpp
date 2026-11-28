@@ -6,6 +6,7 @@
 #include <QBuffer>
 #include <QProcess>
 #include <QTimer>
+#include <QUuid>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -14,6 +15,7 @@
 #include "navidog/database.hpp"
 #include "navidog/database_tools.hpp"
 #include "navidog/profile_store.hpp"
+#include "navidog/connection_archive.hpp"
 #include "navidog/query_service.hpp"
 #include "navidog/redis_commands.hpp"
 #include "navidog/document_commands.hpp"
@@ -30,6 +32,7 @@
 #include "navidog/table_actions.hpp"
 #include "navidog/query_analysis.hpp"
 #include "navidog/query_parameters.hpp"
+#include "navidog/query_safety.hpp"
 #include "navidog/sql/compiler/compiler.hpp"
 #include "navidog/sql/compiler/conversion.hpp"
 #include "navidog/sql/compiler/formatter.hpp"
@@ -47,6 +50,93 @@ class CoreTest : public QObject {
     QTemporaryDir dir_;
     navidog::ConnectionProfile profile_;
 private slots:
+    void dangerousSqlRecognizesAllRelationalDriversAndCommandEngines() {
+        using namespace navidog;
+        using K = DatabaseKind;
+        QuerySafetyPolicy policy;
+        for (const auto kind : {K::SQLite, K::MySQL, K::MariaDB, K::PostgreSQL, K::Oracle,
+                K::OceanBase, K::OceanBaseOracle, K::SQLServer, K::TiDB, K::Dameng, K::H2,
+                K::Kingbase, K::UxDb, K::PolarDbMySql, K::PolarDbPostgres, K::GaussDb,
+                K::Db2, K::DuckDb, K::ClickHouse, K::OpenGauss, K::Doris,
+                K::StarRocks, K::CockroachDb, K::YugabyteDb}) {
+            auto findings = inspectQuerySafety(kind,
+                "SELECT 'UPDATE t SET n=1';\nTRUNCATE TABLE t;\nDELETE FROM t;\nUPDATE t SET n=1 WHERE (1 = 1 OR n = 0);", policy);
+            QCOMPARE(findings.size(), 3);
+            QCOMPARE(findings[0].index, 1);
+            QCOMPARE(findings[0].line, 2);
+            QCOMPARE(findings[0].operation, QString("TRUNCATE"));
+            QCOMPARE(findings[1].risk, QueryRisk::NoFilter);
+            QCOMPARE(findings[2].risk, QueryRisk::AlwaysTrue);
+            QCOMPARE(findings[2].line, 4);
+            findings = inspectQuerySafety(kind, "DELETE FROM t WHERE id = 7", policy);
+            QCOMPARE(findings.size(), 1);
+            QCOMPARE(findings.front().impact.status, ImpactStatus::Pending);
+        }
+        auto findings = inspectQuerySafety(K::MySQL, "SELECT * FROM t FOR UPDATE;", policy);
+        QVERIFY(findings.isEmpty());
+        findings = inspectQuerySafety(K::MySQL, "DELETE FROM t WHERE 1", policy);
+        QCOMPARE(findings.front().risk, QueryRisk::AlwaysTrue);
+        QVERIFY(!inspectQuerySafety(K::MySQL, "/*! DELETE FROM t */ WHERE id=1", policy).isEmpty());
+        findings = inspectQuerySafety(K::PostgreSQL, "WITH deleted AS (DELETE FROM t RETURNING id) SELECT * FROM deleted", policy);
+        QVERIFY(!findings.isEmpty() && findings.front().risk == QueryRisk::Unverified);
+        findings = inspectQuerySafety(K::Redis, "# fixture\n  FLUSHDB", policy);
+        QCOMPARE(findings.size(), 1);
+        QCOMPARE(findings.front().begin, 12);
+        QCOMPARE(findings.front().matchCommand, QString("DBSIZE"));
+        findings = inspectQuerySafety(K::MongoDb, R"({"delete":"items","deletes":[{"q":{},"limit":0}]})", policy);
+        QCOMPARE(findings.size(), 1);
+        QCOMPARE(findings.front().risk, QueryRisk::NoFilter);
+        QVERIFY(findings.front().matchCommand.startsWith("{\"count\":\"items\""));
+    }
+
+    void queryImpactReadsOwnedRowsAndRebindsOnlyWhereValues() {
+        using namespace navidog;
+        QTemporaryDir directory;
+        ConnectionProfile profile;
+        profile.database = ensureDemoDatabase(directory.path());
+        auto db = connectDatabase(profile);
+        const auto token = cancellation();
+        QVERIFY(db->execute("CREATE TABLE owned_impact(id INTEGER PRIMARY KEY, state TEXT)", {}, token).error.isEmpty());
+        QVERIFY(db->execute("INSERT INTO owned_impact VALUES (1,'active'),(2,'active'),(3,'active')", {}, token).error.isEmpty());
+        QuerySafetyPolicy policy;
+        const QString sql = "UPDATE owned_impact SET state = :replacement WHERE ((id >= :lower) AND (state = :filter));";
+        const auto bindings = bindQueryParameters(inspectQueryParameters(DatabaseKind::SQLite, sql, {}, {}),
+                                                  {QString("changed"), 1, QString("active")});
+        auto findings = inspectQuerySafety(profile.driver, sql, policy);
+        QCOMPARE(findings.size(), 1);
+        QCOMPARE(findings.front().risk, QueryRisk::None);
+        QCOMPARE(findings.front().impact.status, ImpactStatus::Pending);
+        measureQueryImpact(profile, {}, policy, bindings, findings, token);
+        const auto full = findings.front().impact;
+        QCOMPARE(full.status, ImpactStatus::Measured);
+        QCOMPARE(full.matched, 3);
+        QCOMPARE(full.total, 3);
+        QVERIFY(requiresQueryConfirmation(findings.front(), policy));
+        const auto rows = db->execute("SELECT COUNT(*) FROM owned_impact WHERE state='active'", {}, token).rows;
+        QCOMPARE(rows.front().front().toInt(), 3);
+
+        findings = inspectQuerySafety(profile.driver, "DELETE FROM owned_impact WHERE id = 2", policy);
+        measureQueryImpact(profile, {}, policy, {}, findings, token);
+        QCOMPARE(findings.front().impact.matched, 1);
+        QCOMPARE(findings.front().impact.total, 3);
+        QVERIFY(!requiresQueryConfirmation(findings.front(), policy));
+        policy.rowThreshold = 2;
+        findings = inspectQuerySafety(profile.driver, "DELETE FROM owned_impact WHERE id >= 1", policy);
+        measureQueryImpact(profile, {}, policy, {}, findings, token);
+        QCOMPARE(findings.front().impact.matched, 2);
+        QVERIFY(findings.front().impact.atLeast);
+        QVERIFY(requiresQueryConfirmation(findings.front(), policy));
+
+        findings = inspectQuerySafety(profile.driver, "DELETE FROM absent_table WHERE id >= 1", policy);
+        measureQueryImpact(profile, {}, policy, {}, findings, token);
+        QCOMPARE(findings.front().impact.status, ImpactStatus::Unavailable);
+        QVERIFY(!requiresQueryConfirmation(findings.front(), policy));
+        policy.confirmUnmeasured = true;
+        QVERIFY(requiresQueryConfirmation(findings.front(), policy));
+        policy.enabled = false;
+        QVERIFY(inspectQuerySafety(profile.driver, sql, policy).isEmpty());
+    }
+
     void objectActionsAreGatedByObjectAndDialect() {
         using namespace navidog;
         const auto pg = DatabaseKind::PostgreSQL;
@@ -529,7 +619,7 @@ private slots:
             profile.credentialSource = CredentialSource::Passwordless;
             auto db = connectDatabase(profile);
             const auto token = cancellation();
-            QCOMPARE(detectVersion(profile.driver, db->serverVersion()), DatabaseVersion::Redis7);
+            QVERIFY(versionBelongsTo(detectVersion(profile.driver, db->serverVersion()), profile.driver));
             const auto key = QByteArray("key ") + binary;
             const auto turnedOn = db->execute("SET " + quoteRedisArgument(key) + " hello", {}, token);
             QVERIFY2(turnedOn.error.isEmpty(), qPrintable(turnedOn.error));
@@ -550,6 +640,18 @@ private slots:
             QVERIFY2(outcome.result.error.isEmpty(), qPrintable(outcome.result.error));
             QCOMPARE(outcome.results.size(), 2);
             QCOMPARE(outcome.results.first().rows.first().last().toString(), "PONG");
+            const QuerySafetyPolicy policy;
+            auto reset = inspectQuerySafety(DatabaseKind::Redis, "FLUSHDB", policy);
+            QCOMPARE(reset.size(), 1);
+            measureQueryImpact(profile, {}, policy, {}, reset, token);
+            QCOMPARE(reset.front().impact.status, ImpactStatus::Measured);
+            QCOMPARE(reset.front().impact.matched, 1);
+            QVERIFY(requiresQueryConfirmation(reset.front(), policy));
+            auto all = inspectQuerySafety(DatabaseKind::Redis, "FLUSHALL", policy);
+            measureQueryImpact(profile, {}, policy, {}, all, token);
+            QCOMPARE(all.front().impact.status, ImpactStatus::Measured);
+            QCOMPARE(all.front().impact.matched, 1);
+            QCOMPARE(db->execute("GET " + quoteRedisArgument(key), {}, token).rows.front().back().toString(), "hello");
         } catch (const std::exception& error) {
             QFAIL(error.what());
         }
@@ -1515,6 +1617,135 @@ private slots:
         QFile file(dir_.filePath("profiles.json")); QVERIFY(file.open(QIODevice::ReadOnly));
         QVERIFY(!file.readAll().contains(p.password.toUtf8()));
         auto loaded = store.load(); QCOMPARE(loaded.size(), 1); QVERIFY(loaded[0].password.isEmpty()); QCOMPARE(loaded[0].database, p.database);
+    }
+
+    void connectionArchivePreservesOptionsAndProtectsEveryCredential() {
+        using namespace navidog;
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const auto credential = [] { return QUuid::createUuid().toString(QUuid::WithoutBraces) + " 密码 "; };
+        const auto sourceDirectory = directory.filePath("source");
+        const auto sourcePath = localStorePath(sourceDirectory);
+        ProfileStore source(sourcePath);
+        ConnectionProfile ssh;
+        ssh.id = "owned-ssh";
+        ssh.name = "SSH connection";
+        ssh.groupId = "source-group";
+        ssh.driver = DatabaseKind::Dameng;
+        ssh.host = "example.invalid";
+        ssh.port = 5236;
+        ssh.user = "owned";
+        ssh.database = "owned";
+        ssh.notes = "配置测试";
+        ssh.jdbcDriverJar = "/fixture/dm.jar";
+        ssh.advanced.connectTimeout = 19;
+        ssh.advanced.autoConnect = true;
+        ssh.advanced.initialSql = "SELECT 1";
+        ssh.ssl.verification = SslVerification::Identity;
+        ssh.ssl.damengKeystoreDirectory = "/fixture/certs";
+        ssh.ssl.damengKeystorePassword = credential();
+        ssh.ssl.saveDamengKeystorePassword = true;
+        ssh.ssh.enabled = true;
+        ssh.ssh.host = "ssh.example.invalid";
+        ssh.ssh.port = 2222;
+        ssh.ssh.user = "ssh-user";
+        ssh.ssh.authentication = SshAuthentication::PasswordAndKey;
+        ssh.ssh.keyFile = "/fixture/id_ed25519";
+        ssh.ssh.knownHostsFile = "/fixture/known_hosts";
+        ssh.ssh.hostKey = "public-key-pin";
+        ssh.ssh.password = credential();
+        ssh.ssh.passphrase = credential();
+        ssh.ssh.savePassword = ssh.ssh.savePassphrase = true;
+        ssh.password = credential();
+        ssh.savePassword = true;
+        ssh.credentialSource = CredentialSource::LocalEncrypted;
+        ssh.secretsLoaded = true;
+        ssh.credentialStorePath = sourcePath;
+        ConnectionProfile http;
+        http.id = "owned-http";
+        http.name = "HTTP connection";
+        http.groupId = ssh.groupId;
+        http.driver = DatabaseKind::PostgreSQL;
+        http.host = "example.invalid";
+        http.user = "tester";
+        http.tls = true;
+        http.ssl.caFile = "/fixture/ca.pem";
+        http.ssl.certificateFile = "/fixture/client.pem";
+        http.ssl.keyFile = "/fixture/client-key.pem";
+        http.ssl.tlsVersions = "TLSv1.3";
+        http.http.enabled = http.http.authentication = http.http.base64 = http.http.proxyEnabled = true;
+        http.http.url = "https://example.invalid/tunnel";
+        http.http.user = "http-user";
+        http.http.password = credential();
+        http.http.proxyHost = "proxy.example.invalid";
+        http.http.proxyPort = 3128;
+        http.http.proxyUser = "proxy-user";
+        http.http.proxyPassword = credential();
+        const auto passphrase = credential();
+        source.saveWorkspace({{ssh, http}, {{ssh.groupId, "Team A"}, {"empty", "Empty group"}}});
+        auto archived = source.loadWorkspace();
+        QVERIFY(archived.connections[0].password.isEmpty());
+        archived.connections[1].http.password = http.http.password;
+        archived.connections[1].http.proxyPassword = http.http.proxyPassword;
+        const auto without = directory.filePath("connections.json");
+        const auto with = directory.filePath("connections.ndconn");
+        exportConnectionArchive(without, archived);
+        exportConnectionArchive(with, archived, passphrase);
+        const auto plain = readConnectionArchiveFile(without);
+        const auto encrypted = readConnectionArchiveFile(with);
+        QVERIFY(!connectionArchiveIsEncrypted(plain));
+        QVERIFY(connectionArchiveIsEncrypted(encrypted));
+        for (const auto& value : {ssh.password, ssh.ssh.password, ssh.ssh.passphrase,
+                                  ssh.ssl.damengKeystorePassword, http.http.password, http.http.proxyPassword}) {
+            QVERIFY(!plain.contains(value.toUtf8()));
+            QVERIFY(!encrypted.contains(value.toUtf8()));
+        }
+        QVERIFY(!QJsonDocument::fromJson(plain).object()["connections"].toArray()[0].toObject().contains("secrets"));
+        const auto sanitized = decodeConnectionArchive(plain);
+        QCOMPARE(sanitized.groups.size(), 2);
+        QCOMPARE(sanitized.connections.size(), 2);
+        QVERIFY(sanitized.connections[0].password.isEmpty());
+        QVERIFY(!sanitized.connections[0].savePassword);
+        QCOMPARE(sanitized.connections[0].advanced, ssh.advanced);
+        QCOMPARE(sanitized.connections[0].ssh.knownHostsFile, ssh.ssh.knownHostsFile);
+        QCOMPARE(sanitized.connections[0].ssl.damengKeystoreDirectory, ssh.ssl.damengKeystoreDirectory);
+        QCOMPARE(sanitized.connections[1].ssl, http.ssl);
+        auto imported = decodeConnectionArchive(encrypted, passphrase);
+        QCOMPARE(imported.connections[0], ssh);
+        QCOMPARE(imported.connections[1].http.password, http.http.password);
+        QCOMPARE(imported.connections[1].http.proxyPassword, http.http.proxyPassword);
+        QCOMPARE(imported.connections[1].http.proxyPort, http.http.proxyPort);
+        QVERIFY(imported.connections[1].http.savePassword);
+        QVERIFY_THROWS_EXCEPTION(std::runtime_error, decodeConnectionArchive(encrypted, "incorrect"));
+        auto tampered = encrypted;
+        tampered.data()[45] ^= 1;
+        QVERIFY_THROWS_EXCEPTION(std::runtime_error, decodeConnectionArchive(tampered, passphrase));
+
+        const auto destinationPath = localStorePath(directory.filePath("destination"));
+        ProfileStore destination(destinationPath);
+        ConnectionProfile existing;
+        existing.id = "existing";
+        existing.name = ssh.name;
+        existing.groupId = "destination-group";
+        existing.database = directory.filePath("example.db");
+        auto merged = mergeConnectionArchive({{existing}, {{existing.groupId, "team a"}}},
+                                             std::move(imported), destinationPath);
+        destination.saveWorkspace(merged);
+        QCOMPARE(merged.connections[0], existing);
+        QCOMPARE(merged.connections[1].name, ssh.name + " (2)");
+        QCOMPARE(merged.connections[1].groupId, existing.groupId);
+        QVERIFY(merged.connections[1].id != ssh.id);
+        QVERIFY(!merged.connections[1].advanced.autoConnect);
+        QCOMPARE(merged.groups.size(), 2);
+        auto restored = destination.loadWorkspace();
+        loadConnectionSecrets(restored.connections[1]);
+        loadConnectionSecrets(restored.connections[2]);
+        QCOMPARE(restored.connections[1].password, ssh.password);
+        QCOMPARE(restored.connections[1].ssh, ssh.ssh);
+        QCOMPARE(restored.connections[1].ssl, ssh.ssl);
+        QCOMPARE(restored.connections[2].http.proxyPassword, http.http.proxyPassword);
+        const auto stored = LocalStore(destinationPath).document("connections");
+        QVERIFY(stored && !stored->contains(ssh.password.toUtf8()) && !stored->contains(http.http.proxyPassword.toUtf8()));
     }
 
     void workspaceMigrationAndEmptyGroups() {

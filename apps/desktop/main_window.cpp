@@ -182,6 +182,18 @@ MainWindow::MainWindow(const QString &dataDirectory, QWidget *parent,
         this);
     connect(connectionController_, &ConnectionController::connectionSaved, this,
             &MainWindow::handleConnectionSaved);
+    connect(connectionController_, &ConnectionController::connectionsImported, this,
+            [this](QVector<navidog::ConnectionGroup> groups) {
+                navigation_->setConnectionGroups(std::move(groups));
+                const auto current = connection_->currentData();
+                const QSignalBlocker blocker(connection_);
+                connection_->clear();
+                for (const auto& profile : std::as_const(profiles_))
+                    connection_->addItem(profile.name, profile.id);
+                connection_->setCurrentIndex(connection_->findData(current));
+                syncConnections();
+                navigation_->rebuild();
+            });
     connect(connectionController_, &ConnectionController::statusChanged, status_,
             &QLabel::setText);
     editorSqlTools_ = std::make_unique<EditorSqlTools>(
@@ -203,7 +215,7 @@ MainWindow::MainWindow(const QString &dataDirectory, QWidget *parent,
                  return navidog::MetadataSnapshotPtr{};
              return metadata_->snapshot(profile, pane.database, pane.schema);
          }},
-        this);
+        preferences_.querySafety, this);
     connect(querySessions_, &QuerySessionController::activityChanged,
             this, &MainWindow::refreshWorkspaceActivity);
     connect(querySessions_, &QuerySessionController::operationFinished,
@@ -579,11 +591,13 @@ QueryPane *MainWindow::currentPane() const {
     return dynamic_cast<QueryPane *>(tabs_->currentWidget());
 }
 int MainWindow::addWorkspaceTab(WorkspacePane *pane, const QString &title) {
-    for (auto *editor : pane->findChildren<SqlEditor *>())
+    for (auto *editor : pane->findChildren<SqlEditor *>()) {
+        editor->setQuerySafetyPolicy(preferences_.querySafety);
         editor->applyPreferences(
             preferences_.editorFontSize, preferences_.editorIndentWidth,
             preferences_.editorWordWrap, preferences_.editorCompletion,
             preferences_.completionMinPrefix);
+    }
     const auto index = tabs_->addTab(pane, title);
     if (auto *close = tabs_->tabBar()->tabButton(index, QTabBar::RightSide)) {
         close->setObjectName("closeWorkspaceTab");
@@ -1246,7 +1260,7 @@ void MainWindow::tableTaskDialog(QTreeWidgetItem *item,
     if (action == navidog::TableAction::GenerateData)
         task.maxRows = 100;
     if (navidog::tableActionRunsInBackground(action)) {
-        auto* dialog = new TableTaskDialog(target, task, service_, this);
+        auto* dialog = new TableTaskDialog(target, task, service_, this, navidog::localStorePath(dataDirectory_));
         connect(dialog, &QDialog::finished, dialog, &QObject::deleteLater);
         connect(dialog, &TableTaskDialog::backgroundStarted, this, [this, dialog](const QString& job) {
             taskCenter_->rememberDialog(job, *dialog);
@@ -1435,11 +1449,14 @@ void MainWindow::formatCurrent() {
         });
 }
 void MainWindow::applyEditorSettings() {
-    for (auto *editor : findChildren<SqlEditor *>())
+    for (auto *editor : findChildren<SqlEditor *>()) {
+        editor->setQuerySafetyPolicy(preferences_.querySafety);
         editor->applyPreferences(
             preferences_.editorFontSize, preferences_.editorIndentWidth,
             preferences_.editorWordWrap, preferences_.editorCompletion,
             preferences_.completionMinPrefix);
+    }
+    querySessions_->refreshLiveSafety();
 }
 void MainWindow::showSettings(int category) {
     auto *pane = currentPane();
@@ -1685,6 +1702,10 @@ void MainWindow::setupMenus() {
     file->addAction("新建连接分组…", navigation_,
                     &NavigationPane::addConnectionGroup)
         ->setObjectName("menuNewGroup");
+    file->addAction("导入连接…", connectionController_, &ConnectionController::importConnections)
+        ->setObjectName("menuImportConnections");
+    file->addAction("导出连接…", connectionController_, [this] { connectionController_->exportConnections(); })
+        ->setObjectName("menuExportConnections");
     file->addSeparator();
     file->addAction("新建查询", this, [this] { newQuery(); });
     auto *openSql =

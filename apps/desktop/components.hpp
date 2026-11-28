@@ -486,6 +486,7 @@ inline void applyTheme(QWidget* widget) {
         QTabBar::tab { background:#edf2f7; padding:5px 12px; border-right:1px solid #dce4ec; min-width:65px; }
         QTabBar::tab:selected { background:white; color:#245c99; border-top:2px solid #3674b8; padding-top:3px; }
         QPlainTextEdit { background:white; border:0; selection-background-color:#dceafa; padding:10px 4px; }
+        QPlainTextEdit[sqlTextViewport="true"] { padding:0; margin:0; }
         QPlainTextEdit#sqlEditor, QPlainTextEdit#sourceEditor, QPlainTextEdit#databaseConsoleOutput, QLineEdit#databaseConsoleInput { font-family:"Menlo","Consolas",monospace; font-size:13px; }
         QTableView { background:white; alternate-background-color:#f8fafc; border:0; gridline-color:#e5ebf1; selection-background-color:#dceafa; selection-color:#253548; }
         QHeaderView::section { background:#edf2f7; color:#52677d; border:0; border-right:1px solid #dce4ec; border-bottom:1px solid #d5dfe9; padding:4px 7px; }

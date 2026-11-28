@@ -1584,13 +1584,16 @@ SelectStatement Parser::select(bool nested, bool embedded, bool setOperand) {
     return s;
   }
   if (parenthesized && !compound &&
-      (!s.orderBy.empty() || s.limit.count || s.limit.offset) &&
+      (!s.orderBy.empty() || s.limit.count || s.limit.offset || !s.rowLocks.empty()) &&
       (at("ORDER") || at("LIMIT") || at("OFFSET") || at("FETCH")))
     fail("outer clauses on an already limited parenthesized query require a "
          "wrapper",
          DiagnosticCode::UnsupportedSyntax);
   orderBy(s);
   pagination(s);
+  if (parenthesized && !s.rowLocks.empty() && (at("FOR") || at("LOCK")))
+    fail("outer locking on an already locked query requires a separate query block");
+  lockingRead(s);
   if (s.setOperation && s.limitBy)
     fail("LIMIT BY on a set operation requires an outer SELECT", DiagnosticCode::UnsupportedSyntax);
   if (s.limit.withTies && s.orderBy.empty() && context_.dialect != Dialect::Oracle)

@@ -1,12 +1,11 @@
 #pragma once
 
 #include "navidog/er_model.hpp"
-#include <QColor>
+#include <QSet>
 #include <QWidget>
 #include <functional>
 #include <optional>
 
-class QPainter;
 class QImage;
 
 namespace navidog::ui::er {
@@ -17,17 +16,15 @@ struct CardAnnotations {
     QVector<QRectF> fieldNotes;
     qreal contentBottom;
 };
-void paintDiagram(QPainter&, const navidog::er::Project&, const navidog::er::Graph&,
-                  const navidog::er::Arrangement&, const QVector<int>& visible, const QRectF& region,
-                  qreal scale, int selected = -1, const navidog::er::Group* only = nullptr,
-                  const CardAnnotations* annotations = nullptr);
 QImage groupImage(const navidog::er::Project&, const navidog::er::Graph&,
-                  const navidog::er::Arrangement&, const navidog::er::Group&);
+                  const navidog::er::Arrangement&, const navidog::er::SpatialIndex&,
+                  const navidog::er::Group&);
 
 class Canvas final : public QWidget {
 public:
     explicit Canvas(QWidget* parent = nullptr);
-    void reset(const navidog::er::Project&, const navidog::er::Graph&, navidog::er::Arrangement, navidog::er::SpatialIndex);
+    void reset(const navidog::er::Project&, const navidog::er::Graph&, navidog::er::Arrangement,
+               navidog::er::SpatialIndex, bool keepCardState = false);
     void select(int table, bool locate);
     void fit();
     void zoom(qreal factor);
@@ -55,13 +52,14 @@ private:
     navidog::er::Arrangement arrangement_;
     navidog::er::SpatialIndex index_;
     struct ExpandedLayout {
-        int table;
-        bool allFields;
         navidog::er::Arrangement scene;
         navidog::er::SpatialIndex index;
         std::optional<CardAnnotations> annotations;
     };
     std::optional<ExpandedLayout> expanded_;
+    QSet<navidog::er::EntityId> expandedFields_;
+    std::optional<navidog::er::EntityId> annotatedCard_;
+    QHash<int, QVector<QPointF>> routes_;
     QPointF origin_, anchor_, draggingStart_, last_;
     qreal scale_ = 1;
     int selection_ = -1, dragging_ = -1;
@@ -70,8 +68,7 @@ private:
     QPointF world(const QPointF&) const;
     int hit(const QPointF&) const;
     bool hitsFieldsLink(int table, const QPointF& point) const;
-    void expandCard(int table, bool allFields, bool showComments);
-    void collapseCard(bool revealCard = true);
+    void rebuildExpandedLayout(int anchorTable = -1);
     void zoomAt(qreal factor, const QPointF&);
 };
 }

@@ -3,6 +3,8 @@
 #include "task_center.hpp"
 #include "editor.hpp"
 #include "result_model.hpp"
+#include "navidog/generation_configuration.hpp"
+#include "navidog/local_store.hpp"
 #include <QFileDialog>
 #include <QApplication>
 #include <QLocale>
@@ -11,15 +13,18 @@
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QInputDialog>
 #include <QLabel>
 #include <QMessageBox>
 #include <QProgressBar>
 #include <QFileInfo>
 #include <algorithm>
+#include <stdexcept>
 #include <utility>
 #include <QPlainTextEdit>
 #include <QTableView>
 #include <QTimer>
+#include <QSignalBlocker>
 #include <QUuid>
 #include <QVBoxLayout>
 
@@ -31,6 +36,7 @@ class GenerationRuleModel final : public QAbstractTableModel {
         bool readOnly = false;
     };
     QVector<Entry> entries_;
+    QJsonObject suggested_;
     const QStringList keys_ = navidog::generationRuleKeys();
     const QStringList labels_ = navidog::generationRuleLabels();
 public:
@@ -93,11 +99,11 @@ public:
         return true;
     }
     void load(const navidog::TableDefinition& table, navidog::DatabaseKind driver) {
-        const auto suggested = navidog::suggestedGenerationRules(table, driver);
+        suggested_ = navidog::suggestedGenerationRules(table, driver);
         beginResetModel();
         entries_.clear();
         for (const auto& column : table.columns) {
-            const auto rule = suggested.value(column.name).toObject();
+            const auto rule = suggested_.value(column.name).toObject();
             Entry entry;
             entry.column = column;
             entry.kind = rule.value("kind").toString();
@@ -120,12 +126,36 @@ public:
         }
         endResetModel();
     }
-    QJsonObject rules() const {
+    QJsonObject rules(bool editableOnly = false) const {
         QJsonObject result;
-        for (const auto& field : entries_)
+        for (const auto& field : entries_) {
+            if (editableOnly && field.readOnly) continue;
             result.insert(field.column.name, QJsonObject{{"kind", field.kind}, {"value", field.value},
                                                          {"distribution", field.distribution}});
+        }
         return result;
+    }
+    int applyConfiguration(const QJsonObject& configuration) {
+        const auto compatibleRule = [&](const Entry& field) {
+            auto rule = configuration.value(field.column.name).toObject();
+            if (rule.value("kind") == "foreign" && field.reference.isEmpty()) rule = {};
+            return rule;
+        };
+        int matched = 0;
+        for (const auto& field : entries_)
+            if (!field.readOnly && !compatibleRule(field).isEmpty()) ++matched;
+        if (!configuration.isEmpty() && !matched)
+            throw std::runtime_error("此配置没有可以应用到当前表的字段规则");
+        for (auto& field : entries_) {
+            if (field.readOnly) continue;
+            auto rule = compatibleRule(field);
+            if (rule.isEmpty()) rule = suggested_.value(field.column.name).toObject();
+            field.kind = rule.value("kind").toString();
+            field.value = rule.value("value").toString();
+            field.distribution = rule.value("distribution").toString();
+        }
+        if (!entries_.isEmpty()) emit dataChanged(index(0, 2), index(rowCount() - 1, 4));
+        return matched;
     }
 };
 
@@ -167,8 +197,10 @@ public:
     }
 };
 
-TableTaskDialog::TableTaskDialog(const navidog::ConnectionProfile& p,navidog::TableTask task,navidog::QueryService& service,QWidget* parent)
-    :Dialog(parent),profile_(p),original_(task),service_(service) {
+TableTaskDialog::TableTaskDialog(const navidog::ConnectionProfile& p,navidog::TableTask task,
+                                 navidog::QueryService& service,QWidget* parent,QString configurationStorePath)
+    :Dialog(parent),profile_(p),original_(task),service_(service),
+      configurationStorePath_(std::move(configurationStorePath)) {
     if (task.action == A::GenerateData) profile_.advanced.initialSql.clear();
     if (navidog::tableActionRunsInBackground(task.action)) tasks_ = navidog::ui::backgroundTasksFor(parent);
     setObjectName("tableTaskDialog");setWindowTitle(navidog::tableActionName(task.action));resize(680,580);auto* layout=new QVBoxLayout(this);layout->setContentsMargins(20,20,20,16);layout->setSpacing(12);
@@ -199,6 +231,7 @@ TableTaskDialog::TableTaskDialog(const navidog::ConnectionProfile& p,navidog::Ta
     rowLimit_=new navidog::ui::NumberInput(fields_);rowLimit_->setObjectName("taskRowLimit");rowLimit_->setRange(1,1000000);rowLimit_->setValue(task.maxRows);if(task.action==A::ImportCsv)form->addRow("最大导入行数：",rowLimit_);else rowLimit_->hide();
     if (task.action == A::GenerateData) {
         resize(940, 690);
+        addGenerationConfigurationControls(*form);
         generationMode_ = new navidog::ui::Select(fields_);
         generationMode_->setObjectName("generationSizeMode");
         generationMode_->addItems({"按行数", "按估算容量"});
@@ -207,7 +240,8 @@ TableTaskDialog::TableTaskDialog(const navidog::ConnectionProfile& p,navidog::Ta
         generationSize_->setObjectName("generationSize");
         generationSize_->setMaxLength(60);
         generationSize_->setText(task.generation.size.isEmpty() ? QString::number(task.maxRows) : task.generation.size);
-        generationSize_->setPlaceholderText("例如 100,000,000,000,000");
+        generationSize_->setPlaceholderText(generationMode_->currentIndex() == 1
+            ? "例如 20 GB、1.5 TiB" : "例如 100,000,000,000,000");
         generationSeed_ = new navidog::ui::TextInput(QString::number(task.generation.seed), fields_);
         generationSeed_->setObjectName("generationSeed");
         generationSeed_->setMaxLength(20);
@@ -359,7 +393,11 @@ void TableTaskDialog::updatePreview() {
     if (rules_) {
         bool seedValid = false;
         generationSeed_->text().toULongLong(&seedValid);
-        const bool ready = valid && seedValid && !generationSize_->text().trimmed().isEmpty() && !running_ && !loading_;
+        const bool canConfigure = valid && !running_ && !loading_ && !succeeded_;
+        const bool ready = canConfigure && seedValid && !generationSize_->text().trimmed().isEmpty();
+        configurationRow_->setEnabled(canConfigure);
+        saveConfiguration_->setEnabled(ready && !configurationStorePath_.isEmpty());
+        exportConfiguration_->setEnabled(ready);
         estimate_->setEnabled(ready && !succeeded_);
         buttons_->button(QDialogButtonBox::Ok)->setEnabled(succeeded_ ||
                                                             (ready && !profile_.readOnly && !profile_.http.enabled));
@@ -368,6 +406,97 @@ void TableTaskDialog::updatePreview() {
     try{auto sql=navidog::tableTaskSql(profile_,t);preview_->setSourceSql(sql.isEmpty()?fileAction(t.action)?"-- 根据所选表的字段及原始结构处理文件。":t.action==A::GenerateData?"-- 按上方字段规则生成并在独立事务中提交。":t.action==A::ReverseModel?"-- 读取真实字段、索引与外键，生成只读模型。":"-- 读取原始表定义后在独立连接中复制。":sql+";");if(fileAction(t.action) && t.path.isEmpty())valid=false;if(dangerous(t.action) && confirmation_->text()!=t.node.object)valid=false;}
     catch(const std::exception& e){preview_->setSourceSql("-- "+QString::fromUtf8(e.what()));valid=false;}
     buttons_->button(QDialogButtonBox::Ok)->setEnabled(valid && !running_ && !loading_);
+}
+void TableTaskDialog::addGenerationConfigurationControls(QFormLayout& form) {
+    configurationRow_ = new QWidget(fields_);
+    auto* layout = new QHBoxLayout(configurationRow_);
+    layout->setContentsMargins(0, 0, 0, 0);
+    const auto add = [&](const QString& label, const char* id, void (TableTaskDialog::*action)()) {
+        auto* button = new navidog::ui::PushButton(label, configurationRow_);
+        button->setObjectName(id);
+        layout->addWidget(button);
+        connect(button, &QPushButton::clicked, this, [this, button, action] {
+            button->setFocus();
+            QApplication::sendPostedEvents();
+            try {
+                (this->*action)();
+            } catch (const std::exception& e) {
+                message_->setText(QString::fromUtf8(e.what()));
+            }
+        });
+        return button;
+    };
+    auto* select = add("选择配置…", "selectGenerationConfiguration", &TableTaskDialog::selectGenerationConfiguration);
+    select->setEnabled(!configurationStorePath_.isEmpty());
+    saveConfiguration_ = add("保存配置…", "saveGenerationConfiguration", &TableTaskDialog::saveGenerationConfiguration);
+    add("导入配置…", "importGenerationConfiguration", &TableTaskDialog::importGenerationConfiguration);
+    exportConfiguration_ = add("导出配置…", "exportGenerationConfiguration", &TableTaskDialog::exportGenerationConfiguration);
+    layout->addStretch();
+    form.addRow("生成配置", configurationRow_);
+}
+navidog::GenerationConfiguration TableTaskDialog::generationConfiguration() const {
+    bool seedValid = false;
+    const auto seed = generationSeed_->text().toULongLong(&seedValid);
+    if (!seedValid) throw std::runtime_error("请输入有效的随机种子");
+    const auto mode = generationMode_->currentIndex() == 1 ? navidog::GenerationSizeMode::Capacity
+                                                           : navidog::GenerationSizeMode::Rows;
+    return {{mode, generationSize_->text(), seed, false}, rules_->rules(true)};
+}
+void TableTaskDialog::applyGenerationConfiguration(const navidog::GenerationConfiguration& config) {
+    const auto matched = rules_->applyConfiguration(config.rules);
+    const bool capacity = config.request.sizeMode == navidog::GenerationSizeMode::Capacity;
+    {
+        const QSignalBlocker mode(generationMode_), size(generationSize_), seed(generationSeed_);
+        generationMode_->setCurrentIndex(capacity ? 1 : 0);
+        generationSize_->setPlaceholderText(capacity ? "例如 20 GB、1.5 TiB" : "例如 100,000,000,000,000");
+        generationSize_->setText(config.request.size);
+        generationSeed_->setText(QString::number(config.request.seed));
+    }
+    result_->hide();
+    auto status = QString("已应用生成配置 · %1 条字段规则").arg(matched);
+    const auto skipped = config.rules.size() - matched;
+    if (skipped) status += QString(" · %1 条与当前表不匹配，已跳过").arg(skipped);
+    message_->setText(status);
+    updatePreview();
+}
+void TableTaskDialog::saveGenerationConfiguration() {
+    const auto config = generationConfiguration();
+    bool ok = false;
+    const auto name = QInputDialog::getText(this, "保存数据生成配置", "配置名称", QLineEdit::Normal,
+                                           {}, &ok).trimmed();
+    if (!ok) return;
+    navidog::LocalStore store(configurationStorePath_);
+    if (!navidog::saveGenerationConfiguration(store, name, config)) {
+        if (QMessageBox::question(this, "覆盖配置", "已存在同名配置，是否覆盖？",
+                                  QMessageBox::Yes | QMessageBox::Cancel,
+                                  QMessageBox::Cancel) != QMessageBox::Yes) return;
+        navidog::saveGenerationConfiguration(store, name, config, true);
+    }
+    message_->setText("已保存生成配置 · " + name);
+}
+void TableTaskDialog::selectGenerationConfiguration() {
+    const navidog::LocalStore store(configurationStorePath_);
+    const auto entries = navidog::generationConfigurations(store);
+    if (entries.isEmpty()) { message_->setText("还没有已保存的数据生成配置。"); return; }
+    bool ok = false;
+    const auto name = QInputDialog::getItem(this, "选择数据生成配置", "已保存的配置",
+                                           entries.keys(), 0, false, &ok);
+    if (ok) applyGenerationConfiguration(navidog::generationConfigurationFromJson(entries.value(name).toObject()));
+}
+void TableTaskDialog::importGenerationConfiguration() {
+    const auto path = QFileDialog::getOpenFileName(this, "导入数据生成配置", navidog::ui::exportDirectory(this),
+                                                   "数据生成配置 (*.json)");
+    if (!path.isEmpty()) applyGenerationConfiguration(navidog::importGenerationConfiguration(path));
+}
+void TableTaskDialog::exportGenerationConfiguration() {
+    const auto config = generationConfiguration();
+    const auto context = navidog::ui::exportContext(profile_, original_.node.database, original_.node.schema);
+    const auto path = navidog::ui::chooseExportFile(this, "导出数据生成配置", context,
+                                                  "数据生成配置-" + table_->currentText(),
+                                                  "数据生成配置 (*.json)");
+    if (path.isEmpty()) return;
+    navidog::exportGenerationConfiguration(path, config);
+    message_->setText("已导出数据生成配置");
 }
 void TableTaskDialog::loadTableMetadata() {
     if(running_ || loading_ || service_.busy() || table_->currentText().isEmpty())return;

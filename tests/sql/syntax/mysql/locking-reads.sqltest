@@ -1,0 +1,48 @@
+# Reference: https://dev.mysql.com/doc/refman/8.4/en/select.html
+case lock-update valid <<SQL
+SELECT id FROM jobs WHERE id = 3 FOR UPDATE;
+SQL
+
+case lock-after-limit valid <<SQL
+SELECT id FROM jobs WHERE ready = 1 ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED;
+SQL
+
+case lock-alias-list valid <<SQL
+SELECT a.id FROM jobs a JOIN claims b ON a.id = b.job_id FOR UPDATE OF a, b NOWAIT;
+SQL
+
+case lock-nested valid <<SQL
+SELECT id FROM jobs WHERE EXISTS (SELECT 1 FROM claims WHERE claims.job_id = jobs.id FOR UPDATE) FOR SHARE;
+SQL
+
+case lock-legacy-share valid <<SQL
+SELECT * FROM jobs LOCK IN SHARE MODE;
+SQL
+
+case lock-union-requires-parentheses syntax-error ExpectedToken <<SQL
+SELECT id FROM jobs UNION ALL SELECT id FROM claims FOR UPDATE;
+SQL
+
+case lock-wait-options-exclusive syntax-error ExpectedToken <<SQL
+SELECT id FROM jobs FOR UPDATE NOWAIT SKIP LOCKED;
+SQL
+
+case lock-skip-needs-locked syntax-error ExpectedToken <<SQL
+SELECT id FROM jobs FOR UPDATE SKIP;
+SQL
+
+case lock-table-required-after-of syntax-error ExpectedToken <<SQL
+SELECT id FROM jobs FOR UPDATE OF;
+SQL
+
+case lock-unknown-target semantic-error InvalidQueryShape <<SQL
+SELECT * FROM jobs FOR UPDATE OF claims;
+SQL
+
+case lock-aliased-table-uses-alias semantic-error InvalidQueryShape <<SQL
+SELECT * FROM jobs AS j FOR UPDATE OF jobs;
+SQL
+
+case lock-repeated-target semantic-error InvalidQueryShape <<SQL
+SELECT * FROM jobs j JOIN claims c ON j.id = c.job_id FOR UPDATE OF j FOR SHARE OF j;
+SQL

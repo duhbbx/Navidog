@@ -699,6 +699,8 @@ void lowerLogical(PlannerContext &context, const compiler::ModelProgram &model) 
         }
       }
     }
+    if (!q.rowLocks.empty())
+      context.fail(q.rowLocks.front().origin, "locking reads must use the database optimizer");
     if (q.prewhere || q.qualify || q.systemTime || q.limitBy || q.groupByAll ||
         std::any_of(q.tables.begin(), q.tables.end(), [](const auto &table) { return table.finalRead || table.clickHouseSampling; }))
       context.fail(q.origin, "vendor query modifiers require the database optimizer");

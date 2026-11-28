@@ -1,4 +1,5 @@
 #pragma once
+#include "navidog/query_safety.hpp"
 #include "navidog/sql/compiler/formatter.hpp"
 #include "navidog/sql/optimizer/optimizer.hpp"
 #include <QString>
@@ -11,6 +12,7 @@ struct ApplicationSettings {
        autoMetadata = true, editorCompletion = true, automaticUpdateCheck = true;
   int completionMinPrefix = 1;
   int editorFontSize = 12, editorIndentWidth = 4, queryRowLimit = 1000;
+  navidog::QuerySafetyPolicy querySafety;
 
   int optimizerAssumedRows = 10000, optimizerMemoryMiB = 64,
       optimizerTimeMs = 2000, optimizerGroups = 2048, optimizerMemoMiB = 64;

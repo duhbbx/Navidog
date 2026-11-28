@@ -372,6 +372,17 @@ struct RowLimit {
   LimitSyntax syntax = LimitSyntax::None;
   bool withTies = false;
 };
+enum class RowLockStrength { Update, Share };
+enum class RowLockWait { Wait, NoWait, SkipLocked };
+template<class Name> struct BasicRowLock {
+  RowLockStrength strength = RowLockStrength::Update;
+  RowLockWait wait = RowLockWait::Wait;
+  std::vector<Name> targets;
+  bool legacyShare = false;
+  SourceRange origin;
+};
+using RowLockSyntax = BasicRowLock<QualifiedName>;
+using ModelRowLock = BasicRowLock<std::vector<std::string>>;
 enum class SelectIntoMode { FirstRowOrNull, ExactlyOne, SingleRowOrUnchanged };
 struct SelectIntoAssignment {
   SourceRange origin;
@@ -930,6 +941,7 @@ struct Statement {
   std::vector<std::vector<ExprId>> groupingSets;
   std::vector<OrderItem> orderBy;
   RowLimit limit;
+  std::vector<RowLockSyntax> rowLocks;
   std::vector<CommonTableExpression> ctes;
   bool recursiveWith = false;
   TableQuerySyntax tableQuery = TableQuerySyntax::None;
@@ -1250,6 +1262,7 @@ struct ModelStatement {
   ExprId limit = 0, offset = 0;
   LimitSyntax limitSyntax = LimitSyntax::None;
   bool limitWithTies = false;
+  std::vector<ModelRowLock> rowLocks;
   std::optional<SelectIntoAssignment> selectInto; // Bound routine symbols, never table creation.
   QueryScope scope;
   bool catalogChecked = false;

@@ -12,6 +12,7 @@ protected:
   DmlGrammar dmlGrammar() const override;
   DdlGrammar ddlGrammar() const override;
   void pagination(SelectStatement &) override;
+  void lockingRead(SelectStatement &) override;
   bool fullJoin() const override { return false; }
   std::pair<std::string, int> binaryOperator() const override;
   int precedence(std::string_view op) const override;

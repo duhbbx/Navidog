@@ -337,12 +337,12 @@ void ErPane::useProject(m::Project value,PreparedDiagram diagram) {
     database = project_.database;
     selected_ = -1;
     hasProject_ = true;
-    showDiagram(std::move(diagram),true);
+    showDiagram(std::move(diagram),true,false);
     emit titleChanged(project_.title + (dirty_ ? " *" : ""));
 }
 
 void ErPane::rebuild(bool fit) {
-    showDiagram(prepareDiagram(project_),fit);
+    showDiagram(prepareDiagram(project_),fit,true);
 }
 
 ErPane::PreparedDiagram ErPane::prepareDiagram(const m::Project& project) {
@@ -354,7 +354,7 @@ ErPane::PreparedDiagram ErPane::prepareDiagram(const m::Project& project) {
     return diagram;
 }
 
-void ErPane::showDiagram(PreparedDiagram diagram,bool fit) {
+void ErPane::showDiagram(PreparedDiagram diagram,bool fit,bool keepCardState) {
     const navidog::OperationTimer timing(navidog::TimedOperation::ErDisplay);
     graph_ = std::move(diagram.graph);
     auto& scene = diagram.scene;
@@ -371,7 +371,7 @@ void ErPane::showDiagram(PreparedDiagram diagram,bool fit) {
         grouping_->setCurrentIndex(int(project_.grouping));
         layouts_->setCurrentIndex(int(project_.layout));
     }
-    canvas_->reset(project_,graph_,std::move(scene),std::move(diagram.index));
+    canvas_->reset(project_,graph_,std::move(scene),std::move(diagram.index),keepCardState);
     if (fit) canvas_->fit();
     refreshList();
     select(selected_,false,false);

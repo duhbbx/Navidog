@@ -953,11 +953,13 @@ QString exportReport(const m::Project& project,const QString& destination,int fo
     const int progressTotal = pdfLayout ? groups*2 : groups;
     int groupIndex = 0;
     int wordBookmark = 0;
+    m::SpatialIndex index;
+    index.reset(scene);
     for (const auto& group : scene.groups) {
         if (cancel->load()) fail("导出已停止");
         const auto name = imageName(++groupIndex);
         const auto path = working.filePath("images/"+name);
-        const auto png = groupImage(project,graph,scene,group);
+        const auto png = groupImage(project,graph,scene,index,group);
         if (!png.save(path,"PNG")) fail("无法写入分组 PNG");
         md("\n## " + safeMarkdown(group.name) + "\n\n![ER 图](images/"+QString::fromLatin1(QUrl::toPercentEncoding(name))+")\n");
         if (word) {

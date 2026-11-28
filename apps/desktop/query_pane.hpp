@@ -24,6 +24,7 @@
 #include <QShortcut>
 #include <QUuid>
 #include <algorithm>
+#include "query_messages.hpp"
 enum class QueryContextPart { Connection, Database, Schema };
 class EditorSqlTools;
 
@@ -53,6 +54,7 @@ class QueryPane : public WorkspacePane {
     void updateScriptPolicy(const QString &progress = {});
     void updateSqlActions();
     Activity activity_{false, false};
+    bool safetyReviewPending_ = false;
 public:
     navidog::ScriptDocument script;
     bool dirty()const;
@@ -72,8 +74,9 @@ public:
     void setContextEditable(bool database, bool schema);
     void setConnectionCapabilities(navidog::DatabaseKind driver, bool transactionsSupported);
     bool canRun(bool exclusiveOperation) const;
+    void setSafetyReviewPending(bool);
     void updateWorkspaceActivity(Activity activity) override;
-    QString statementAtCursor() const;
+    QString statementAtCursor(int *documentStart = nullptr) const;
     void explainCurrent();
     static QString resultSummary(const navidog::QueryResult &);
     bool hasActiveTransaction() const;
@@ -82,11 +85,11 @@ public:
     void setSqlTools(const EditorSqlTools &tools) { sqlTools_ = &tools; }
     void openSqlTool(EditorSqlTool) override;
     void applyOutcome(const navidog::QueryOutcome &, const QString &summaryText,
-                      const navidog::ConnectionProfile *profile);
+                      const navidog::ConnectionProfile *profile, const QueryMessageSource& = {});
     SqlEditor* editor;
     ResultModel* model;
     navidog::ui::ObjectGrid* table;
-    QPlainTextEdit* messages;
+    QueryMessages* messages;
     QPlainTextEdit* analysis;
     SqlReadOnlyView* generatedSql;
     SqlAstView* astView;
@@ -153,8 +156,8 @@ public:
         resultTabs = new QTabWidget; resultTabs->setObjectName("resultTabs");
         table = new navidog::ui::ObjectGrid; table->setObjectName("resultTable"); model = new ResultModel(table); table->setModel(model);
         navidog::ui::configureResultGrid(table);
-        messages = new QPlainTextEdit; messages->setObjectName("queryMessages"); messages->setReadOnly(true); messages->setMaximumBlockCount(200);
-        messages->setPlaceholderText("执行耗时、数据库错误和停止状态会显示在这里。");
+        messages = new QueryMessages(*editor);
+        messages->statusChanged = [this](const QString& status) { emit statusRequested(status); };
         analysis=new QPlainTextEdit;analysis->setObjectName("queryAnalysis");analysis->setReadOnly(true);analysis->setMaximumBlockCount(400);analysis->setPlaceholderText("运行 SQL 后查看本地方言解析结果。");
         resultTabs->addTab(table, "数据"); resultTabs->addTab(messages, "消息"); resultTabs->addTab(analysis,"SQL 分析");astView=new SqlAstView;resultTabs->addTab(astView,"语法树");generatedSql=new SqlReadOnlyView;generatedSql->setObjectName("generatedSql");generatedSql->setReadOnly(true);generatedSql->setPlaceholderText("解析 AST 或运行后，查看从统一 IR 生成的同方言规范 SQL。此处不会执行 SQL。");generatedSqlPage_=generatedSql->withActions();resultTabs->addTab(generatedSqlPage_,"规范 SQL");planView=new EstimatedPlanView;resultTabs->addTab(planView,"执行计划视图");
         astView->sourceActivated=[this](int begin,int end,const QByteArray& hash){
@@ -196,7 +199,7 @@ signals:
     void documentChanged();
     void openSqlRequested();
     void saveInLibraryRequested();
-    void explainRequested(const QString &sql);
+    void explainRequested(const QString &sql, int documentStart);
     void statusRequested(const QString &message);
     void errorRequested(const QString &title, const QString &detail);
     void analyzeRequested();

@@ -1653,7 +1653,7 @@ class Printer {
     auto operand = [&](QueryId id, bool right) {
       const auto &child = query(id);
       bool grouped = !child.ctes.empty() || !child.orderBy.empty() ||
-                     child.offset || (child.limit && !mssql());
+                     child.offset || (child.limit && !mssql()) || !child.rowLocks.empty();
       if (child.setOperation) {
         const auto priority = setPriority(child.setOperation->kind),
                    parent = setPriority(set.kind);
@@ -1712,6 +1712,7 @@ class Printer {
       if (q.tableQuery == TableQuerySyntax::IncludeDescendants) put(" *");
       order(q);
       pagination(q);
+      lockingRead(q);
       return;
     }
     put("SELECT ");
@@ -1761,6 +1762,22 @@ class Printer {
     namedWindowClause(q);
     order(q);
     pagination(q);
+    lockingRead(q);
+  }
+  void lockingRead(const ModelStatement &q) {
+    for (const auto &lock : q.rowLocks) {
+      tick();
+      if (lock.legacyShare) put(" LOCK IN SHARE MODE");
+      else {
+        put(lock.strength == RowLockStrength::Update ? " FOR UPDATE" : " FOR SHARE");
+        if (!lock.targets.empty()) {
+          put(" OF ");
+          separated(lock.targets, [&](const auto &target) { name(target); });
+        }
+        if (lock.wait == RowLockWait::NoWait) put(" NOWAIT");
+        else if (lock.wait == RowLockWait::SkipLocked) put(" SKIP LOCKED");
+      }
+    }
   }
   void pagination(const ModelStatement &q) {
     if (q.limitWithTies && (pg() || oracle())) {
@@ -2072,6 +2089,9 @@ public:
     if (q.prewhere || q.qualify || q.systemTime || q.limitBy || q.groupByAll ||
         std::any_of(q.tables.begin(), q.tables.end(), [](const auto &table) { return table.finalRead || table.clickHouseSampling; }))
       fail("target has no proven mapping for the source query modifier");
+    if (!q.rowLocks.empty() && (dialect != Dialect::MySQL || q.setOperation ||
+                               q.valuesQuery || q.kind != StatementKind::Select))
+      fail("cannot generate MySQL row locking for the target dialect or statement");
     active.push_back(id);
     if (q.selectInto && (q.kind != StatementKind::Select || q.setOperation || q.valuesQuery ||
         q.tableQuery != TableQuerySyntax::None || q.selectInto->targets.empty() ||

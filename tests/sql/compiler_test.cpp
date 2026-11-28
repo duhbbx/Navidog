@@ -1271,6 +1271,37 @@ void precedence() {
   CHECK(scientific->model[0].expressions[1].value == "1e-3");
   CHECK(scientific->model[0].expressions[1].type == ValueType::Decimal);
 }
+void mysqlLockingReads() {
+  const auto dialect = Dialect::MySQL;
+  auto c = compile(dialect,
+      "select o.id from orders o join items i on i.id=o.id "
+      "order by o.id limit 1 for update of o skip locked for share of i nowait;");
+  success(*c);
+  const auto &locks = c->model.front().rowLocks;
+  CHECK(locks.size() == 2);
+  CHECK(locks[0].strength == RowLockStrength::Update);
+  CHECK(locks[0].wait == RowLockWait::SkipLocked);
+  CHECK(locks[0].targets.front().front() == "o");
+  CHECK(locks[1].strength == RowLockStrength::Share);
+  CHECK(locks[1].wait == RowLockWait::NoWait);
+  CHECK(dumpAST(*c).find("\"rowLocks\"") != std::string::npos);
+  CHECK(dumpModel(*c).find("\"rowLocks\"") != std::string::npos);
+  const auto generated = generateSql(c->model, dialect);
+  CHECK(generated.ok());
+  success(*compile(dialect, generated.sql));
+  CHECK(!generateSql(c->model, Dialect::SQLite).ok());
+  const auto formatted = formatSql(dialect, c->source.text());
+  CHECK(formatted.ok());
+  CHECK(formatted.sql.find("FOR UPDATE OF o SKIP LOCKED") != std::string::npos);
+  success(*compile(dialect, formatted.sql));
+
+  const auto set = compile(dialect,
+      "(SELECT id FROM orders FOR UPDATE) UNION ALL (SELECT id FROM items LOCK IN SHARE MODE);");
+  success(*set);
+  const auto setSql = generateSql(set->model, dialect);
+  CHECK(setSql.ok());
+  success(*compile(dialect, setSql.sql));
+}
 void mysql() {
   auto c =
       compile(Dialect::MySQL, "SELECT `x`, \"a\", 'b\\n' FROM `t` LIMIT 4, 10");
@@ -3275,6 +3306,7 @@ int main() {
       {"dialects", dialects},
       {"precedence", precedence},
       {"mysql", mysql},
+      {"MySQL locking read AST, model, formatting and printing", mysqlLockingReads},
       {"postgresql", postgres},
       {"oracle", oracle},
       {"sqlserver", sqlserver},

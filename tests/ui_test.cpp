@@ -48,6 +48,7 @@
 #include "sql_optimization.hpp"
 #include "application_settings.hpp"
 #include "navidog/local_store.hpp"
+#include "navidog/secret_store.hpp"
 #include "dictionary_wizard.hpp"
 #include <QListWidget>
 #include <QStackedWidget>
@@ -417,6 +418,8 @@ private slots:
         preview.show();
         QTRY_VERIFY(preview.document()->firstBlock().layout()->formats().size()>=3);
         QVERIFY(preview.isReadOnly());
+        QCOMPARE(preview.document()->documentMargin(), qreal(0));
+        QCOMPARE(preview.cursorRect(QTextCursor(preview.document())).topLeft(), QPoint(0, 0));
         const auto formats=preview.document()->firstBlock().layout()->formats();
         const auto typeStart=preview.toPlainText().indexOf("INT");
         QVERIFY(std::any_of(formats.begin(),formats.end(),[typeStart](const auto& format) {
@@ -1162,6 +1165,12 @@ private slots:
         QVERIFY(query);
         auto* tree=window.findChild<QTreeWidget*>("connectionTree");
         QSignalSpy executed(window.findChild<navidog::QueryService*>(),&navidog::QueryService::completed);
+        QTimer confirmDdl;
+        connect(&confirmDdl, &QTimer::timeout, &window, [&] {
+            if (auto* dialog = window.findChild<QMessageBox*>("confirmQuerySafety"); dialog && dialog->isVisible())
+                dialog->findChild<QPushButton*>("executeRiskySql")->click();
+        });
+        confirmDdl.start(10);
         auto run=[&](const QString& sql) {
             const int before=executed.count();
             query->editor->setPlainText(sql);
@@ -1204,6 +1213,125 @@ private slots:
         QTRY_VERIFY(!lookup("owned_drop_b"));
         QVERIFY(!retained.isValid());
         QVERIFY(!folder->isExpanded());
+    }
+    void dangerousWritesWarnPreviewAndCancelBeforeExecution() {
+        using namespace navidog;
+        QTemporaryDir directory;
+        ConnectionProfile profile;
+        profile.id = "owned-write-review";
+        profile.name = "Write review fixture";
+        profile.database = ensureDemoDatabase(directory.path());
+        ProfileStore(localStorePath(directory.path())).save({profile});
+        auto db = connectDatabase(profile);
+        const auto token = cancellation();
+        QVERIFY(db->execute("CREATE TABLE owned_guard(id INTEGER PRIMARY KEY, status INTEGER)", {}, token).error.isEmpty());
+        QVERIFY(db->execute("INSERT INTO owned_guard VALUES (1,1),(2,1),(3,1)", {}, token).error.isEmpty());
+
+        auto settings = loadApplicationSettings(localStorePath(directory.path()));
+        settings.querySafety.previewWhileEditing = true;
+        settings.querySafety.timeoutMs = 1500;
+        saveApplicationSettings(localStorePath(directory.path()), settings);
+        QCOMPARE(loadApplicationSettings(localStorePath(directory.path())).querySafety.timeoutMs, 1500);
+        MainWindow window(directory.path());
+        window.show();
+        auto* pane = qobject_cast<QueryPane*>(window.findChild<QTabWidget*>("queryTabs")->currentWidget());
+        QVERIFY(pane);
+        QSignalSpy completed(window.findChild<QueryService*>(), &QueryService::completed);
+        pane->editor->setPlainText("SELECT id FROM owned_guard");
+        pane->run->click();
+        QTRY_COMPARE(completed.size(), 1);
+
+        pane->editor->setPlainText("DELETE FROM owned_guard");
+        QTRY_VERIFY(pane->editor->diagnosticAtPosition(0).contains("缺少筛选条件"));
+        pane->editor->setFocus();
+        pane->editor->setPlainText("SELECT 1;\nDELETE FROM owned_guard WHERE status = 1");
+        pane->editor->moveCursor(QTextCursor::End);
+        QTRY_VERIFY_WITH_TIMEOUT(pane->editor->diagnosticAtPosition(10).contains("3 条 / 共 3 条"), 5000);
+
+        QString review;
+        bool accept = false;
+        QTimer responder;
+        connect(&responder, &QTimer::timeout, &window, [&] {
+            if (auto* dialog = window.findChild<QMessageBox*>("confirmQuerySafety"); dialog && dialog->isVisible()) {
+                review = dialog->detailedText();
+                auto* button = accept ? dialog->findChild<QPushButton*>("executeRiskySql") :
+                                        dialog->button(QMessageBox::Cancel);
+                button->click();
+            }
+        });
+        responder.start(10);
+        pane->editor->setPlainText("DELETE FROM owned_guard WHERE status = 1");
+        pane->run->click();
+        QTRY_VERIFY_WITH_TIMEOUT(review.contains("3 条 / 共 3 条"), 5000);
+        QCOMPARE(completed.size(), 1);
+        const auto messages = pane->messages->toPlainText();
+        QVERIFY(messages.contains("执行前预查 · 第 1 条 · 匹配行数"));
+        QVERIFY(messages.contains("执行前预查 · 第 1 条 · 目标总行数"));
+        QVERIFY(messages.contains("SELECT COUNT(*) FROM (SELECT 1 AS navidog_row FROM owned_guard"));
+        QVERIFY(!messages.contains("DELETE FROM owned_guard"));
+        QCOMPARE(db->execute("SELECT COUNT(*) FROM owned_guard", {}, token).rows.front().front().toInt(), 3);
+        accept = true;
+        pane->run->click();
+        QTRY_COMPARE_WITH_TIMEOUT(completed.size(), 2, 5000);
+        QVERIFY(pane->messages->toPlainText().contains("DELETE FROM owned_guard WHERE status = 1"));
+        QCOMPARE(db->execute("SELECT COUNT(*) FROM owned_guard", {}, token).rows.front().front().toInt(), 0);
+
+        // Safe predicates that cannot be measured (e.g. no read permission)
+        // proceed unless the optional unmeasured confirmation is enabled.
+        pane->editor->setPlainText("UPDATE owned_guard SET status=2 WHERE ABS(id) = 1");
+        review.clear();
+        pane->run->click();
+        QTRY_COMPARE_WITH_TIMEOUT(completed.size(), 3, 3000);
+        QVERIFY(review.isEmpty());
+    }
+
+    void sqlMessagesShowSubmittedTextAndLocateSelection() {
+        using namespace navidog;
+        QTemporaryDir directory;
+        MainWindow window(directory.path());
+        window.show();
+        auto* pane = qobject_cast<QueryPane*>(window.findChild<QTabWidget*>("queryTabs")->currentWidget());
+        QVERIFY(pane);
+        const QString first = QString::fromUtf8("SELECT '中文😀' AS marker;\n");
+        const QString longStatement = QString("SELECT '") + QString(2500, QChar('x')) + "TAIL_SENTINEL' AS value";
+        pane->editor->setPlainText(first + longStatement);
+        QTextCursor selection(pane->editor->document());
+        selection.setPosition(int(first.size()));
+        selection.movePosition(QTextCursor::End, QTextCursor::KeepAnchor);
+        pane->editor->setTextCursor(selection);
+        QSignalSpy completed(window.findChild<QueryService*>(), &QueryService::completed);
+        pane->run->click();
+        QTRY_COMPARE(completed.size(), 1);
+        const auto output = pane->messages->toPlainText();
+        QVERIFY(output.contains("执行 SQL · 第 1 条 · 第 2 行 · 定位 SQL"));
+        QVERIFY(output.contains("显示已截断"));
+        QVERIFY(!output.contains("TAIL_SENTINEL"));
+        QVERIFY(!output.contains("AS marker"));
+        pane->resultTabs->setCurrentWidget(pane->messages);
+        pane->editor->setTextCursor(QTextCursor(pane->editor->document()));
+        pane->messages->moveCursor(QTextCursor::Start);
+        QTest::keyClick(pane->messages, Qt::Key_Return);
+        QCOMPARE(pane->editor->textCursor().selectionStart(), int(first.size()));
+        QCOMPARE(pane->editor->textCursor().selectedText(), longStatement);
+
+        pane->editor->setPlainText(first + "SELECT 27 AS second");
+        auto atSecond = pane->editor->textCursor();
+        atSecond.movePosition(QTextCursor::End);
+        pane->editor->setTextCursor(atSecond);
+        pane->runStatement->click();
+        QTRY_COMPARE(completed.size(), 2);
+        QVERIFY(pane->messages->toPlainText().contains("SELECT 27 AS second"));
+        auto latest = pane->messages->document()->findBlockByNumber(0);
+        for (auto block = latest; block.isValid(); block = block.next())
+            if (block.text().contains("定位 SQL")) latest = block;
+        pane->resultTabs->setCurrentWidget(pane->messages);
+        pane->messages->setTextCursor(QTextCursor(latest));
+        QTest::keyClick(pane->messages, Qt::Key_Return);
+        QCOMPARE(pane->editor->textCursor().selectedText(), QString("SELECT 27 AS second"));
+
+        pane->editor->setPlainText("SELECT 1");
+        QTest::keyClick(pane->messages, Qt::Key_Return);
+        QVERIFY(!pane->editor->textCursor().hasSelection());
     }
     void completionLeavesTreeBranchesAndWorkspaceTabsClickable() {
         QWidget window;
@@ -1505,8 +1633,9 @@ private slots:
         QCOMPARE(editor->toPlainText(), sql);
         QCOMPARE(gutter->geometry().right() + 1, editor->viewport()->geometry().left());
         QCOMPARE(gutter->width(), editor->gutterWidth());
+        QCOMPARE(editor->document()->documentMargin(), qreal(0));
         const auto caret = editor->cursorRect(QTextCursor(editor->document()));
-        QVERIFY(caret.left() >= 0);
+        QCOMPARE(caret.topLeft(), QPoint(0, 0));
 
         draft["sql"] = "SELECT 1;";
         pane.restoreState(draft);
@@ -1788,7 +1917,7 @@ private slots:
     void unifiedSettingsCategoriesTabsAndAtomicSave() {
         QTemporaryDir dir;const auto path=dir.filePath("settings.json");QFile legacy(dir.filePath("sql-format.yaml"));QVERIFY(legacy.open(QIODevice::WriteOnly));legacy.write("IndentWidth: 3\n");legacy.close();QCOMPARE(loadApplicationSettings(path).formatting.indentWidth,3u);
         bool saw=false;
-        QTimer::singleShot(0,[&]{auto* dialog=qobject_cast<QDialog*>(QApplication::activeModalWidget());if(!dialog)return;auto* categories=dialog->findChild<QListWidget*>("settingsCategories");auto* pages=dialog->findChild<QStackedWidget*>("settingsPages");auto* tabs=dialog->findChild<QTabWidget*>("formatCategoryTabs");auto* spin=dialog->findChild<QSpinBox*>("formatIndentWidth");if(categories && pages && tabs && spin){saw=dialog->windowTitle()=="设置" && categories->count()==6 && pages->count()==6 && tabs->count()==4 && categories->currentRow()==3;categories->setCurrentRow(1);saw=saw && pages->currentIndex()==1;dialog->findChild<QSpinBox*>("settingsEditorFontSize")->setValue(16);dialog->findChild<QSpinBox*>("settingsEditorIndentWidth")->setValue(2);dialog->findChild<QCheckBox*>("settingsEditorWordWrap")->setChecked(true);spin->setValue(4);dialog->findChild<QCheckBox*>("settingsEditorCompletion")->setChecked(false);dialog->findChild<QSpinBox*>("settingsCompletionMinPrefix")->setValue(3);dialog->findChild<QSpinBox*>("settingsOptimizerAssumedRows")->setValue(33333);dialog->findChild<QSpinBox*>("settingsOptimizerTimeMs")->setValue(1500);dialog->findChild<QCheckBox*>("settingsOptimizerHep")->setChecked(false);}dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Save)->click();});
+        QTimer::singleShot(0,[&]{auto* dialog=qobject_cast<QDialog*>(QApplication::activeModalWidget());if(!dialog)return;auto* categories=dialog->findChild<QListWidget*>("settingsCategories");auto* pages=dialog->findChild<QStackedWidget*>("settingsPages");auto* tabs=dialog->findChild<QTabWidget*>("formatCategoryTabs");auto* spin=dialog->findChild<QSpinBox*>("formatIndentWidth");if(categories && pages && tabs && spin){saw=dialog->windowTitle()=="设置" && categories->count()==7 && pages->count()==7 && tabs->count()==4 && categories->currentRow()==3;categories->setCurrentRow(1);saw=saw && pages->currentIndex()==1;dialog->findChild<QSpinBox*>("settingsEditorFontSize")->setValue(16);dialog->findChild<QSpinBox*>("settingsEditorIndentWidth")->setValue(2);dialog->findChild<QCheckBox*>("settingsEditorWordWrap")->setChecked(true);spin->setValue(4);dialog->findChild<QCheckBox*>("settingsEditorCompletion")->setChecked(false);dialog->findChild<QSpinBox*>("settingsCompletionMinPrefix")->setValue(3);dialog->findChild<QSpinBox*>("settingsOptimizerAssumedRows")->setValue(33333);dialog->findChild<QSpinBox*>("settingsOptimizerTimeMs")->setValue(1500);dialog->findChild<QCheckBox*>("settingsOptimizerHep")->setChecked(false);}dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Save)->click();});
         QVERIFY(editApplicationSettings(nullptr,path,navidog::sql::compiler::Dialect::PostgreSQL,"select a,b from t;",3));QVERIFY(saw);auto saved=loadApplicationSettings(path);QCOMPARE(saved.formatting.indentWidth,4u);QCOMPARE(saved.editorFontSize,16);QCOMPARE(saved.editorIndentWidth,2);QVERIFY(saved.editorWordWrap);QVERIFY(!saved.editorCompletion);QCOMPARE(saved.completionMinPrefix,3);QCOMPARE(saved.optimizerAssumedRows,33333);QVERIFY(!saved.optimizerHep);QVERIFY(!optimizationOptions(saved).heuristic.enabled);QCOMPARE(optimizationOptions(saved).maxTimeMs,std::size_t(1500));
         QFile file(path);QVERIFY(file.open(QIODevice::ReadOnly));const auto bytes=file.readAll();file.close();
         QTimer::singleShot(0,[&]{auto* dialog=qobject_cast<QDialog*>(QApplication::activeModalWidget());if(!dialog)return;dialog->findChild<QSpinBox*>("formatIndentWidth")->setValue(7);dialog->reject();});
@@ -2518,6 +2647,7 @@ a
                 qInfo().noquote() << navidog::operationLogSnapshot().text;
             canonicalPath = pane->script.path;
             QCOMPARE(editor->document()->characterCount(), length + 1);
+            QCOMPARE(editor->document()->documentMargin(), qreal(0));
             QVERIFY(editor->largeDocument());
             QVERIFY(!editor->isReadOnly());
             QVERIFY(!pane->dirty());
@@ -3512,6 +3642,109 @@ a
         if(!qEnvironmentVariableIsEmpty("NAVIDOG_TABLE_MODEL_SCREENSHOT"))QVERIFY(report->grab().save(qEnvironmentVariable("NAVIDOG_TABLE_MODEL_SCREENSHOT")));report->close();
         task.action=TableAction::BuildBI;task.dimension="title";auto result=runTableTask(p,task,cancellation());QVERIFY(result.applied);auto* chart=new TableReportDialog(task,result);navidog::ui::applyTheme(chart);chart->show();QVERIFY(chart->findChild<QWidget*>("distributionChart"));if(!qEnvironmentVariableIsEmpty("NAVIDOG_TABLE_BI_SCREENSHOT"))QVERIFY(chart->grab().save(qEnvironmentVariable("NAVIDOG_TABLE_BI_SCREENSHOT")));chart->close();
     }
+    void dataGenerationConfigurationsRoundTripWithoutWritingRows() {
+        using namespace navidog;
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        ConnectionProfile profile;
+        profile.database = ensureDemoDatabase(directory.path());
+        auto db = connectDatabase(profile);
+        const auto cancel = cancellation();
+        QVERIFY(db->execute("CREATE TABLE preset_source(title TEXT NOT NULL, age INTEGER NOT NULL)",
+                            {}, cancel).error.isEmpty());
+        QVERIFY(db->execute("CREATE TABLE preset_target(age INTEGER NOT NULL, extra TEXT NOT NULL)",
+                            {}, cancel).error.isEmpty());
+        QueryService service;
+        const auto storePath = localStorePath(directory.path());
+        TableTask request;
+        request.action = TableAction::GenerateData;
+        request.node.kind = "table";
+        request.node.schema = "main";
+        request.node.object = "preset_source";
+
+        const auto enterPreset = [&](TableTaskDialog& dialog, const char* id, bool naming) {
+            auto* button = dialog.findChild<QPushButton*>(id);
+            QVERIFY(button && button->isEnabled());
+            QTimer answer;
+            connect(&answer, &QTimer::timeout, &dialog, [&] {
+                if (auto* prompt = qobject_cast<QInputDialog*>(QApplication::activeModalWidget())) {
+                    if (naming) prompt->setTextValue("Age distribution");
+                    prompt->accept();
+                }
+            });
+            answer.start(20);
+            button->click();
+        };
+        const auto pickFile = [&](TableTaskDialog& dialog, const char* id, const QString& path) {
+            auto* button = dialog.findChild<QPushButton*>(id);
+            QVERIFY(button && button->isEnabled());
+            QTimer answer;
+            int attempts = 0;
+            connect(&answer, &QTimer::timeout, &dialog, [&] {
+                auto* picker = dialog.findChild<QFileDialog*>();
+                if (!picker || !picker->isVisible()) return;
+                if (++attempts > 80) { picker->reject(); return; }
+                if (auto* name = picker->findChild<QLineEdit*>("fileNameEdit")) {
+                    name->setText(path);
+                    QMetaObject::invokeMethod(picker, "accept", Qt::DirectConnection);
+                }
+            });
+            answer.start(20);
+            button->click();
+        };
+        const auto seed = QString("18446744073709551614");
+        QJsonObject expectedRules;
+        {
+            TableTaskDialog dialog(profile, request, service, nullptr, storePath);
+            dialog.show();
+            QTRY_VERIFY(dialog.findChild<QPushButton*>("saveGenerationConfiguration")->isEnabled());
+            dialog.findChild<QComboBox*>("generationSizeMode")->setCurrentIndex(1);
+            dialog.findChild<QLineEdit*>("generationSize")->setText("1.5 TiB");
+            dialog.findChild<QLineEdit*>("generationSeed")->setText(seed);
+            auto* rules = dialog.findChild<QTableView*>("generationRules")->model();
+            QCOMPARE(rules->rowCount(), 2);
+            QVERIFY(rules->setData(rules->index(0, 3), "[A-Z]{3}-[0-9]{4}"));
+            QVERIFY(rules->setData(rules->index(1, 3), "18..65"));
+            QVERIFY(rules->setData(rules->index(1, 4), "偏低"));
+            expectedRules = dialog.task().generationRules;
+            enterPreset(dialog, "saveGenerationConfiguration", true);
+            QVERIFY(dialog.findChild<QLabel*>("taskMessage")->text().contains("已保存"));
+        }
+
+        const auto configPath = directory.filePath("generation.json");
+        {
+            TableTaskDialog reopened(profile, request, service, nullptr, storePath);
+            reopened.show();
+            QTRY_VERIFY(reopened.findChild<QPushButton*>("selectGenerationConfiguration")->isEnabled());
+            enterPreset(reopened, "selectGenerationConfiguration", false);
+            QCOMPARE(reopened.findChild<QComboBox*>("generationSizeMode")->currentIndex(), 1);
+            QCOMPARE(reopened.findChild<QLineEdit*>("generationSize")->text(), QString("1.5 TiB"));
+            QCOMPARE(reopened.findChild<QLineEdit*>("generationSeed")->text(), seed);
+            QCOMPARE(reopened.task().generationRules, expectedRules);
+            pickFile(reopened, "exportGenerationConfiguration", configPath);
+            QFile exported(configPath);
+            QVERIFY(exported.open(QIODevice::ReadOnly));
+            const auto json = QJsonDocument::fromJson(exported.readAll()).object();
+            QCOMPARE(json.value("format").toString(), QString("navidog-data-generation"));
+            QCOMPARE(json.value("seed").toString(), seed);
+            QCOMPARE(json.value("rules").toObject(), expectedRules);
+            QCOMPARE(json.size(), 6);
+        }
+
+        request.node.object = "preset_target";
+        TableTaskDialog destination(profile, request, service, nullptr, storePath);
+        destination.show();
+        QTRY_VERIFY(destination.findChild<QPushButton*>("importGenerationConfiguration")->isEnabled());
+        const auto defaultExtra = destination.task().generationRules.value("extra");
+        pickFile(destination, "importGenerationConfiguration", configPath);
+        QCOMPARE(destination.task().generation.size, QString("1.5 TiB"));
+        QCOMPARE(destination.task().generationRules.value("age"), expectedRules.value("age"));
+        QCOMPARE(destination.task().generationRules.value("extra"), defaultExtra);
+        QVERIFY(!destination.task().generationRules.contains("title"));
+        QVERIFY(destination.findChild<QLabel*>("taskMessage")->text().contains("1 条与当前表不匹配"));
+        for (const auto& table : {"preset_source", "preset_target"})
+            QCOMPARE(db->execute(QString("SELECT count(*) FROM ") + table, {}, cancel).rows[0][0].toInt(), 0);
+    }
     void namespaceDialogCreatesFileAndConnectionAndKeepsFailureDraft() {
         QTemporaryDir directory;MainWindow window(directory.path());window.show();auto* tree=window.findChild<QTreeWidget*>("connectionTree");auto* root=tree->topLevelItem(0);tree->setCurrentItem(root);
         bool requested=false,created=false;
@@ -3540,7 +3773,7 @@ a
             QTimer::singleShot(20,&window,[&]{auto* menu=qobject_cast<QMenu*>(QApplication::activePopupWidget());if(!menu)return;QStringList labels;for(auto* a:menu->actions())labels<< (a->isSeparator()?"---":a->text());const auto* create=menu->findChild<QAction*>("contextNewSchema");const auto* drop=menu->findChild<QAction*>("contextDropNamespace");const auto screenshot=qEnvironmentVariable("NAVIDOG_MENU_SCREENSHOT");const bool captured=item!=root || screenshot.isEmpty() || menu->grab().save(screenshot);checked=true;menu->close();QCOMPARE(labels,expected);if(create)QCOMPARE(create->isEnabled(),enabled);if(drop)QCOMPARE(drop->isEnabled(),enabled);QVERIFY(captured);});
             tree->setCurrentItem(item);QTest::keyClick(tree,Qt::Key_F10,Qt::ShiftModifier);QVERIFY(checked);
         };
-        inspect(root,{"打开连接","---","编辑连接…","新建连接…","删除连接…","复制连接…","重命名…","---","新建数据库…","新建查询","在连接中查找对象…","---","管理组","---","刷新"},true);
+        inspect(root,{"打开连接","---","编辑连接…","新建连接…","删除连接…","复制连接…","重命名…","导出连接…","---","新建数据库…","新建查询","在连接中查找对象…","---","管理组","---","刷新"},true);
         // Catalog fixtures only; never connect these profiles to any server.
         navidog::ProfileStore store(directory.filePath("navidog.sqlite"));auto profiles=store.load();navidog::ConnectionProfile pg;pg.id="pg-menu-fixture";pg.name="PG fixture";pg.driver=navidog::DatabaseKind::PostgreSQL;pg.database="owned";pg.readOnly=true;profiles<<pg;store.save(profiles);
         MainWindow pgWindow(directory.path());pgWindow.show();tree=pgWindow.findChild<QTreeWidget*>("connectionTree");auto* parent=tree->topLevelItem(1);
@@ -4450,6 +4683,79 @@ a
         QVERIFY(filled);
         auto* tree = window.findChild<QTreeWidget*>("connectionTree"); QCOMPARE(tree->topLevelItemCount(), 2);
         navidog::ProfileStore store(directory.filePath("navidog.sqlite")); QCOMPARE(store.load().size(), 2);
+    }
+    void connectionArchiveMenuExportsAndImportsEncryptedProfiles() {
+        using namespace navidog;
+        QTemporaryDir sourceDirectory, destinationDirectory;
+        QVERIFY(sourceDirectory.isValid() && destinationDirectory.isValid());
+        const auto file = sourceDirectory.filePath("transfer.ndconn");
+        const auto passphrase = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        ConnectionProfile original;
+        original.id = "transfer-source";
+        original.name = "Transfer connection";
+        original.groupId = "transfer-group";
+        original.driver = DatabaseKind::MySQL;
+        original.host = "db.example.invalid";
+        original.user = "transfer-user";
+        original.password = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        original.savePassword = original.secretsLoaded = true;
+        original.credentialSource = CredentialSource::LocalEncrypted;
+        const auto sourcePath = localStorePath(sourceDirectory.path());
+        ProfileStore(sourcePath).saveWorkspace({{original}, {{original.groupId, "Transfer group"}}});
+        MainWindow source(sourceDirectory.path());
+        source.show();
+
+        bool includeWasOptional = false;
+        const auto driveTransfer = [&](MainWindow& window, const char* action) {
+            auto* command = window.findChild<QAction*>(action);
+            QVERIFY(command);
+            QTimer reply;
+            int attempts = 0;
+            connect(&reply, &QTimer::timeout, &window, [&] {
+                auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget());
+                if (!dialog) return;
+                if (++attempts >= 120) { dialog->reject(); return; }
+                if (dialog->objectName() == "exportConnectionsDialog") {
+                    auto* include = dialog->findChild<QCheckBox*>("includeConnectionPasswords");
+                    includeWasOptional = include && !include->isChecked();
+                    include->setChecked(true);
+                    dialog->findChild<QLineEdit*>("connectionArchivePassword")->setText(passphrase);
+                    dialog->findChild<QLineEdit*>("confirmConnectionArchivePassword")->setText(passphrase);
+                    dialog->findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Save)->click();
+                } else if (auto* picker = qobject_cast<QFileDialog*>(dialog)) {
+                    if (auto* name = picker->findChild<QLineEdit*>("fileNameEdit")) {
+                        name->setText(file);
+                        QMetaObject::invokeMethod(picker, "accept", Qt::DirectConnection);
+                    }
+                } else if (auto* input = qobject_cast<QInputDialog*>(dialog)) {
+                    input->setTextValue(passphrase);
+                    input->accept();
+                } else if (auto* error = qobject_cast<QMessageBox*>(dialog)) {
+                    error->reject();
+                }
+            });
+            reply.start(20);
+            command->trigger();
+        };
+        driveTransfer(source, "menuExportConnections");
+        QVERIFY(includeWasOptional);
+        QVERIFY(QFileInfo::exists(file));
+
+        MainWindow destination(destinationDirectory.path());
+        destination.show();
+        driveTransfer(destination, "menuImportConnections");
+        auto workspace = ProfileStore(localStorePath(destinationDirectory.path())).loadWorkspace();
+        const auto restored = std::find_if(workspace.connections.begin(), workspace.connections.end(),
+            [&](const auto& profile) { return profile.name == original.name; });
+        QVERIFY(restored != workspace.connections.end());
+        QVERIFY(restored->id != original.id);
+        loadConnectionSecrets(*restored);
+        QCOMPARE(restored->password, original.password);
+        auto* tree = destination.findChild<QTreeWidget*>("connectionTree");
+        const auto groups = tree->findItems("Transfer group", Qt::MatchExactly, 0);
+        QCOMPARE(groups.size(), 1);
+        QCOMPARE(groups.front()->childCount(), 1);
+        QCOMPARE(groups.front()->child(0)->text(0), original.name);
     }
     void connectionControllerDuplicatesWithoutReusingRuntimeCredentials() {
         using namespace navidog;

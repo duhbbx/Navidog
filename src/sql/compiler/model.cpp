@@ -823,6 +823,36 @@ public:
       m.scope.tables.push_back({symbol, m.tables.size()});
       m.tables.push_back(std::move(out));
     }
+    std::set<std::size_t> lockedTables;
+    for (const auto &lock : s.rowLocks) {
+      ModelRowLock out{lock.strength, lock.wait, {}, lock.legacyShare, lock.origin};
+      for (const auto &target : lock.targets) {
+        checkStop(c);
+        auto name = qualified(c, target);
+        const SourceRange origin{target.front().range.begin, target.back().range.end};
+        std::optional<std::size_t> match;
+        for (std::size_t i = 0; i < m.tables.size(); ++i) {
+          const auto &table = m.tables[i];
+          const bool qualifiedBase = name.size() == 2 && table.alias.empty() &&
+              table.name.size() == 1 && relationEquals(name.back(), table.name.back()) &&
+              (m.context.database.empty() || relationEquals(name.front(), m.context.database));
+          if (!matchesTable(m, i, name) && !qualifiedBase)
+            continue;
+          if (match) {
+            c.report(DiagnosticCode::InvalidQueryShape, origin, "ambiguous table in MySQL locking clause");
+            break;
+          }
+          match = i;
+        }
+        if (!match)
+          c.report(DiagnosticCode::InvalidQueryShape, origin,
+                   "lock target must name a table or its alias in the current FROM/JOIN");
+        else if (!lockedTables.insert(*match).second)
+          c.report(DiagnosticCode::InvalidQueryShape, origin, "table is locked more than once in the query block");
+        out.targets.push_back(std::move(name));
+      }
+      m.rowLocks.push_back(std::move(out));
+    }
     for (auto argument : s.arguments)
       m.arguments.push_back(ids[argument]);
     for (const auto &window : s.namedWindows) {

@@ -3,6 +3,7 @@
 #include "database_types.hpp"
 #include "connection_options.hpp"
 #include "sql_analysis.hpp"
+#include "query_trace.hpp"
 #include <QMetaType>
 #include <QStringList>
 #include <QVariant>
@@ -47,10 +48,14 @@ struct ConnectionGroup { QString id, name; };
 struct WorkspaceProfiles { QVector<ConnectionProfile> connections; QVector<ConnectionGroup> groups; };
 enum class TransactionState { Idle, Active, Failed, Unknown, Unavailable };
 enum class TransactionAction { None, Begin, Commit, Rollback };
+struct BoundQueryMarker {
+    int begin, end, valueIndex; // Relative UTF-8 offsets in original SQL.
+};
 struct BoundQueryStatement {
     int index = 0;
     QString original, sql;
     QVector<QVariant> values;
+    QVector<BoundQueryMarker> markers;
 };
 struct QueryExecutionOptions {
     QString sessionId;
@@ -59,6 +64,7 @@ struct QueryExecutionOptions {
     QString schema;
     std::optional<QByteArray> redisKey;
     QVector<BoundQueryStatement> bindings;
+    bool traceStatements = false;
 };
 struct QueryLimits {
     int maxRows = 1000;
@@ -83,6 +89,7 @@ struct QueryOutcome {
     TransactionAction transactionAction=TransactionAction::None;
     QVector<QueryResult> results;
     QStringList statements;
+    QVector<QueryStatementTrace> statementTrace;
     TransactionState transactionState=TransactionState::Idle;
     int executedStatements=0,failedStatement=-1;
     bool sessionClosed=false;

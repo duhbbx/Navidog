@@ -253,6 +253,26 @@ void limitByJson(std::ostream &out, const std::optional<GroupedRowLimit> &limit)
   }
   out << "]}";
 }
+template<class Name, class WriteName>
+void rowLocksJson(std::ostream &out, const std::vector<BasicRowLock<Name>> &locks, WriteName write) {
+  if (locks.empty()) return;
+  out << ",\"rowLocks\":[";
+  for (std::size_t i = 0; i < locks.size(); ++i) {
+    if (i) out << ',';
+    const auto &lock = locks[i];
+    out << "{\"strength\":" << json(lock.strength == RowLockStrength::Update ? "UPDATE" : "SHARE")
+        << ",\"wait\":" << json(lock.wait == RowLockWait::NoWait ? "NOWAIT" :
+                                  lock.wait == RowLockWait::SkipLocked ? "SKIP LOCKED" : "WAIT")
+        << ",\"legacyShare\":" << (lock.legacyShare ? "true" : "false")
+        << ",\"targets\":[";
+    for (std::size_t j = 0; j < lock.targets.size(); ++j) {
+      if (j) out << ',';
+      write(lock.targets[j]);
+    }
+    out << "]}";
+  }
+  out << ']';
+}
 template<class Name,class WriteName>
 void rowMatchJson(std::ostream &out,const std::optional<BasicRowMatch<Name>> &match,WriteName write) {
   if (!match) return;
@@ -979,6 +999,7 @@ void syntaxQuery(std::ostream &out, const Compilation &c,
   if (s.systemTime) out << ",\"systemTime\":" << s.systemTime;
   if (s.groupByAll) out << ",\"groupByAll\":true";
   limitByJson(out, s.limitBy);
+  rowLocksJson(out, s.rowLocks, [&](const auto &target) { names(out, c, target); });
   out << ",\"groupBy\":";
   numbers(out, s.groupBy);
   out<<",\"groupingSets\":[";for(std::size_t i=0;i<s.groupingSets.size();++i){if(i)out<<',';numbers(out,s.groupingSets[i]);}out<<']';
@@ -1239,6 +1260,7 @@ std::string dumpModel(const Compilation &c, std::size_t maxBytes) {
     if (m.systemTime) out << ",\"systemTime\":" << m.systemTime;
     if (m.groupByAll) out << ",\"groupByAll\":true";
     limitByJson(out, m.limitBy);
+    rowLocksJson(out, m.rowLocks, [&](const auto &target) { strings(out, target); });
     out << ",\"groupBy\":";
     numbers(out, m.groupBy);
     out<<",\"groupingSets\":[";for(std::size_t i=0;i<m.groupingSets.size();++i){if(i)out<<',';numbers(out,m.groupingSets[i]);}out<<']';

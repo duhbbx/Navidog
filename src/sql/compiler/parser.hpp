@@ -137,6 +137,7 @@ protected:
   virtual ExprId postfix(ExprId base);
   virtual void selectPrefix(SelectStatement &statement);
   virtual void pagination(SelectStatement &statement);
+  virtual void lockingRead(SelectStatement &) {}
   virtual bool tableAliasWithAS() const { return true; }
   virtual bool fullJoin() const { return true; }
   virtual bool nullOrdering() const { return false; }

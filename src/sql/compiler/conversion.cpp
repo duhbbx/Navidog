@@ -672,6 +672,12 @@ bool lowerTarget(ModelProgram &model, Dialect target,
           {DiagnosticCode::Stopped, q.origin, "conversion cancelled"});
       return false;
     }
+    for (auto &lock : q.rowLocks) {
+      if (target != Dialect::MySQL)
+        issue(errors, lock.origin, "target has no proven equivalent for MySQL locking reads");
+      else
+        for (auto &name : lock.targets) mappedName(name, lock.origin);
+    }
     if (!family && q.having && q.groupBy.empty() && q.groupingSets.empty() &&
         mysqlFamily(source) != mysqlFamily(target)) {
       const auto features =

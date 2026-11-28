@@ -407,6 +407,7 @@ QueryParameterPlan inspectQueryParameters(DatabaseKind kind, const QString& text
             copyToDriver(marker.begin);
             analysis.append(original.data() + previous, length);
             byOffset.insert(int(analysis.size()), marker.parameter);
+            statement.markers << BoundQueryMarker{int(marker.begin), int(marker.end), slot - 1};
             rewritten += driverMarker(kind, slot);
             analysis += compilerMarker(parser, slot);
             previous = marker.end;
@@ -434,7 +435,7 @@ QVector<BoundQueryStatement> bindQueryParameters(const QueryParameterPlan& plan,
     QVector<BoundQueryStatement> statements;
     statements.reserve(plan.statements.size());
     for (const auto& statement : plan.statements) {
-        BoundQueryStatement bound{statement.index, statement.original, statement.sql, {}};
+        BoundQueryStatement bound{statement.index, statement.original, statement.sql, {}, statement.markers};
         qint64 bytes = 0;
         for (auto index : statement.parameters) {
             const auto& value = values.at(index);
@@ -446,6 +447,49 @@ QVector<BoundQueryStatement> bindQueryParameters(const QueryParameterPlan& plan,
         statements << std::move(bound);
     }
     return statements;
+}
+
+bool rewriteQueryPredicate(DatabaseKind kind, QByteArray& predicate, int originalOffset,
+                           const BoundQueryStatement* bound, QVector<QVariant>& values) {
+    QByteArray rewritten;
+    int copied = 0;
+    QHash<int,int> nativeSlots;
+    const std::string_view source(predicate.constData(), std::size_t(predicate.size()));
+    const auto tokens = sql::lex(source, scriptDialect(kind)).tokens;
+    for (const auto& token : tokens) {
+        if (token.begin < std::size_t(copied)) continue;
+        const auto marker = markerAt(kind, source, token);
+        const bool escape = !marker && usesJdbcDriver(kind) && usesPostgresCompatibleSql(kind) &&
+            token.kind == sql::TokenKind::Symbol && source.substr(token.begin, token.end - token.begin) == "?";
+        if (!marker && !escape) continue;
+        const int begin = int(token.begin);
+        rewritten.append(predicate.constData() + copied, begin - copied);
+        if (escape) {
+            rewritten += "??";
+            copied = int(token.end);
+            continue;
+        }
+        if (!bound) return false;
+        const auto at = originalOffset + begin;
+        const auto match = std::lower_bound(bound->markers.begin(), bound->markers.end(), at,
+            [](const auto& entry, int offset) { return entry.begin < offset; });
+        if (match == bound->markers.end() || match->begin != at ||
+            match->end != originalOffset + int(marker->end) ||
+            match->valueIndex < 0 || match->valueIndex >= bound->values.size()) return false;
+        int slot = usesNativePostgres(kind) ? nativeSlots.value(match->valueIndex, 0) : 0;
+        if (!slot) {
+            values << bound->values[match->valueIndex];
+            slot = int(values.size());
+            if (usesNativePostgres(kind)) nativeSlots.insert(match->valueIndex, slot);
+        }
+        rewritten += driverMarker(kind, slot);
+        copied = int(marker->end);
+    }
+    if (copied) {
+        rewritten.append(predicate.constData() + copied, int(predicate.size()) - copied);
+        predicate = std::move(rewritten);
+    }
+    return true;
 }
 
 QString queryParameterTypeName(QueryParameterType type) {

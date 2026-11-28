@@ -60,7 +60,7 @@ private:
     };
     static PreparedDiagram prepareDiagram(const navidog::er::Project&);
     void useProject(navidog::er::Project, PreparedDiagram);
-    void showDiagram(PreparedDiagram, bool fit);
+    void showDiagram(PreparedDiagram, bool fit, bool keepCardState);
     void rebuild(bool fit = false);
     void refreshList();
     void select(int index, bool locate, bool reveal);

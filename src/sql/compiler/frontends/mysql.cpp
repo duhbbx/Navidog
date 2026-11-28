@@ -15,6 +15,51 @@ Parser::DmlGrammar MySQLParser::dmlGrammar() const {
 void MySQLParser::pagination(SelectStatement &s) {
   limitOffset(s, true, false);
 }
+void MySQLParser::lockingRead(SelectStatement &s) {
+  if (context_.dialect != Dialect::MySQL || context_.options.extension != SqlExtension::None)
+    return;
+  while (at("FOR") || at("LOCK")) {
+    if (s.setOperation)
+      fail("MySQL requires parentheses around a SELECT with row locks in a set operation");
+    if (s.valuesQuery)
+      fail("MySQL row locking requires SELECT");
+    syntaxNode();
+    RowLockSyntax clause;
+    clause.origin.begin = current().range.begin;
+    if (eat("FOR")) {
+      if (!eat("UPDATE")) {
+        expect("SHARE");
+        clause.strength = RowLockStrength::Share;
+      }
+      if (eat("OF")) {
+        do {
+          syntaxNode();
+          auto target = qualifiedName();
+          if (target.size() > 2) fail("MySQL lock targets allow only a database qualifier");
+          clause.targets.push_back(std::move(target));
+        } while (eat(","));
+      }
+      if (eat("NOWAIT")) clause.wait = RowLockWait::NoWait;
+      else if (eat("SKIP")) {
+        expect("LOCKED");
+        clause.wait = RowLockWait::SkipLocked;
+      }
+      if (at("NOWAIT") || at("SKIP"))
+        fail("use only one wait option for a MySQL locking clause");
+    } else {
+      expect("LOCK");
+      expect("IN");
+      expect("SHARE");
+      expect("MODE");
+      clause.strength = RowLockStrength::Share;
+      clause.legacyShare = true;
+    }
+    clause.origin.end = previous().range.end;
+    if (!s.rowLocks.empty() && (clause.targets.empty() || s.rowLocks.front().targets.empty()))
+      fail("a MySQL lock without OF cannot be combined with another locking clause");
+    s.rowLocks.push_back(std::move(clause));
+  }
+}
 Statement MySQLParser::triggerStatement() {
   Statement result;
   result.kind=StatementKind::Trigger;

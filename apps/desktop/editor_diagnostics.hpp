@@ -1,6 +1,7 @@
 #pragma once
 #include "navidog/database_types.hpp"
 #include "navidog/metadata_cache.hpp"
+#include "navidog/query_safety.hpp"
 #include <QObject>
 #include <QTimer>
 #include <QVector>
@@ -13,12 +14,15 @@ struct SqlEditorDiagnostic {
   QString message;
   bool error = true;
   bool metadata = false;
+  bool safety = false;
 };
 struct SqlCheckResult {
   QVector<SqlEditorDiagnostic> diagnostics;
   QString status;
 };
 Q_DECLARE_METATYPE(SqlCheckResult)
+QVector<SqlEditorDiagnostic> querySafetyMarks(const QVector<navidog::QuerySafetyFinding>&,
+    const navidog::QuerySafetyPolicy&, bool live = false);
 
 // Local compiler only: no driver, metadata connection or SQL execution.
 SqlCheckResult checkEditorSql(const QString &, navidog::DatabaseKind,
@@ -36,6 +40,7 @@ public:
   void invalidate();
   void setSuspended(bool suspended);
   void setMetadataSnapshot(navidog::MetadataSnapshotPtr);
+  void setQuerySafetyPolicy(const navidog::QuerySafetyPolicy&);
 signals:
   void updated(const SqlCheckResult &);
 
@@ -51,4 +56,5 @@ private:
   bool running_ = false;
   std::shared_ptr<std::atomic_bool> cancel_;
   bool suspended_ = false;
+  navidog::QuerySafetyPolicy safety_;
 };

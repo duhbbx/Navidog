@@ -18,6 +18,7 @@
 #include "navidog/query_service.hpp"
 #include "navidog/query_plan.hpp"
 #include "navidog/query_parameters.hpp"
+#include "navidog/query_safety.hpp"
 #include "navidog/sql.hpp"
 #include "navidog/sql/compiler/compiler.hpp"
 #include "navidog/sql/optimizer/optimizer.hpp"
@@ -55,6 +56,60 @@ private slots:
         for(int i=0;i<100;++i){try{auto db=navidog::connectDatabase(p_);auto r=db->execute("CREATE DATABASE navidog_owned CHARACTER SET utf8mb4",{},navidog::cancellation());if(r.error.isEmpty()){ready=true;break;}}catch(...){}QTest::qWait(100);}
         if(!ready){QFile log(dir_.filePath("server.log"));if(log.open(QIODevice::ReadOnly))qWarning().noquote()<<log.readAll();}QVERIFY(ready);p_.database="navidog_owned";
 #endif
+    }
+    void hazardousWritesPreviewOnAnIndependentConnection() {
+        using namespace navidog;
+        auto db = connectDatabase(p_);
+        const auto token = cancellation();
+        QVERIFY(db->execute("CREATE TABLE safety_fixture(id INT PRIMARY KEY, state INT)", {}, token).error.isEmpty());
+        QVERIFY(db->execute("INSERT INTO safety_fixture VALUES (1,1),(2,1),(3,1)", {}, token).error.isEmpty());
+        QuerySafetyPolicy policy;
+        const QString sql = "UPDATE safety_fixture t SET t.state = ? WHERE (t.id >= ?)";
+        const auto parameters = inspectQueryParameters(p_.driver, sql, p_.database, {});
+        const auto bound = bindQueryParameters(parameters, {99, 1});
+        auto findings = inspectQuerySafety(p_.driver, sql, policy);
+        QCOMPARE(findings.size(), 1);
+        measureQueryImpact(p_, {}, policy, bound, findings, token);
+        QCOMPARE(findings.front().impact.status, ImpactStatus::Measured);
+        QCOMPARE(findings.front().impact.matched, 3);
+        QCOMPARE(findings.front().impact.total, 3);
+        QVERIFY(requiresQueryConfirmation(findings.front(), policy));
+        findings = inspectQuerySafety(p_.driver, "DELETE FROM safety_fixture WHERE state = 1 LIMIT 1", policy);
+        measureQueryImpact(p_, {}, policy, {}, findings, token);
+        QCOMPARE(findings.front().impact.matched, 1);
+        QCOMPARE(findings.front().impact.total, 3);
+        QVERIFY(!requiresQueryConfirmation(findings.front(), policy));
+        QCOMPARE(db->execute("SELECT COUNT(*) FROM safety_fixture WHERE state=1", {}, token).rows.front().front().toInt(), 3);
+        QVERIFY(db->execute("DROP TABLE safety_fixture", {}, token).error.isEmpty());
+    }
+    void lockingReadsParseAndRespectAnotherMysqlTransaction() {
+        using namespace navidog;
+        if (p_.driver != DatabaseKind::MySQL) QSKIP("MySQL locking grammar and behavior");
+        const auto token = cancellation();
+        auto owner = connectDatabase(p_);
+        const auto setup = [&](const QString& sql) {
+            const auto result = owner->execute(sql, {}, token);
+            QVERIFY2(result.error.isEmpty(), qPrintable(result.error));
+        };
+        setup("CREATE TABLE owned_lock_jobs(id INT PRIMARY KEY) ENGINE=InnoDB");
+        setup("INSERT INTO owned_lock_jobs VALUES (1), (2)");
+        setup("START TRANSACTION");
+        setup("SELECT id FROM owned_lock_jobs WHERE id = 1 FOR UPDATE");
+
+        QueryService service;
+        QSignalSpy done(&service, &QueryService::completed);
+        QueryExecutionOptions options;
+        options.sessionId = "owned-locking-read";
+        options.autoCommit = false;
+        QVERIFY(service.run(p_, "SELECT id FROM owned_lock_jobs ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED", {}, options));
+        QVERIFY(done.wait(5000));
+        const auto outcome = qvariant_cast<QueryOutcome>(done.takeFirst()[0]);
+        QVERIFY2(outcome.result.error.isEmpty(), qPrintable(outcome.result.error));
+        QCOMPARE(outcome.result.rows.size(), 1);
+        QCOMPARE(outcome.result.rows[0][0].toInt(), 2);
+        QCOMPARE(outcome.analysis.statements.size(), 1);
+        QCOMPARE(outcome.analysis.statements[0].state, SqlAnalysisState::Parsed);
+        setup("ROLLBACK");
     }
     void editorParametersBindValuesWithTheNativeDriver() {
         using namespace navidog;

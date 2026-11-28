@@ -91,15 +91,42 @@ public:
   bool calciteExtensions = false;
   quint64 revision;
   navidog::MetadataSnapshotPtr snapshot;
+  navidog::QuerySafetyPolicy safety;
   std::shared_ptr<std::atomic_bool> cancel;
   void run() override {
-    emit checked(revision, checkEditorSql(source, kind, database, schema,
-                                          cancel, snapshot, calciteExtensions));
+    auto result = kind == navidog::DatabaseKind::Dameng ? SqlCheckResult{{}, "达梦 SQL 由服务器校验"} :
+        checkEditorSql(source, kind, database, schema, cancel, snapshot, calciteExtensions);
+    if (safety.enabled && safety.warnings && !cancel->load() && source.size() <= 1024 * 1024) {
+      try {
+        const auto marks = querySafetyMarks(navidog::inspectQuerySafety(kind, source, safety, cancel), safety);
+        result.diagnostics += marks;
+        if (!marks.isEmpty()) result.status += QString(" · %1 处写入风险").arg(marks.size());
+      } catch (const std::exception&) {
+        // Advisory analysis must not replace syntax diagnostics.
+      }
+    }
+    emit checked(revision, result);
   }
 signals:
   void checked(quint64 revision, const SqlCheckResult &result);
 };
 } // namespace
+QVector<SqlEditorDiagnostic> querySafetyMarks(const QVector<navidog::QuerySafetyFinding>& findings,
+    const navidog::QuerySafetyPolicy& policy, bool live) {
+  QVector<SqlEditorDiagnostic> marks;
+  if (!policy.enabled || !policy.warnings) return marks;
+  for (const auto& finding : findings) {
+    const auto large = navidog::largeQueryImpact(finding.impact, policy);
+    if (live ? !large : finding.risk == navidog::QueryRisk::None || finding.syntaxError) continue;
+    auto message = navidog::queryRiskMessage(finding.risk);
+    if (large) {
+      if (!message.isEmpty()) message += '\n';
+      message += navidog::queryImpactMessage(finding.impact);
+    }
+    marks << SqlEditorDiagnostic{finding.begin, finding.end, message, false, false, true};
+  }
+  return marks;
+}
 SqlCheckResult checkEditorSql(const QString &text, navidog::DatabaseKind kind,
                               const QString &database, const QString &schema,
                               const std::shared_ptr<std::atomic_bool> &cancel,
@@ -618,15 +645,14 @@ void SqlDiagnosticController::setSuspended(bool suspended) {
   suspended_ = suspended;
   invalidate();
 }
+void SqlDiagnosticController::setQuerySafetyPolicy(const navidog::QuerySafetyPolicy& policy) {
+  safety_ = policy;
+  invalidate();
+}
 void SqlDiagnosticController::invalidate() {
   ++revision_;
   if (cancel_)
     cancel_->store(true);
-  if (kind_ == navidog::DatabaseKind::Dameng) {
-    timer_.stop();
-    emit updated({{}, "达梦 SQL 由服务器校验"});
-    return;
-  }
   if (suspended_) {
     timer_.stop();
     emit updated({{}, "大文件模式"});
@@ -641,7 +667,7 @@ void SqlDiagnosticController::invalidate() {
     timer_.start(350);
 }
 void SqlDiagnosticController::launch() {
-  if (suspended_ || running_ || kind_ == navidog::DatabaseKind::Unknown || kind_ == navidog::DatabaseKind::Dameng)
+  if (suspended_ || running_ || kind_ == navidog::DatabaseKind::Unknown)
     return;
   auto *task = new CheckTask;
   task->source = source_();
@@ -652,13 +678,14 @@ void SqlDiagnosticController::launch() {
   task->revision = revision_;
   task->cancel = std::make_shared<std::atomic_bool>(false);
   task->snapshot = snapshot_;
+  task->safety = safety_;
   connect(
       task, &CheckTask::checked, this,
       [this](quint64 revision, const SqlCheckResult &result) {
         running_ = false;
         if (revision == revision_)
           emit updated(result);
-        else if (!suspended_ && !timer_.isActive() && kind_ != navidog::DatabaseKind::Unknown && kind_ != navidog::DatabaseKind::Dameng)
+        else if (!suspended_ && !timer_.isActive() && kind_ != navidog::DatabaseKind::Unknown)
           timer_.start(0);
       },
       Qt::QueuedConnection);

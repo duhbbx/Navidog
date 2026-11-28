@@ -1,6 +1,7 @@
 #include "navidog/secret_store.hpp"
 #include "navidog/local_store.hpp"
 #include "navidog/metadata_cache.hpp"
+#include "secret_crypto.hpp"
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
@@ -9,42 +10,14 @@
 #include <QMessageAuthenticationCode>
 #include <QSaveFile>
 #include <stdexcept>
-#ifdef Q_OS_MACOS
-#include <CommonCrypto/CommonCryptor.h>
-#include <stdlib.h>
-#elif defined(Q_OS_WIN)
-// clang-format off
+#ifdef Q_OS_WIN
 #include <windows.h>
 #include <wincrypt.h>
-// clang-format on
-#else
-#include <openssl/evp.h>
-#include <openssl/rand.h>
 #endif
 namespace navidog {
 namespace {
 [[noreturn]] void fail() {
   throw std::runtime_error("本机加密凭据无法读取或校验，请重新输入并保存密码");
-}
-QByteArray randomBytes(int size) {
-  QByteArray bytes(size, '\0');
-#ifdef Q_OS_MACOS
-  arc4random_buf(bytes.data(), size);
-#elif defined(Q_OS_WIN)
-  HCRYPTPROV provider = 0;
-  if (!CryptAcquireContextW(&provider, nullptr, nullptr, PROV_RSA_AES,
-                            CRYPT_VERIFYCONTEXT))
-    fail();
-  bool ok = CryptGenRandom(provider, DWORD(size),
-                           reinterpret_cast<BYTE *>(bytes.data()));
-  CryptReleaseContext(provider, 0);
-  if (!ok)
-    fail();
-#else
-  if (RAND_bytes(reinterpret_cast<unsigned char *>(bytes.data()), size) != 1)
-    fail();
-#endif
-  return bytes;
 }
 #ifndef Q_OS_WIN
 QByteArray keyFor(const QString &db, bool create, LocalStore &store) {
@@ -58,7 +31,7 @@ QByteArray keyFor(const QString &db, bool create, LocalStore &store) {
   if (!file.exists()) {
     if (!create || store.document("vault-key-created"))
       fail();
-    auto bytes = randomBytes(64);
+    auto bytes = secret_crypto::randomBytes(64);
     QSaveFile out(path);
     if (!out.open(QIODevice::WriteOnly))
       fail();
@@ -75,41 +48,6 @@ QByteArray keyFor(const QString &db, bool create, LocalStore &store) {
   if (file.permissions() & forbidden)
     fail();
   return file.readAll();
-}
-QByteArray aes(const QByteArray &input, const QByteArray &key,
-               const QByteArray &iv, bool encrypt) {
-  QByteArray out(input.size() + 32, '\0');
-#ifdef Q_OS_MACOS
-  size_t written = 0;
-  if (CCCrypt(encrypt ? kCCEncrypt : kCCDecrypt, kCCAlgorithmAES,
-              kCCOptionPKCS7Padding, key.constData(), 32, iv.constData(),
-              input.constData(), input.size(), out.data(), out.size(),
-              &written) != kCCSuccess)
-    fail();
-  out.resize(int(written));
-#else
-  auto *ctx = EVP_CIPHER_CTX_new();
-  if (!ctx)
-    fail();
-  int first = 0, last = 0;
-  bool ok = EVP_CipherInit_ex(
-                ctx, EVP_aes_256_cbc(), nullptr,
-                reinterpret_cast<const unsigned char *>(key.constData()),
-                reinterpret_cast<const unsigned char *>(iv.constData()),
-                encrypt ? 1 : 0) == 1 &&
-            EVP_CipherUpdate(
-                ctx, reinterpret_cast<unsigned char *>(out.data()), &first,
-                reinterpret_cast<const unsigned char *>(input.constData()),
-                input.size()) == 1 &&
-            EVP_CipherFinal_ex(
-                ctx, reinterpret_cast<unsigned char *>(out.data()) + first,
-                &last) == 1;
-  EVP_CIPHER_CTX_free(ctx);
-  if (!ok)
-    fail();
-  out.resize(first + last);
-#endif
-  return out;
 }
 #endif
 QByteArray crypt(const QByteArray &bytes, const ConnectionProfile &p,
@@ -133,8 +71,8 @@ QByteArray crypt(const QByteArray &bytes, const ConnectionProfile &p,
 #else
   auto key = keyFor(p.credentialStorePath, encrypt, store);
   if (encrypt) {
-    auto iv = randomBytes(16);
-    auto payload = QByteArray("NDV1") + iv + aes(bytes, key.left(32), iv, true);
+    auto iv = secret_crypto::randomBytes(16);
+    auto payload = QByteArray("NDV1") + iv + secret_crypto::aes256Cbc(bytes, key.left(32), iv, true);
     auto tag = QMessageAuthenticationCode::hash(
         payload + p.id.toUtf8(), key.mid(32), QCryptographicHash::Sha256);
     key.fill('\0');
@@ -145,13 +83,9 @@ QByteArray crypt(const QByteArray &bytes, const ConnectionProfile &p,
   auto payload = bytes.left(bytes.size() - 32);
   auto expected = QMessageAuthenticationCode::hash(
       payload + p.id.toUtf8(), key.mid(32), QCryptographicHash::Sha256);
-  unsigned mismatch = 0;
-  for (int i = 0; i < 32; ++i)
-    mismatch |= static_cast<unsigned char>(expected[i]) ^
-                static_cast<unsigned char>(bytes[bytes.size() - 32 + i]);
-  if (mismatch)
+  if (!secret_crypto::equalTags(expected, bytes.right(32)))
     fail();
-  auto result = aes(payload.mid(20), key.left(32), payload.mid(4, 16), false);
+  auto result = secret_crypto::aes256Cbc(payload.mid(20), key.left(32), payload.mid(4, 16), false);
   key.fill('\0');
   return result;
 #endif

@@ -1,4 +1,5 @@
 #include "er_canvas.hpp"
+#include "navidog/er_routing.hpp"
 #include <QApplication>
 #include <QFontMetricsF>
 #include <QImage>
@@ -11,6 +12,8 @@
 #include <utility>
 #include <algorithm>
 #include <cmath>
+#include <iterator>
+#include <map>
 
 namespace navidog::ui::er {
 namespace {
@@ -84,38 +87,41 @@ qreal port(const m::Entity& e,const QRectF& box,const QStringList& keys,const Ca
     return box.top()+m::cardHeight/2;
 }
 
-void drawEdge(QPainter& p, const m::Project& project, const m::Arrangement& arrangement,
-              const m::Edge& edge, bool highlight,const CardAnnotations* notes) {
-    const auto a = arrangement.boxes[edge.from];
-    const auto b = arrangement.boxes[edge.to];
-    const auto& source = project.entities[edge.from];
-    const auto& dest = project.entities[edge.to];
-    const auto& key = source.table.objects[edge.constraint];
-    const bool pointsRight = b.center().x() >= a.center().x();
-    const qreal sign = pointsRight ? 1 : -1;
-    const QPointF from(pointsRight ? a.right() : a.left(),port(source,a,key.columns,notes && notes->table == edge.from ? notes : nullptr));
-    const QPointF to(pointsRight ? b.left() : b.right(),port(dest,b,key.referenceColumns,notes && notes->table == edge.to ? notes : nullptr));
-    QPen pen(highlight ? focus : QColor("#7790a6"),highlight ? 2 : 1);
-    pen.setCosmetic(true);
-    if (!key.enabled) pen.setStyle(Qt::DashLine);
-    p.setPen(pen);
-    p.setBrush(Qt::NoBrush);
-    QPainterPath line(from);
-    if (edge.from == edge.to) {
-        const auto end = QPointF(a.right(),std::min(a.bottom()-8,from.y()+21));
-        line.cubicTo(from+QPointF(46,-14),end+QPointF(46,24),end);
-        p.drawPath(line);
-        return;
+void drawEdge(QPainter& p, const QVector<QPointF>& points, const m::Edge& edge,
+              bool enabled, bool highlight) {
+    if (points.size() < 2) return;
+    QPainterPath line(points.front());
+    for (int i = 1; i + 1 < points.size(); ++i) {
+        const auto before = points[i - 1] - points[i];
+        const auto after = points[i + 1] - points[i];
+        const auto radius = std::min({5.0, before.manhattanLength() / 2, after.manhattanLength() / 2});
+        line.lineTo(points[i] + before * (radius / before.manhattanLength()));
+        line.quadTo(points[i], points[i] + after * (radius / after.manhattanLength()));
     }
-    const qreal width = std::clamp(std::abs(to.x()-from.x())*0.4,26.0,150.0);
-    line.cubicTo(from+QPointF(sign*width,0),to-QPointF(sign*width,0),to);
+    line.lineTo(points.back());
+    p.setBrush(Qt::NoBrush);
+    if (highlight) {
+        QPen halo(canvasBackground, 4.5);
+        halo.setCosmetic(true);
+        p.setPen(halo);
+        p.drawPath(line);
+    }
+    QPen pen(highlight ? focus : QColor("#607d96"), highlight ? 2.25 : 1.5);
+    pen.setCosmetic(true);
+    if (!enabled) pen.setStyle(Qt::DashLine);
+    p.setPen(pen);
     p.drawPath(line);
-    p.drawLine(to-QPointF(sign*7,5),to-QPointF(sign*7,-5));
-    if (edge.uniqueSource) p.drawLine(from+QPointF(sign*7,-5),from+QPointF(sign*7,5));
+    pen.setStyle(Qt::SolidLine);
+    p.setPen(pen);
+    const auto from = points.front(), to = points.back();
+    const qreal out = points[1].x() > from.x() ? 1 : -1;
+    const qreal in = points[points.size() - 2].x() > to.x() ? 1 : -1;
+    p.drawLine(to + QPointF(in * 7, -5), to + QPointF(in * 7, 5));
+    if (edge.uniqueSource) p.drawLine(from + QPointF(out * 7, -5), from + QPointF(out * 7, 5));
     else {
-        const auto tail = from+QPointF(sign*10,0);
-        p.drawLine(tail,from+QPointF(sign*2,-5));
-        p.drawLine(tail,from+QPointF(sign*2,5));
+        const auto tail = from + QPointF(out * 10, 0);
+        p.drawLine(tail, from + QPointF(out * 2, -5));
+        p.drawLine(tail, from + QPointF(out * 2, 5));
     }
 }
 
@@ -178,11 +184,11 @@ QPointF mousePosition(const QMouseEvent* event) {
     return event->localPos();
 #endif
 }
-}
 
 void paintDiagram(QPainter& p, const m::Project& project, const m::Graph& graph,
-                  const m::Arrangement& scene, const QVector<int>& visible, const QRectF& region,
-                  qreal scale, int selected, const m::Group* only,const CardAnnotations* annotations) {
+                  const m::Arrangement& scene, const m::SpatialIndex& index,
+                  QHash<int, QVector<QPointF>>& routes, const QVector<int>& visible, const QRectF& region,
+                  qreal scale, int selected, const m::Group* only, const CardAnnotations* annotations) {
     p.setRenderHint(QPainter::Antialiasing,scale >= .26);
     const auto label = diagramFont(15,true);
     const auto title = diagramFont(13,true);
@@ -211,6 +217,24 @@ void paintDiagram(QPainter& p, const m::Project& project, const m::Graph& graph,
         QSet<int> visited;
         QSet<int> membership;
         if (only) membership = QSet<int>(only->members.cbegin(),only->members.cend());
+        QVector<int> highlighted;
+        const auto drawConnection = [&](int id, bool highlight) {
+            const auto& edge = graph.edges[id];
+            const auto& source = project.entities[edge.from];
+            const auto& target = project.entities[edge.to];
+            const auto& key = source.table.objects[edge.constraint];
+            auto route = routes.constFind(id);
+            if (route == routes.cend()) {
+                if (routes.size() >= 8192) routes.clear();
+                const auto fromY = port(source, scene.boxes[edge.from], key.columns,
+                                       annotations && annotations->table == edge.from ? annotations : nullptr);
+                const auto toY = port(target, scene.boxes[edge.to], key.referenceColumns,
+                                     annotations && annotations->table == edge.to ? annotations : nullptr);
+                route = routes.insert(id, m::routeRelation(scene, index, edge.from, edge.to,
+                                                          fromY, toY, id % 7 - 3));
+            }
+            drawEdge(p, route.value(), edge, key.enabled, highlight);
+        };
         int edgeBudget = 3000;
         const auto connections = [&](int i) {
             for (int id : graph.incidents[i]) {
@@ -218,10 +242,11 @@ void paintDiagram(QPainter& p, const m::Project& project, const m::Graph& graph,
                 if (visited.contains(id)) continue;
                 const auto& edge = graph.edges[id];
                 if (only && (!membership.contains(edge.from) || !membership.contains(edge.to))) continue;
-                if (!scene.boxes[edge.from].united(scene.boxes[edge.to]).adjusted(-50,-50,50,50).intersects(region)) continue;
+                if (!scene.boxes[edge.from].united(scene.boxes[edge.to]).adjusted(-64,-64,64,64).intersects(region)) continue;
                 visited.insert(id);
                 --edgeBudget;
-                drawEdge(p,project,scene,edge,edge.from == selected || edge.to == selected,annotations);
+                if (edge.from == selected || edge.to == selected) highlighted.push_back(id);
+                else drawConnection(id, false);
             }
         };
         if (selected >= 0 && selected < graph.incidents.size()) connections(selected);
@@ -229,6 +254,7 @@ void paintDiagram(QPainter& p, const m::Project& project, const m::Graph& graph,
             if (edgeBudget <= 0) break;
             connections(i);
         }
+        for (int id : highlighted) drawConnection(id, true);
     }
 
     if (scale < .30) {
@@ -249,9 +275,10 @@ void paintDiagram(QPainter& p, const m::Project& project, const m::Graph& graph,
         drawCard(p,project.entities[i],scene.boxes[i],region,i == selected,showColumns,!only,title,field,
                  annotations && annotations->table == i ? annotations : nullptr);
 }
+}
 
 QImage groupImage(const m::Project& project,const m::Graph& graph,const m::Arrangement& scene,
-                  const m::Group& group) {
+                  const m::SpatialIndex& index,const m::Group& group) {
     const auto region = group.bounds.adjusted(-14,-14,14,14);
     const qreal scale = std::min({2.0,4096.0/region.width(),4096.0/region.height()});
     const QSize pixels(std::max(1,int(std::ceil(region.width()*scale))),
@@ -261,7 +288,8 @@ QImage groupImage(const m::Project& project,const m::Graph& graph,const m::Arran
     QPainter painter(&image);
     painter.scale(scale,scale);
     painter.translate(-region.topLeft());
-    paintDiagram(painter,project,graph,scene,group.members,region,scale,-1,&group);
+    QHash<int, QVector<QPointF>> routes;
+    paintDiagram(painter,project,graph,scene,index,routes,group.members,region,scale,-1,&group,nullptr);
     return image;
 }
 
@@ -275,17 +303,22 @@ Canvas::Canvas(QWidget* parent) : QWidget(parent) {
     setToolTip("拖动空白区域平移，滚轮缩放。点击卡片底部展开字段，在工具栏切换所选表的注释。");
 }
 
-void Canvas::reset(const m::Project& project,const m::Graph& graph,m::Arrangement scene,m::SpatialIndex index) {
+void Canvas::reset(const m::Project& project, const m::Graph& graph, m::Arrangement scene,
+                   m::SpatialIndex index, bool keepCardState) {
     expanded_.reset();
+    if (!keepCardState) {
+        expandedFields_.clear();
+        annotatedCard_.reset();
+        selection_ = -1;
+    }
     pressedCard_ = pendingOpen_ = -1;
     project_ = &project;
     graph_ = &graph;
     arrangement_ = std::move(scene);
     index_ = std::move(index);
     if (selection_ >= arrangement_.boxes.size()) selection_ = -1;
+    rebuildExpandedLayout();
     if (fitted_) fit();
-    else update();
-    if (annotationStateChanged) annotationStateChanged();
 }
 QPointF Canvas::world(const QPointF& point) const { return origin_ + point/scale_; }
 
@@ -301,7 +334,7 @@ bool Canvas::hitsFieldsLink(int table,const QPointF& point) const {
     if (table < 0 || scale_ < columnZoom) return false;
     const auto& box = arrangement().boxes[table];
     const auto& entity = project_->entities[table];
-    const bool annotated = expanded_ && expanded_->table == table && expanded_->annotations;
+    const bool annotated = annotatedCard_ == entity.id;
     return !annotated && fieldsLink(box).contains(point) && entity.table.columns.size() > previewColumns;
 }
 bool Canvas::canShowAnnotations() const {
@@ -309,54 +342,84 @@ bool Canvas::canShowAnnotations() const {
         arrangement_.boxes[selection_].isValid() && hasComments(project_->entities[selection_]);
 }
 bool Canvas::annotationsVisible() const {
-    return expanded_ && expanded_->table == selection_ && expanded_->annotations;
+    return expanded_ && expanded_->annotations && expanded_->annotations->table == selection_;
 }
 void Canvas::setAnnotationsVisible(bool visible) {
     if (!canShowAnnotations() || visible == annotationsVisible()) return;
-    const bool allFields = expanded_ && expanded_->table == selection_ && expanded_->allFields;
-    expandCard(selection_,allFields,visible);
+    if (visible) annotatedCard_ = project_->entities[selection_].id;
+    else annotatedCard_.reset();
+    fitted_ = false;
+    rebuildExpandedLayout(selection_);
     if (!visible) return;
     const QRectF viewport(origin_,QSizeF(width()/scale_,height()/scale_));
     const auto title = arrangement().boxes[selection_].topLeft()+QPointF(m::cardWidth/2,headerHeight/2);
     if (scale_ < columnZoom || !viewport.contains(title)) select(selection_,true);
 }
-void Canvas::expandCard(int table,bool allFields,bool showComments) {
-    if (!allFields && !showComments) {
-        collapseCard();
-        return;
+void Canvas::rebuildExpandedLayout(int anchorTable) {
+    const auto anchor = anchorTable >= 0 ? arrangement().boxes[anchorTable] : QRectF{};
+    QHash<int, qreal> heights;
+    for (auto it = expandedFields_.begin(); it != expandedFields_.end();) {
+        const int i = graph_->byId.value(*it, -1);
+        if (i < 0 || !arrangement_.boxes[i].isValid() ||
+            project_->entities[i].table.columns.size() <= previewColumns) {
+            it = expandedFields_.erase(it);
+            continue;
+        }
+        heights.insert(i, arrangement_.boxes[i].height() +
+                       columnHeight * (project_->entities[i].table.columns.size() - previewColumns));
+        ++it;
     }
-    const auto anchor = arrangement().boxes[table].topLeft();
-    const auto original = arrangement_.boxes[table];
-    const auto& entity = project_->entities[table];
-    ExpandedLayout next{table,allFields,arrangement_,{},std::nullopt};
-    if (showComments) next.annotations = positionNotes(entity,table);
-    const auto height = next.annotations ? std::max(original.height(),next.annotations->contentBottom+8) :
-        original.height()+columnHeight*(entity.table.columns.size()-previewColumns);
-    const auto extra = height-original.height();
-    // Keep rows aligned and leave authored positions untouched.
-    for (auto& box : next.scene.boxes)
-        if (box.isValid() && box.top() >= original.bottom()) box.translate(0,extra);
-    next.scene.boxes[table].setHeight(height);
-    const auto extend = [&](QRectF& bounds) {
-        if (!bounds.isValid() || bounds.bottom() < original.bottom()) return;
-        if (bounds.top() >= original.bottom()) bounds.translate(0,extra);
-        else bounds.setBottom(bounds.bottom()+extra);
-    };
-    for (auto& group : next.scene.groups) extend(group.bounds);
-    extend(next.scene.bounds);
-    next.index.reset(next.scene);
-    expanded_ = std::move(next);
-    origin_ += original.topLeft()-anchor;
-    fitted_ = false;
-    update();
-    if (annotationStateChanged) annotationStateChanged();
-}
+    std::optional<CardAnnotations> notes;
+    if (annotatedCard_) {
+        const int i = graph_->byId.value(*annotatedCard_, -1);
+        if (i >= 0 && arrangement_.boxes[i].isValid() && hasComments(project_->entities[i])) {
+            notes = positionNotes(project_->entities[i], i);
+            heights.insert(i, std::max(arrangement_.boxes[i].height(), notes->contentBottom + 8));
+        } else annotatedCard_.reset();
+    }
 
-void Canvas::collapseCard(bool revealCard) {
-    const auto box = arrangement_.boxes[expanded_->table];
-    expanded_.reset();
-    if (revealCard && box.bottom() < origin_.y()+12/scale_)
-        origin_.setY(box.top()-12/scale_);
+    if (heights.isEmpty()) expanded_.reset();
+    else {
+        ExpandedLayout next{arrangement_, {}, std::move(notes)};
+        std::map<qreal, qreal> rowGrowth;
+        // Cards with the same baseline share the extra height of the tallest card.
+        for (auto it = heights.cbegin(); it != heights.cend(); ++it) {
+            const auto& base = arrangement_.boxes[it.key()];
+            auto& extra = rowGrowth[base.bottom()];
+            extra = std::max(extra, it.value() - base.height());
+        }
+        qreal cumulative = 0;
+        for (auto& row : rowGrowth) {
+            cumulative += row.second;
+            row.second = cumulative;
+        }
+        const auto offsetAt = [&](qreal y) {
+            const auto nextRow = rowGrowth.upper_bound(y);
+            return nextRow == rowGrowth.begin() ? 0.0 : std::prev(nextRow)->second;
+        };
+        for (int i = 0; i < next.scene.boxes.size(); ++i) {
+            auto& box = next.scene.boxes[i];
+            if (!box.isValid()) continue;
+            box.translate(0, offsetAt(box.top()));
+            box.setHeight(heights.value(i, box.height()));
+        }
+        const auto extendBounds = [&](QRectF& bounds) {
+            if (!bounds.isValid()) return;
+            bounds.setBottom(bounds.bottom() + offsetAt(bounds.bottom()));
+            bounds.setTop(bounds.top() + offsetAt(bounds.top()));
+        };
+        for (auto& group : next.scene.groups) extendBounds(group.bounds);
+        extendBounds(next.scene.bounds);
+        next.index.reset(next.scene);
+        expanded_ = std::move(next);
+    }
+    if (anchor.isValid()) {
+        const auto& box = arrangement().boxes[anchorTable];
+        origin_ += box.topLeft() - anchor.topLeft();
+        if (box.height() < anchor.height() && box.bottom() < origin_.y() + 12 / scale_)
+            origin_.setY(box.top() - 12 / scale_);
+    }
+    routes_.clear();
     update();
     if (annotationStateChanged) annotationStateChanged();
 }
@@ -410,7 +473,7 @@ void Canvas::paintEvent(QPaintEvent*) {
     painter.scale(scale_,scale_);
     painter.translate(-origin_);
     const auto* notes = expanded_ && expanded_->annotations ? &*expanded_->annotations : nullptr;
-    paintDiagram(painter,*project_,*graph_,arrangement(),visible,screen,scale_,selection_,nullptr,notes);
+    paintDiagram(painter,*project_,*graph_,arrangement(),index,routes_,visible,screen,scale_,selection_,nullptr,notes);
 }
 void Canvas::resizeEvent(QResizeEvent* event) {
     QWidget::resizeEvent(event);
@@ -432,7 +495,7 @@ void Canvas::mousePressEvent(QMouseEvent* event) {
     dragged_ = false;
     setCursor(pressedCard_ >= 0 ? Qt::PointingHandCursor : Qt::ClosedHandCursor);
     if (dragging_ >= 0) {
-        draggingStart_ = arrangement_.boxes[dragging_].topLeft();
+        draggingStart_ = arrangement().boxes[dragging_].topLeft();
         select(dragging_,false);
         if (selected) selected(dragging_);
     }
@@ -448,15 +511,14 @@ void Canvas::mouseMoveEvent(QMouseEvent* event) {
         fitted_ = false;
         update();
     } else if (dragging_ >= 0 && dragged_) {
-        if (expanded_) {
-            origin_ += draggingStart_-arrangement().boxes[dragging_].topLeft();
-            collapseCard(false);
-        }
-        auto& box = arrangement_.boxes[dragging_];
+        auto& scene = expanded_ ? expanded_->scene : arrangement_;
+        auto& index = expanded_ ? expanded_->index : index_;
+        auto& box = scene.boxes[dragging_];
         const auto before = box;
         box.moveTopLeft(draggingStart_+(point-anchor_)/scale_);
-        index_.move(dragging_,before,box);
-        arrangement_.bounds |= box;
+        index.move(dragging_,before,box);
+        scene.bounds |= box;
+        routes_.clear();
         update();
     }
     last_ = point;
@@ -479,12 +541,30 @@ void Canvas::mouseReleaseEvent(QMouseEvent* event) {
     }
     if (card >= 0) {
         if (!dragged_ && hitsFieldsLink(card,world(mousePosition(event)))) {
-            const bool allFields = expanded_ && expanded_->table == card && expanded_->allFields;
-            expandCard(card,!allFields,false);
+            const auto id = project_->entities[card].id;
+            if (!expandedFields_.remove(id)) expandedFields_.insert(id);
+            fitted_ = false;
+            rebuildExpandedLayout(card);
         }
         return;
     }
-    if (dragged_ && completed >= 0 && moved) moved(completed,arrangement_.boxes[completed].topLeft());
+    if (dragged_ && completed >= 0) {
+        auto& box = arrangement_.boxes[completed];
+        const bool expandedLayout = expanded_.has_value();
+        if (expanded_) {
+            const auto before = box;
+            box.translate(expanded_->scene.boxes[completed].topLeft() - draggingStart_);
+            index_.move(completed, before, box);
+        }
+        for (auto& group : arrangement_.groups)
+            if (group.members.contains(completed)) {
+                group.bounds |= box;
+                break;
+            }
+        arrangement_.bounds |= box;
+        if (expandedLayout) rebuildExpandedLayout(completed);
+        if (moved) moved(completed,box.topLeft());
+    }
 }
 void Canvas::mouseDoubleClickEvent(QMouseEvent* event) {
     if (event->button() != Qt::LeftButton) return;
@@ -492,8 +572,12 @@ void Canvas::mouseDoubleClickEvent(QMouseEvent* event) {
     pendingOpen_ = i >= 0 && !hitsFieldsLink(i,world(mousePosition(event))) ? i : -1;
 }
 void Canvas::keyPressEvent(QKeyEvent* event) {
-    if (event->key() == Qt::Key_Escape && expanded_) collapseCard();
-    else if (event->key() == Qt::Key_Plus || event->key() == Qt::Key_Equal) zoom(1.25);
+    if (event->key() == Qt::Key_Escape && expanded_ && selection_ >= 0) {
+        const auto id = project_->entities[selection_].id;
+        expandedFields_.remove(id);
+        if (annotatedCard_ == id) annotatedCard_.reset();
+        rebuildExpandedLayout(selection_);
+    } else if (event->key() == Qt::Key_Plus || event->key() == Qt::Key_Equal) zoom(1.25);
     else if (event->key() == Qt::Key_Minus) zoom(.8);
     else if (event->key() == Qt::Key_0) fit();
     else QWidget::keyPressEvent(event);

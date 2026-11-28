@@ -79,6 +79,8 @@ public:
                 outcome.serverVersion=active.db->serverVersion();
                 outcome.detectedVersion=detectVersion(profile.driver,outcome.serverVersion);
                 outcome.attemptedStatements=1;
+                if (options.traceStatements && !cancel->load())
+                    outcome.statementTrace << QueryStatementTrace{0, 0, int(script.size()), queryTraceText(script)};
                 outcome.result=active.db->execute(script,limits,cancel);
                 outcome.results << outcome.result;
                 outcome.executedStatements=1;
@@ -113,7 +115,10 @@ public:
                     outcome.result=active.db->redisPreview(*options.redisKey,limits,cancel);
                     outcome.results << outcome.result;
                 } else {
+                    int sourceEnd = 0;
                     for(const auto& line:script.split('\n')) {
+                        const int sourceBegin = sourceEnd;
+                        sourceEnd = sourceBegin + int(line.size()) + 1;
                         if(cancel->load())break;
                         const auto parsed=parseRedisCommand(line);
                         if(parsed.arguments.isEmpty() && parsed.error.isEmpty())continue;
@@ -122,7 +127,15 @@ public:
                             break;
                         }
                         ++outcome.attemptedStatements;
+                        if (options.traceStatements)
+                            outcome.statementTrace << QueryStatementTrace{outcome.attemptedStatements - 1,
+                                sourceBegin, sourceEnd - 1, queryTraceText(line)};
                         outcome.result=active.db->execute(line,limits,cancel);
+                        if (!parsed.arguments.isEmpty()) {
+                            const auto verb = parsed.arguments.front().toUpper();
+                            if (verb == "SELECT" || verb == "MULTI" || verb == "WATCH")
+                                outcome.sessionContextChanged = true;
+                        }
                         limits.maxBytes-=outcome.result.cachedBytes;
                         outcome.results << outcome.result;
                         ++outcome.executedStatements;
@@ -196,6 +209,8 @@ public:
             }
             else {
                 qint64 remaining=limits.maxBytes;
+                std::size_t previousByte = 0;
+                int previousPosition = 0;
                 for(std::size_t i=0;i<statements.size();++i){outcome.failedStatement=int(i);auto span=statements[i];auto original=sql::statementSource(std::string_view(bytes.constData(),bytes.size()),span,dialect);auto text=QString::fromUtf8(original.data(),int(original.size()));outcome.statements<<text.left(4096);
                     if(cancel->load()){outcome.result.cancelled=true;break;}
                     if(outcome.results.size()>=256 || remaining<128){outcome.result.error="本批结果已达到 256 个结果 / 总缓存上限，剩余语句尚未执行，请分批运行";break;}
@@ -211,7 +226,18 @@ public:
                     if(first=="CREATE")for(auto token:words)if(token.kind==sql::TokenKind::Word){auto raw=text.toUtf8().mid(token.begin,token.end-token.begin).toUpper();if(raw=="TEMP" || raw=="TEMPORARY")outcome.sessionContextChanged=true;}
                     QueryLimits current=limits;current.maxBytes=remaining;QElapsedTimer statementTimer;statementTimer.start();++outcome.attemptedStatements;
                     QueryResult result;
-                    if (const auto* bound = bindings.value(int(i))) {
+                    const auto* bound = bindings.value(int(i));
+                    if (options.traceStatements) {
+                        const int begin = previousPosition + int(QString::fromUtf8(
+                            bytes.constData() + previousByte, int(span.begin - previousByte)).size());
+                        previousPosition = begin + int(text.size());
+                        previousByte = span.begin + original.size();
+                        int leadingSpace = 0;
+                        while (leadingSpace < text.size() && text.at(leadingSpace).isSpace()) ++leadingSpace;
+                        outcome.statementTrace << QueryStatementTrace{int(i), begin + leadingSpace, previousPosition,
+                            queryTraceText(bound ? bound->sql : text)};
+                    }
+                    if (bound) {
                         result = span.compound ? active.db->executeDefinition(bound->sql, current, cancel, bound->values)
                                                : active.db->executeBound(bound->sql, bound->values, current, cancel);
                     } else result = span.compound ? active.db->executeDefinition(text, current, cancel)

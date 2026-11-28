@@ -5,17 +5,17 @@
 #include "source_design.hpp"
 #include "object_management.hpp"
 namespace navidog {
-enum class NodeAction { GenerateSql, Separator, NewConnection, DuplicateConnection, NewGroup, Connect, Disconnect, EditConnection, RenameConnection, MoveConnection, DeleteConnection, RenameGroup, DeleteGroup, OpenDatabase, CloseDatabase, NewDatabase, NewSchema, DropNamespace, NamespaceProperties, EditDatabase, DatabaseConsole, RunDatabaseSqlFile, DumpDatabaseSql, DatabaseDictionary, SearchDatabase, NewQuery, NewTable, AlterTable, Refresh, CopyName, Preview, Definition, FastOpen, RenameTable, DropTable, DeleteRows, TruncateTable, CopyTable, ImportTable, ExportTable, DumpTable, Dictionary, MaintainTable, CopyTableReference, PasteTable, TablePermissions, GenerateTableData, TableModel, TableBI, ShareTable, ManageTableGroup, TableViews, RenameTableGroup, DeleteTableGroup, NewTableChild, EditTableChild, DeleteTableChild, EnableTableChild, DisableTableChild, NewSource, NewSourceList, EditSource, DropSource, DropCascade, CompileObject, RenameObject, ObjectProperties, CallSource, MongoCreateCollection, MongoInsertDocument, MongoCreateIndex, MongoDropIndex, MongoDropCollection };
+enum class NodeAction { GenerateSql, Separator, NewConnection, DuplicateConnection, NewGroup, Connect, Disconnect, EditConnection, RenameConnection, MoveConnection, DeleteConnection, RenameGroup, DeleteGroup, OpenDatabase, CloseDatabase, NewDatabase, NewSchema, DropNamespace, NamespaceProperties, EditDatabase, DatabaseConsole, RunDatabaseSqlFile, DumpDatabaseSql, DatabaseDictionary, SearchDatabase, NewQuery, NewTable, AlterTable, Refresh, CopyName, Preview, Definition, FastOpen, RenameTable, DropTable, DeleteRows, TruncateTable, CopyTable, ImportTable, ExportTable, DumpTable, Dictionary, MaintainTable, CopyTableReference, PasteTable, TablePermissions, GenerateTableData, TableModel, TableBI, ShareTable, ManageTableGroup, TableViews, RenameTableGroup, DeleteTableGroup, NewTableChild, EditTableChild, DeleteTableChild, EnableTableChild, DisableTableChild, NewSource, NewSourceList, EditSource, DropSource, DropCascade, CompileObject, RenameObject, ObjectProperties, CallSource, MongoCreateCollection, MongoInsertDocument, MongoCreateIndex, MongoDropIndex, MongoDropCollection, ImportConnections, ExportConnection };
 inline QVector<NodeAction> nodeActions(const QString& kind,bool opened=false,DatabaseKind driver=DatabaseKind::Unknown) {
     using A=NodeAction;
     const auto details = [&](QVector<A> actions) {
         if (supportsObjectProperties(driver, kind)) actions << A::ObjectProperties;
         return actions;
     };
-    if(kind=="root") return {A::NewConnection,A::NewGroup};
+    if(kind=="root") return {A::NewConnection,A::NewGroup,A::ImportConnections};
     if(kind=="group") return {A::NewConnection,A::NewGroup,A::Separator,A::RenameGroup,A::DeleteGroup};
     if(kind=="connection") {
-        QVector<A> a={opened?A::Disconnect:A::Connect,A::Separator,A::EditConnection,A::NewConnection,A::DeleteConnection,A::DuplicateConnection,A::RenameConnection,A::Separator};
+        QVector<A> a={opened?A::Disconnect:A::Connect,A::Separator,A::EditConnection,A::NewConnection,A::DeleteConnection,A::DuplicateConnection,A::RenameConnection,A::ExportConnection,A::Separator};
         if(supportsNamespace(driver,NamespaceKind::Database))a<<A::NewDatabase;
         if(driver==DatabaseKind::Oracle || driver==DatabaseKind::DuckDb || driver==DatabaseKind::OpenGauss)a<<A::NewSchema;
         a<<A::NewQuery;

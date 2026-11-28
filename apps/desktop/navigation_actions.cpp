@@ -69,6 +69,13 @@ void MainWindow::populateNavigationMenu(QMenu *contextMenu, QTreeWidgetItem *ite
       menu.addAction("新建连接…", this, &MainWindow::addConnection)
           ->setEnabled(idle);
       break;
+    case A::ImportConnections:
+      menu.addAction("导入连接…", connectionController_, &ConnectionController::importConnections);
+      break;
+    case A::ExportConnection:
+      menu.addAction("导出连接…", connectionController_,
+                     [this, id] { connectionController_->exportConnections(id); });
+      break;
     case A::DuplicateConnection:
       menu.addAction("复制连接…", this,
                      [this, id] { connectionController_->duplicate(id); })

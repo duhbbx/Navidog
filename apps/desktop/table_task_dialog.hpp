@@ -2,15 +2,18 @@
 #include "components.hpp"
 #include "navidog/query_service.hpp"
 class QLabel;
+class QFormLayout;
 class SqlReadOnlyView;
 class QTableView;
 class QProgressBar;
 class ResultModel;
 class GenerationRuleModel;
+namespace navidog { struct GenerationConfiguration; }
 class TableTaskDialog final : public navidog::ui::Dialog {
     Q_OBJECT
 public:
-    TableTaskDialog(const navidog::ConnectionProfile&,navidog::TableTask,navidog::QueryService&,QWidget* parent=nullptr);
+    TableTaskDialog(const navidog::ConnectionProfile&,navidog::TableTask,navidog::QueryService&,
+                    QWidget* parent=nullptr, QString configurationStorePath={});
     navidog::TableTask task() const;
     bool succeeded() const {return succeeded_;}
     const navidog::TableTaskResult& outcome() const{return outcome_;}
@@ -39,6 +42,9 @@ private:
     navidog::ui::Select* generationMode_=nullptr;
     navidog::ui::TextInput *generationSize_=nullptr, *generationSeed_=nullptr;
     navidog::ui::PushButton* estimate_=nullptr;
+    QString configurationStorePath_;
+    QWidget* configurationRow_=nullptr;
+    navidog::ui::PushButton *saveConfiguration_=nullptr, *exportConfiguration_=nullptr;
     QLabel* ruleHelp_=nullptr;
     navidog::ui::TextInput *target_,*file_,*confirmation_;
     navidog::ui::NumberInput* rowLimit_;
@@ -52,6 +58,13 @@ private:
     void loadTableMetadata();
     void startTask(bool preview);
     void updateRuleHelp();
+    void addGenerationConfigurationControls(QFormLayout&);
+    navidog::GenerationConfiguration generationConfiguration() const;
+    void applyGenerationConfiguration(const navidog::GenerationConfiguration&);
+    void saveGenerationConfiguration();
+    void selectGenerationConfiguration();
+    void importGenerationConfiguration();
+    void exportGenerationConfiguration();
     void finishRequest(const navidog::TableTaskResult&);
     void showProgress(const navidog::TaskInfo&);
 };
