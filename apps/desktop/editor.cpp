@@ -361,7 +361,8 @@ void SqlEditor::dismissCompletion() {
 }
 
 void SqlEditor::showCompletionList() {
-  const auto area = viewport()->geometry().adjusted(1, 1, -1, -1);
+  const auto viewportBounds = viewport()->geometry();
+  const auto area = viewportBounds.adjusted(1, 1, -1, -1);
   const auto caret = cursorRect().translated(viewport()->pos());
   const int gap = qMax(24, fontMetrics().height() + 12);
   const int rowHeight = qMax(fontMetrics().height(), completionList_->sizeHintForRow(0));
@@ -371,7 +372,10 @@ void SqlEditor::showCompletionList() {
   const int above = caret.top() - gap - area.top();
   const bool showBelow = below >= desiredHeight || below >= above;
   const int height = qMin(desiredHeight, showBelow ? below : above);
-  if (!area.contains(caret.center()) || height < rowHeight + frameHeight) {
+  // With zero document margin Qt can place the scrolled caret just beyond
+  // the horizontal viewport edge. Anchor the popup inside the viewport.
+  const auto caretBounds = viewportBounds.adjusted(-2, 0, 2, 0);
+  if (!caretBounds.intersects(caret) || height < rowHeight + frameHeight) {
     completionList_->hide();
     return;
   }

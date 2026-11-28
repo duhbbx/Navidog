@@ -1537,10 +1537,14 @@ private slots:
         typePunctuation("INSERT INTO owned_users", "(");
         QTRY_VERIFY(popup->isVisible());
         QCOMPARE(popup->model()->rowCount(),2);
+        // With zero document margin the caret can reach the viewport edge
+        // when the editor scrolls horizontally to the newly inserted comma.
+        editor.resize(400, 500);
         typePunctuation("SELECT * FROM owned_users u JOIN owned_users v USING (id", ",");
         QTRY_VERIFY(popup->isVisible());
         QCOMPARE(popup->model()->rowCount(),1);
         QCOMPARE(popup->model()->index(0,0).data().toString(),QString("name"));
+        editor.resize(800, 500);
         QSignalSpy punctuationReady(editor.findChild<SqlCompletionController*>(),&SqlCompletionController::ready);
         typePunctuation("CREATE TABLE own_ref(id int REFERENCES owned_users", "(");
         QTRY_VERIFY(popup->isVisible());
