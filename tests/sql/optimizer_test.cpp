@@ -1,5 +1,6 @@
 #include "navidog/sql/optimizer/optimizer.hpp"
 #include "navidog/sql/optimizer/materialized_view.hpp"
+#include "navidog/sql/optimizer/plan_sql.hpp"
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -186,6 +187,22 @@ void materializedViewMatching() {
 int main() {
   try {
     materializedViewMatching();
+    {
+      const auto dialect = sc::Dialect::PostgreSQL;
+      sc::MemoryCatalog catalog;
+      catalog.tables.push_back({"app", "public", "sales", {{"id", sc::ValueType::Integer}}, true, true});
+      for (const std::string method : {"SYSTEM", "BERNOULLI"}) {
+        const auto sampling = "TABLESAMPLE " + method + " (10.25) REPEATABLE (17)";
+        const auto source = sc::compile(dialect, "SELECT id FROM sales " + sampling,
+                                        {}, &catalog, {"app", "public", dialect});
+        check(source->ok(), "sampling fixture failed to bind");
+        const auto plan = opt::optimize(source->model);
+        check(plan.ok(), "sampling plan failed");
+        const auto output = opt::generatePlanSql(plan.logical, plan.logical.root);
+        check(output.ok() && output.sql.find(sampling) != std::string::npos,
+              "relational SQL changed " + method + " sampling or its repeatable seed");
+      }
+    }
     {
       const auto zero=opt::optimize(parse("SELECT COUNT(*) AS c WHERE FALSE;"));
       check(zero.ok() && zero.best.nodes.at(zero.best.root).kind==opt::PhysicalKind::Values &&

@@ -1,6 +1,7 @@
 #include "navidog/catalog.hpp"
 #include "navidog/metadata_cache.hpp"
 #include "jdbc_catalog.hpp"
+#include "extended_catalog.hpp"
 #include "navidog/sql/compiler/operator_catalog.hpp"
 #include "navidog/query_context.hpp"
 #include "metadata_relation_proofs.hpp"
@@ -37,6 +38,8 @@ QString stableKey(const QString &kind, const QString &schema,
 MetadataSnapshot collectMetadata(Database &db, const ConnectionProfile &p,
                                  const QString &schema,
                                  const Cancellation &cancel, bool searchOnly) {
+  if (usesExtendedCatalog(p.driver))
+    return collectExtendedMetadata(db,p,schema,cancel);
   if (usesJdbcCatalog(p.driver))
     return collectJdbcMetadata(db, p, schema, cancel, searchOnly);
   MetadataSnapshot out;

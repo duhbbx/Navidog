@@ -1,0 +1,41 @@
+case distributed-table valid <<SQL
+CREATE TABLE sales (id INT, amount DECIMAL(12,2))
+ENGINE=OLAP DUPLICATE KEY(id)
+DISTRIBUTED BY HASH(id) BUCKETS 4 PROPERTIES ("replication_num" = "1");
+SQL
+
+case random-auto valid <<SQL
+CREATE TABLE staging (id INT)
+DUPLICATE KEY(id) DISTRIBUTED BY RANDOM BUCKETS AUTO;
+SQL
+
+case invalid-key semantic-error InvalidQueryShape <<SQL
+CREATE TABLE sales (id INT) DUPLICATE KEY(unknown_id) DISTRIBUTED BY HASH(id);
+SQL
+
+case invalid-bucket-count syntax-error <<SQL
+CREATE TABLE sales (id INT) DUPLICATE KEY(id) DISTRIBUTED BY HASH(id) BUCKETS 0;
+SQL
+
+case duplicate-properties syntax-error <<SQL
+CREATE TABLE sales (id INT) PROPERTIES ("replication_num" = "1", "replication_num" = "2");
+SQL
+
+case order-by-clustering-columns valid <<SQL
+CREATE TABLE sales (id INT NOT NULL, amount INT)
+UNIQUE KEY(id) ORDER BY(amount) DISTRIBUTED BY HASH(id) BUCKETS 4;
+SQL
+
+case duplicate-key-with-order semantic-error InvalidQueryShape <<SQL
+CREATE TABLE sales (id INT, amount INT) DUPLICATE KEY(id) ORDER BY(amount)
+DISTRIBUTED BY HASH(id);
+SQL
+
+case key-must-lead-column-definitions semantic-error InvalidQueryShape <<SQL
+CREATE TABLE sales (id INT, amount INT) DUPLICATE KEY(amount) DISTRIBUTED BY HASH(amount);
+SQL
+
+case duplicated-order-column semantic-error InvalidQueryShape <<SQL
+CREATE TABLE sales (id INT, amount INT) UNIQUE KEY(id) ORDER BY(amount, amount)
+DISTRIBUTED BY HASH(id);
+SQL

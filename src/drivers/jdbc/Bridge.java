@@ -201,7 +201,16 @@ public final class Bridge {
         int verification = in.readUnsignedByte();
         if (verification != 0 && verification != DamengTls.VERIFY_MODE)
             throw new IOException("未知 JDBC 传输校验模式");
-        LoadedDriver loaded = loadDriver(new DriverKey(jar, driverClass));
+        LoadedDriver loaded;
+        try {
+            loaded = loadDriver(new DriverKey(jar, driverClass));
+        } catch (ClassNotFoundException error) {
+            // openGauss publishes both the standalone and PostgreSQL-namespaced JARs.
+            String prefix = "jdbc:opengauss:";
+            if (!driverClass.equals("org.opengauss.Driver") || !url.startsWith(prefix)) throw error;
+            loaded = loadDriver(new DriverKey(jar, "org.postgresql.Driver"));
+            url = "jdbc:postgresql:" + url.substring(prefix.length());
+        }
         Connection connection = null;
         try {
             Thread thread = Thread.currentThread();

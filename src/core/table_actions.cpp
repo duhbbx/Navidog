@@ -1,4 +1,6 @@
 #include "navidog/table_actions.hpp"
+#include "navidog/object_management.hpp"
+#include "data_generation_internal.hpp"
 #include "navidog/database.hpp"
 #include "navidog/sql.hpp"
 #include <QFile>
@@ -114,7 +116,7 @@ bool csvRow(QFile& file,QVector<CsvField>& row,const Cancellation& cancel) {
     if(inQuotes)fail("CSV 引号未闭合");if(!started)return false;row<<field;return true;
 }
 QString decode(const QByteArray& bytes){auto text=QString::fromUtf8(bytes);if(text.toUtf8()!=bytes)fail("文件必须为有效 UTF-8 编码");return text;}
-TableTaskResult postgresDump(const ConnectionProfile& p,const TableTask& task,const Cancellation& cancel) {
+TableTaskResult postgresDump(const ConnectionProfile& p,const TableTask& task,const Cancellation& cancel,const TaskProgressCallback& progress) {
     TableTaskResult out;auto db=connectDatabase(p);auto version=db->serverVersion();db.reset();const auto major=version.section('.',0,0).section(' ',0,0);QString executable=QStandardPaths::findExecutable("pg_dump");
 #ifdef Q_OS_MACOS
     {auto candidate=QString("/opt/homebrew/opt/postgresql@%1/bin/pg_dump").arg(major);if(QFileInfo(candidate).isExecutable())executable=candidate;}
@@ -125,7 +127,7 @@ TableTaskResult postgresDump(const ConnectionProfile& p,const TableTask& task,co
     auto connection="host="+escape(p.host)+" port="+QString::number(p.port)+" user="+escape(p.user)+" dbname="+escape(p.database)+" sslmode="+(p.tls?"require":"disable")+" connect_timeout=5";
     QStringList args={"--dbname",connection,"--table",tableQualifiedName(p,task.node),"--no-owner","--no-privileges","--column-inserts","--no-password"};if(!task.withData)args<<"--schema-only";
     QProcess process;auto environment=QProcessEnvironment::systemEnvironment();environment.insert("PGPASSWORD",p.password);environment.insert("PGAPPNAME","Navidog table export");process.setProcessEnvironment(environment);process.start(executable,args);if(!process.waitForStarted(5000))fail(process.errorString());QByteArray errors;
-    auto drain=[&]{while(process.bytesAvailable()>0){auto bytes=process.read(64*1024);if(file.write(bytes)!=bytes.size()){process.kill();process.waitForFinished(2000);fail(file.errorString());}}auto error=process.readAllStandardError();errors=(errors+error).right(64*1024);};
+    auto drain=[&]{while(process.bytesAvailable()>0){auto bytes=process.read(64*1024);if(file.write(bytes)!=bytes.size()){process.kill();process.waitForFinished(2000);fail(file.errorString());}}auto error=process.readAllStandardError();errors=(errors+error).right(64*1024);if(progress)progress({file.pos(),0,TaskUnit::Bytes,"正在转储 SQL"});};
     while(process.state()!=QProcess::NotRunning){if(cancel->load()){process.kill();process.waitForFinished(2000);out.cancelled=true;fail("导出已停止，原文件未覆盖。");}process.waitForReadyRead(100);drain();}drain();
     if(process.exitStatus()!=QProcess::NormalExit || process.exitCode()!=0)fail(QString::fromUtf8(errors));if(cancel->load())fail("导出已停止");if(!file.commit())fail(file.errorString());out.applied=true;out.report="已使用 PostgreSQL 官方 pg_dump 保存完整表脚本。";return out;
 }
@@ -140,8 +142,14 @@ QString tableActionName(A a) {
     switch(a){case A::Rename:return "重命名表";case A::Drop:return "删除表";case A::DeleteRows:return "清空表";case A::Truncate:return "截断表";case A::CopyStructure:return "复制表（仅结构）";case A::CopyData:return "复制表（结构和数据）";case A::CountRows:return "获取行的总数";case A::Analyze:return "分析表";case A::Check:return "检查表";case A::Optimize:return "优化表";case A::Repair:return "修复表";case A::ExportCsv:return "导出向导";case A::ExportSql:return "转储 SQL 文件";case A::Dictionary:return "数据字典";case A::ImportCsv:return "导入向导";case A::GenerateData:return "数据生成";case A::GrantPrivileges:return "设置权限";case A::TablePrivileges:return "查看权限";case A::ReverseModel:return "逆向表到模型";case A::BuildBI:return "创建 BI 工作区";}return {};
 }
 bool tableActionWrites(A a){return a==A::Rename || a==A::Drop || a==A::DeleteRows || a==A::Truncate || a==A::CopyData || a==A::CopyStructure || a==A::ImportCsv || a==A::Analyze || a==A::Optimize || a==A::Repair || a==A::GenerateData || a==A::GrantPrivileges;}
+bool tableActionRunsInBackground(A action) {
+    return action == A::ImportCsv || action == A::ExportCsv || action == A::ExportSql ||
+           action == A::GenerateData || action == A::Dictionary;
+}
 bool supportsTableAction(K k,A a) {
     if(k==K::Unknown)return false;
+    if(a==A::GenerateData)
+        return k==K::SQLite || usesNativePostgres(k) || mysql(k) || k==K::Oracle || k==K::SQLServer;
     if(a==A::GrantPrivileges || a==A::TablePrivileges)return k!=K::SQLite;
     if(a==A::CopyData || a==A::CopyStructure)return k==K::SQLite || navidog::usesNativePostgres(k) || mysql(k);
     if(a==A::ExportSql)return k==K::SQLite || navidog::usesNativePostgres(k) || k==K::Oracle || mysql(k);
@@ -153,8 +161,11 @@ bool supportsTableAction(K k,A a) {
 QString tableTaskSql(const ConnectionProfile& p,const TableTask& task) {
     if(task.node.kind!="table" || task.node.object.isEmpty())fail("请选择具体的表");
     if(!supportsTableAction(p.driver,task.action))fail("此数据库尚未接通该操作");
-    if(tableActionWrites(task.action) && p.readOnly)fail("只读连接不能执行此操作");
-    if((p.driver==K::SQLite && task.node.object.startsWith("sqlite_",Qt::CaseInsensitive)) || task.node.schema=="information_schema" || task.node.schema=="pg_catalog" || (navidog::usesNativePostgres(p.driver) && task.node.schema.startsWith("pg_")) || (p.driver==K::Oracle && (task.node.schema=="SYS" || task.node.schema=="SYSTEM")) || task.node.schema=="sys" || (mysql(p.driver) && QStringList{"mysql","sys","information_schema","performance_schema","oceanbase"}.contains(task.node.database,Qt::CaseInsensitive))) {if(tableActionWrites(task.action))fail("不能通过此菜单修改系统表");}
+    const bool preview = task.action == A::GenerateData && task.generation.preview;
+    if(tableActionWrites(task.action) && p.readOnly && !preview)fail("只读连接不能执行此操作");
+    if(task.action == A::GenerateData && !preview && p.http.enabled)
+        fail("HTTP 隧道不支持整批写入事务，请使用直连或 SSH");
+    if((p.driver==K::SQLite && task.node.object.startsWith("sqlite_",Qt::CaseInsensitive)) || task.node.schema=="information_schema" || task.node.schema=="pg_catalog" || (navidog::usesNativePostgres(p.driver) && task.node.schema.startsWith("pg_")) || (p.driver==K::Oracle && (task.node.schema=="SYS" || task.node.schema=="SYSTEM")) || task.node.schema=="sys" || (mysql(p.driver) && QStringList{"mysql","sys","information_schema","performance_schema","oceanbase"}.contains(task.node.database,Qt::CaseInsensitive))) {if(tableActionWrites(task.action) && !preview)fail("不能通过此菜单修改系统表");}
     const auto table=tableQualifiedName(p,task.node);const auto k=p.driver;
     switch(task.action) {
     case A::GrantPrivileges:{
@@ -170,7 +181,9 @@ QString tableTaskSql(const ConnectionProfile& p,const TableTask& task) {
     case A::BuildBI:{validName(task.dimension,k);auto q=quoteIdentifier(task.dimension,k);auto sql=QString(k==K::SQLServer?"SELECT TOP (20) ":"SELECT ")+q+" AS category, COUNT(*) AS value FROM "+table+" GROUP BY "+q+" ORDER BY value DESC";return sql+(k==K::Oracle?" FETCH FIRST 20 ROWS ONLY":k==K::SQLServer?"":" LIMIT 20");}
     case A::GenerateData:case A::ReverseModel:return {};
     case A::Rename:{validName(task.targetName,k);auto target=task.node;target.object=task.targetName;if(mysql(k))return "RENAME TABLE "+table+" TO "+tableQualifiedName(p,target);if(k==K::SQLServer)return "EXEC sp_rename "+literal(table,k)+", "+literal(task.targetName,k)+", 'OBJECT'";return "ALTER TABLE "+table+" RENAME TO "+quoteIdentifier(task.targetName,k);}
-    case A::Drop:return "DROP TABLE "+table;
+    case A::Drop:
+        return task.cascade ? catalogObjectChangeSql(p, task.node, CatalogObjectChange::DropCascade)
+                            : "DROP TABLE "+table;
     case A::DeleteRows:return "DELETE FROM "+table;
     case A::Truncate:return k==K::SQLite?"DELETE FROM "+table:"TRUNCATE TABLE "+table+(navidog::usesNativePostgres(k)?" RESTART IDENTITY":"");
     case A::CountRows:return QString(k==K::SQLServer?"SELECT COUNT_BIG(*) AS row_count FROM ":"SELECT COUNT(*) AS row_count FROM ")+table;
@@ -186,11 +199,19 @@ QString tableTaskSql(const ConnectionProfile& p,const TableTask& task) {
     default:return {};
     }
 }
-TableTaskResult runTableTask(const ConnectionProfile& p,const TableTask& task,const Cancellation& cancel) {
+TableTaskResult runTableTask(const ConnectionProfile& p,const TableTask& task,const Cancellation& cancel,
+                             const GenerationProgress& progress, const TaskProgressCallback& backgroundProgress) {
     TableTaskResult out;std::unique_ptr<Database> db;bool transaction=false,created=false,committing=false,irreversibleStarted=false;CatalogNode destination=task.node;destination.object=destination.name=task.targetName;
     const auto a=task.action;
     try {
-        auto sql=tableTaskSql(p,task);if(cancel->load())fail("操作已停止");if(a==A::ExportSql && navidog::usesNativePostgres(p.driver))return postgresDump(p,task,cancel);db=connectDatabase(p);
+        auto sql=tableTaskSql(p,task);
+        if (cancel->load()) fail("操作已停止");
+        if (a == A::ExportSql && navidog::usesNativePostgres(p.driver)) return postgresDump(p,task,cancel,backgroundProgress);
+        auto connection = p;
+        // Generation opens an isolated session. Profile startup SQL must not
+        // run outside its transaction or introduce writes while estimating.
+        if (a == A::GenerateData) connection.advanced.initialSql.clear();
+        db = connectDatabase(connection);
         auto run=[&](const QString& statement){return checked(*db,statement,cancel);};
         auto begin=[&]{if(p.driver==K::Oracle){transaction=true;return;}run(mysql(p.driver)?"START TRANSACTION":p.driver==K::SQLServer?"BEGIN TRANSACTION":"BEGIN");transaction=true;};
         auto commit=[&]{if(transaction){committing=true;run("COMMIT");transaction=false;committing=false;}};
@@ -206,22 +227,36 @@ TableTaskResult runTableTask(const ConnectionProfile& p,const TableTask& task,co
             for(auto row:run(refSql).rows)refs<<QJsonObject{{"table",row[0].toString()},{"detail",row[1].toString()}};
             auto folder=task.node;folder.kind="indexes";auto catalog=loadCatalog(*db,p,folder,cancel);if(!catalog.error.isEmpty() || catalog.truncated)fail("索引元数据未完整读取："+catalog.error);for(auto n:catalog.nodes)indexes<<n.name;
             out.document={{"table",tableQualifiedName(p,task.node)},{"columns",columns},{"references",refs},{"indexes",indexes}};out.applied=true;out.report="已读取表结构、索引及外键关系。";
-        }else if(a==A::GenerateData) {
-            if(task.maxRows<1 || task.maxRows>1000000)fail("生成行数无效");auto schema=readTableDefinition(*db,p,task.node,cancel,false);
-            QSet<QString> known;for(auto c:schema.columns)known.insert(c.name);for(auto it=task.generationRules.begin();it!=task.generationRules.end();++it)if(!known.contains(it.key()))fail("生成规则字段不存在");
-            if(mysql(p.driver)){auto engine=run("SELECT engine FROM information_schema.tables WHERE table_schema="+literal(task.node.database,p.driver)+" AND table_name="+literal(task.node.object,p.driver));if(engine.rows.isEmpty() || engine.rows[0][0].toString().compare("InnoDB",Qt::CaseInsensitive))fail("整批数据生成目前要求 InnoDB 事务表");}
-            begin();
-            for(int row=0;row<task.maxRows;++row){QStringList names,values;
-                for(auto c:schema.columns){auto rule=task.generationRules.value(c.name).toObject();auto kind=rule.value("kind").toString("default");if(kind=="default")continue;if(!c.generatedExpression.isEmpty() || c.protectedReason.contains("生成") || c.protectedReason.contains("标识"))fail("生成 / 标识字段须使用默认值："+c.name);names<<quoteIdentifier(c.name,p.driver);QVariant value;auto text=rule.value("value").toString();
-                    if(kind=="sequence"){bool ok=false;auto start=text.toLongLong(&ok);if(!ok || start>std::numeric_limits<qlonglong>::max()-row)fail("递增起始值无效或溢出");value=QVariant::fromValue<qlonglong>(start+row);}
-                    else if(kind=="series")value=text+QString::number(row+1);else if(kind=="constant")value=text;else if(kind!="null")fail("生成规则无效");values<<literal(value,p.driver);
+        } else if (a == A::GenerateData) {
+            if (!task.generation.preview) {
+                if (p.driver == K::SQLite) {
+                    run("BEGIN IMMEDIATE");
+                    transaction = true;
+                } else {
+                    if (mysql(p.driver)) {
+                        run("SET SESSION foreign_key_checks = 1");
+                        run("SET SESSION time_zone = '+00:00'");
+                    }
+                    if (p.driver == K::MySQL || p.driver == K::MariaDB)
+                        run("SET SESSION sql_mode = IF(FIND_IN_SET('STRICT_ALL_TABLES', @@sql_mode),"
+                            "@@sql_mode, CONCAT_WS(',', NULLIF(@@sql_mode,''), 'STRICT_ALL_TABLES'))");
+                    if (p.driver == K::MariaDB) run("SET SESSION check_constraint_checks = 1");
+                    begin();
                 }
-                QString insert="INSERT INTO "+tableQualifiedName(p,task.node);
-                if(names.isEmpty()){if(mysql(p.driver))insert+=" () VALUES ()";else if(p.driver==K::Oracle)fail("Oracle 请选择至少一个可写字段的生成规则");else insert+=" DEFAULT VALUES";}
-                else insert+=" ("+names.join(", ")+") VALUES ("+values.join(", ")+")";
-                run(insert);++out.rows;
             }
-            commit();out.applied=true;out.report=QString("已生成 %1 行；全部写入已提交。").arg(out.rows);
+            if (backgroundProgress) backgroundProgress({0, 0, TaskUnit::Rows, "正在校验字段规则与外键"});
+            generation::generateTable(*db, p, task, cancel, out, [&](qint64 done, qint64 total) {
+                if (progress) progress(done, total);
+                if (backgroundProgress)
+                    backgroundProgress({done, total, TaskUnit::Rows,
+                                        done == total ? "正在提交事务" : "正在生成并写入"});
+            }, literal);
+            if (!task.generation.preview) {
+                if (cancel->load()) fail("操作已停止");
+                commit();
+                out.applied = true;
+                out.report = QString("已生成 %1 行，整批写入已提交。").arg(out.rows);
+            }
         }else if(a==A::CopyStructure || a==A::CopyData) {
             if(p.driver==K::SQLite || navidog::usesNativePostgres(p.driver))begin();
             const auto scripts=definition(*db,p,task.node,cancel,task.targetName);for(const auto& s:scripts){if(!transaction)irreversibleStarted=true;run(s);created=true;}
@@ -243,6 +278,7 @@ TableTaskResult runTableTask(const ConnectionProfile& p,const TableTask& task,co
         }else if(a==A::ExportCsv || a==A::ExportSql || a==A::Dictionary) {
             if(task.path.isEmpty())fail("请选择输出文件");
             if(p.driver==K::SQLite){auto source=QFileInfo(p.database).canonicalFilePath();QFileInfo outputInfo(task.path);auto destination=outputInfo.exists()?outputInfo.canonicalFilePath():QFileInfo(outputInfo.absolutePath()).canonicalFilePath()+"/"+outputInfo.fileName();if(destination==source || destination==source+"-wal" || destination==source+"-shm" || destination==source+"-journal")fail("输出文件不能覆盖源数据库或其日志文件。");}
+            if (backgroundProgress) backgroundProgress({0, 0, TaskUnit::Rows, "正在读取表定义"});
             QSaveFile output(task.path);if(!output.open(QIODevice::WriteOnly))fail(output.errorString());auto write=[&](const QByteArray& bytes){if(cancel->load())fail("操作已停止");if(output.write(bytes)!=bytes.size())fail(output.errorString());};
             if(navidog::usesNativePostgres(p.driver)){run("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");transaction=true;}
             else if(mysql(p.driver)){run("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ");run("START TRANSACTION WITH CONSISTENT SNAPSHOT");transaction=true;}
@@ -252,7 +288,11 @@ TableTaskResult runTableTask(const ConnectionProfile& p,const TableTask& task,co
             if(a==A::Dictionary) {
                 auto escape=[](QString s){s.replace("|","\\|");s.replace('\n'," ");return s;};
                 write(("# "+task.node.object+"\n\n| 字段 | 类型 | 允许 NULL | 主键顺序 | 默认值 |\n| --- | --- | --- | --- | --- |\n").toUtf8());
-                for(auto c:schema.columns)write(("| "+escape(c.name)+" | "+escape(c.type)+" | "+(c.nullable?"是":"否")+" | "+QString::number(c.primaryKey)+" | "+escape(c.defaultExpression)+" |\n").toUtf8());
+                qint64 done = 0;
+                for (const auto& c : schema.columns) {
+                    write(("| "+escape(c.name)+" | "+escape(c.type)+" | "+(c.nullable?"是":"否")+" | "+QString::number(c.primaryKey)+" | "+escape(c.defaultExpression)+" |\n").toUtf8());
+                    if (backgroundProgress) backgroundProgress({++done, schema.columns.size(), TaskUnit::Items, "正在导出字段"});
+                }
             }else {
                 if(a==A::ExportSql){write("-- Navidog table export; triggers and grants are not included.\n");for(auto s:definition(*db,p,task.node,cancel))write((s+";\n").toUtf8());}
                 qint64 offset=0;bool header=false;
@@ -265,12 +305,16 @@ TableTaskResult runTableTask(const ConnectionProfile& p,const TableTask& task,co
                         else {QStringList values,insertNames;for(int col=0;col<row.size();++col){auto c=std::find_if(schema.columns.begin(),schema.columns.end(),[&](const auto& c){return c.name==page.columns[col];});if(c!=schema.columns.end() && (!c->generatedExpression.isEmpty() || c->protectedReason.contains("生成")))continue;values<<literal(row[col],p.driver);insertNames<<names[col];}if(values.isEmpty())fail("没有可写入脚本的字段");line=("INSERT INTO "+tableQualifiedName(p,task.node)+" ("+insertNames.join(", ")+") VALUES ("+values.join(", ")+");\n").toUtf8();}
                         write(line);++out.rows;
                     }
+                    if (backgroundProgress) backgroundProgress({out.rows, 0, TaskUnit::Rows, "正在导出数据"});
                     offset+=page.rows.size();if(page.rows.size()<250)break;
                 }
             }
-            commit();if(!output.commit())fail(output.errorString());out.report=QString("已保存 %1 行到 %2").arg(out.rows).arg(task.path);out.applied=true;
+            commit();if(cancel->load())fail("导出已停止");if(!output.commit())fail(output.errorString());out.report=QString("已保存 %1 行到 %2").arg(out.rows).arg(task.path);out.applied=true;
         }else if(a==A::ImportCsv) {
-            QFile file(task.path);if(!file.open(QIODevice::ReadOnly))fail(file.errorString());if(file.peek(3)==QByteArray::fromHex("efbbbf"))file.read(3);QVector<CsvField> row;if(!csvRow(file,row,cancel))fail("CSV 文件为空");
+            QFile file(task.path);if(!file.open(QIODevice::ReadOnly))fail(file.errorString());
+            const auto sourceBytes = file.size();
+            if (backgroundProgress) backgroundProgress({0, sourceBytes, TaskUnit::Bytes, "正在读取 CSV"});
+            if(file.peek(3)==QByteArray::fromHex("efbbbf"))file.read(3);QVector<CsvField> row;if(!csvRow(file,row,cancel))fail("CSV 文件为空");
             auto schema=readTableDefinition(*db,p,task.node,cancel,false);QVector<TableColumn> columns;QSet<QString> seen;QStringList names;
             for(auto f:row) {auto name=decode(f.value);if(seen.contains(name))fail("CSV 表头重复");seen.insert(name);auto found=std::find_if(schema.columns.begin(),schema.columns.end(),[&](auto c){return c.name==name;});if(found==schema.columns.end())fail("CSV 字段不在目标表中："+name);columns<<*found;names<<quoteIdentifier(name,p.driver);}
             if(mysql(p.driver)) {auto engine=run("SELECT engine FROM information_schema.tables WHERE table_schema="+literal(task.node.database,p.driver)+" AND table_name="+literal(task.node.object,p.driver));if(engine.rows.isEmpty() || engine.rows[0][0].toString().compare("InnoDB",Qt::CaseInsensitive))fail("CSV 整批导入目前要求 InnoDB 事务表");}
@@ -287,7 +331,10 @@ TableTaskResult runTableTask(const ConnectionProfile& p,const TableTask& task,co
                     values<<literal(value,p.driver);
                 }
                 run("INSERT INTO "+tableQualifiedName(p,task.node)+" ("+names.join(", ")+")"+(navidog::usesNativePostgres(p.driver)?" OVERRIDING SYSTEM VALUE":"")+" VALUES ("+values.join(", ")+")");++out.rows;
+                if (backgroundProgress && out.rows % 50 == 0)
+                    backgroundProgress({file.pos(), sourceBytes, TaskUnit::Bytes, "正在导入数据"});
             }
+            if (backgroundProgress) backgroundProgress({file.pos(), sourceBytes, TaskUnit::Bytes, "正在提交事务"});
             commit();out.applied=true;out.report=QString("已追加导入 %1 行").arg(out.rows);
         }else {
             if(a==A::DeleteRows){bool transactional=true;if(mysql(p.driver)){auto engine=run("SELECT engine FROM information_schema.tables WHERE table_schema="+literal(task.node.database,p.driver)+" AND table_name="+literal(task.node.object,p.driver));transactional=!engine.rows.isEmpty() && engine.rows[0][0].toString().compare("InnoDB",Qt::CaseInsensitive)==0;}if(transactional)begin();}

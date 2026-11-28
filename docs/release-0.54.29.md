@@ -1,0 +1,8 @@
+# Navidog 0.54.29
+
+- The table context menu opens a data generator with per-column rules for sequences, names, regular expressions, numeric and temporal values, and weighted categories. Set a seed to repeat random draws.
+- Numeric and temporal ranges can use uniform, low-skew, high-skew, or bell-shaped distributions. For example, enter `18..35@70;36..59@25;60..80@5` for age or `A@70;B@30` for a category. An entire date range can also use weighted hour intervals such as `0..5@80;6..23@20`. Temporal generation uses UTC.
+- The regular-expression generator supports literals, character classes and ranges, alternation, groups, and bounded repetition. For example, `[A-Z]{2}-[0-9]{4}` produces codes such as `QA-0472`. Lookarounds, backreferences, and other unsupported constructs are reported when validating a rule.
+- Existing parent keys can be sampled automatically. Composite foreign keys use the complete tuple from one parent row. The preview reports empty parent pools. Generation respects declared types and character sets, common integer checks, and supported unique keys. The database enforces the remaining constraints and checks existing values during the insert.
+- Preview generates a bounded sample without inserting rows. Enter a row total such as `100,000,000,000,000` to estimate capacity, or a capacity such as `1.5 TiB` to estimate rows. Estimates include encoded text and common indexes. Actual page usage, compression, and transaction logs vary.
+- Writes stream in bounded batches on a background connection. One operation can insert up to one million rows, with progress and cancellation. The operation rolls back on a rejected batch. Automated live database tests cover SQLite, PostgreSQL, and MySQL.

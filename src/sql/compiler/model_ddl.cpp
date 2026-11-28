@@ -203,6 +203,22 @@ ModelDdl lowerDdl(const Compilation &c, const DdlSyntax &in,
   out.mysqlViewOptions = in.mysqlViewOptions;
   out.mysqlLoadableFunction = in.mysqlLoadableFunction;
   out.tableComment = in.tableComment;
+  out.tabletCount = in.tabletCount;
+  if (in.olap) {
+    const auto &source = *in.olap;
+    auto &layout = out.olap.emplace();
+    layout.key = source.key;
+    layout.distribution = source.distribution;
+    layout.buckets = source.buckets;
+    layout.automaticBuckets = source.automaticBuckets;
+    layout.properties = source.properties;
+    layout.keyOrigin = source.keyOrigin;
+    layout.distributionOrigin = source.distributionOrigin;
+    layout.sortOrigin = source.sortOrigin;
+    for (auto column : source.keyColumns) layout.keyColumns.push_back(name(column));
+    for (auto column : source.distributionColumns) layout.distributionColumns.push_back(name(column));
+    for (auto column : source.sortColumns) layout.sortColumns.push_back(name(column));
+  }
   out.distribution = in.distribution;
   out.indexScope = in.indexScope;
   if (in.partition) {

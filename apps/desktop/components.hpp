@@ -96,8 +96,8 @@ bool showNativeContextMenu(QMenu*,QWidget*,const QPoint&);
 inline QIcon objectIcon(const QString& kind) {
     QPixmap pixmap(64,64);pixmap.fill(Qt::transparent);QPainter p(&pixmap);p.setRenderHint(QPainter::Antialiasing);p.scale(2,2);
     const QColor blue("#329bd5"),green("#45a475"),orange("#dd9363"),ink("#607789");
-    if(kind=="table" || kind=="tables" || kind=="view" || kind=="views" || kind=="newTable" || kind=="alterTable") {
-        auto color=kind.contains("view")?orange:blue;p.setPen(Qt::NoPen);p.setBrush(color.lighter(155));p.drawRoundedRect(QRectF(3,5,26,23),3,3);p.setBrush(color);p.drawRoundedRect(QRectF(3,5,26,8),3,3);p.drawRect(QRectF(3,9,26,4));p.setPen(QPen(Qt::white,1));for(int x:{12,21})p.drawLine(x,14,x,27);p.drawLine(4,20,28,20);
+    if(kind=="table" || kind=="tables" || kind=="view" || kind=="views" || kind=="materializedView" || kind=="materializedViews" || kind=="newTable" || kind=="alterTable") {
+        auto color=kind.contains("view",Qt::CaseInsensitive)?orange:blue;p.setPen(Qt::NoPen);p.setBrush(color.lighter(155));p.drawRoundedRect(QRectF(3,5,26,23),3,3);p.setBrush(color);p.drawRoundedRect(QRectF(3,5,26,8),3,3);p.drawRect(QRectF(3,9,26,4));p.setPen(QPen(Qt::white,1));for(int x:{12,21})p.drawLine(x,14,x,27);p.drawLine(4,20,28,20);
         if(kind=="newTable"){p.setPen(QPen(green,3));p.drawLine(25,20,25,30);p.drawLine(20,25,30,25);}else if(kind=="alterTable"){p.setPen(QPen(orange.darker(130),3));p.drawLine(20,28,29,19);}
     } else if(kind=="functions" || kind=="function") {p.setPen(blue);p.setFont(QFont("Georgia",21,QFont::Normal,true));p.drawText(QRectF(1,1,31,29),Qt::AlignCenter,"ƒ");}
     else if(kind=="procedures" || kind=="procedure"){p.setPen(QPen(ink,2));p.setBrush(orange.lighter(145));p.drawRoundedRect(QRectF(6,3,20,26),2,2);for(int y:{10,16,22})p.drawLine(10,y,22,y);}

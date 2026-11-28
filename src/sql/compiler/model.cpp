@@ -707,6 +707,8 @@ public:
       out.alias = t.alias ? identifier(c, *t.alias) : "";
       out.inheritance = t.inheritance;
       out.sampling = t.sampling;
+      out.finalRead = t.finalRead;
+      out.clickHouseSampling = t.clickHouseSampling;
       out.postgresFunction=t.postgresFunction;
       out.inferredFunctionAlias=t.inferredFunctionAlias;
       if(t.postgresFunction!=PostgresRowFunction::None)
@@ -832,6 +834,16 @@ public:
       for (auto key : window.keys)
         out.keys.push_back(ids.at(key));
       m.namedWindows.push_back(std::move(out));
+    }
+    m.prewhere = ids[s.prewhere];
+    m.qualify = ids[s.qualify];
+    m.systemTime = ids[s.systemTime];
+    m.groupByAll = s.groupByAll;
+    if (s.limitBy) {
+      m.limitBy = *s.limitBy;
+      m.limitBy->count = ids.at(m.limitBy->count);
+      m.limitBy->offset = ids.at(m.limitBy->offset);
+      for (auto &key : m.limitBy->keys) key = ids.at(key);
     }
     m.where = ids[s.where];
     m.having = ids[s.having];
@@ -1254,7 +1266,16 @@ public:
     for (const auto &window : m.namedWindows)
       for (auto key : window.keys)
         bind(m, key, visible, false, ctes, outer, pendingQueries, visibleShape);
+    bind(m, m.prewhere, visible, false, ctes, outer, pendingQueries, visibleShape);
     bind(m, m.where, visible, false, ctes, outer, pendingQueries, visibleShape);
+    bind(m, m.qualify, visible, true, ctes, outer, pendingQueries, visibleShape);
+    bind(m, m.systemTime, {}, false, ctes, {}, pendingQueries, std::make_shared<const Shape>());
+    if (m.limitBy) {
+      bind(m, m.limitBy->count, {}, false, ctes, {}, pendingQueries, std::make_shared<const Shape>());
+      bind(m, m.limitBy->offset, {}, false, ctes, {}, pendingQueries, std::make_shared<const Shape>());
+      for (auto key : m.limitBy->keys)
+        bind(m, key, visible, true, ctes, outer, pendingQueries, visibleShape);
+    }
     const bool mysqlAliases = isMySqlDialect(c.dialect);
     const bool expressionAliases = mysqlAliases || c.dialect == Dialect::SQLite;
     const bool starOutput = std::any_of(
@@ -1887,6 +1908,14 @@ private:
       work.push_back(declaration.initializer);
       for(const auto &parameter:declaration.parameters)work.push_back(parameter.defaultValue);
     }
+    work.push_back(s.prewhere);
+    work.push_back(s.qualify);
+    work.push_back(s.systemTime);
+    if (s.limitBy) {
+      work.push_back(s.limitBy->count);
+      work.push_back(s.limitBy->offset);
+      work.insert(work.end(), s.limitBy->keys.begin(), s.limitBy->keys.end());
+    }
     work.push_back(s.where);
     work.push_back(s.having);
     work.push_back(s.limit.count);
@@ -2488,7 +2517,7 @@ private:
         [](const auto &r) { return r.join == JoinKind::Left || r.join == JoinKind::Right ||
                                    r.join == JoinKind::Full; });
     if (references != 1 || member.distinct || member.having ||
-        !member.groupBy.empty() || features->aggregate || features->window ||
+        !member.groupBy.empty() || member.groupByAll || features->aggregate || features->window ||
         outerJoin || !member.orderBy.empty() || member.limit || member.offset ||
         !syntax.orderBy.empty() || syntax.limit.count || syntax.limit.offset)
       c.report(DiagnosticCode::UnsupportedSyntax, member.origin,

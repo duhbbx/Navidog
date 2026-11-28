@@ -139,7 +139,8 @@ void logical(std::ostream &out, const LogicalPlan &p) {
       out << ",\"scanSource\":" << json(source);
     }
     if (n.sampling) {
-      out << ",\"sampling\":{\"method\":\"bernoulli\",\"percent\":"
+      out << ",\"sampling\":{\"method\":\"" << compiler::tableSamplingMethodName(n.sampling->method)
+          << "\",\"percent\":"
           << compiler::tableSamplePercent(n.sampling->milliPercent);
       if (n.sampling->repeatable) out << ",\"repeatable\":" << *n.sampling->repeatable;
       out << '}';

@@ -1,10 +1,13 @@
 #include "query_session_controller.hpp"
 #include "connection_controller.hpp"
 #include "query_pane.hpp"
+#include "query_parameter_dialog.hpp"
 #include "navidog/operation_timing.hpp"
 #include "navidog/query_service.hpp"
 
 #include <QMessageBox>
+#include <QRunnable>
+#include <QScopeGuard>
 #include <QTabWidget>
 #include <algorithm>
 #include <utility>
@@ -15,6 +18,7 @@ QuerySessionController::QuerySessionController(
     WorkspaceAccess workspace, QWidget *owner)
     : QObject(owner), service_(service), connections_(connections), profiles_(profiles),
       tabs_(tabs), workspace_(std::move(workspace)), owner_(owner) {
+    parameterChecks_.setMaxThreadCount(2);
     connect(&service_, &navidog::QueryService::completed,
             this, &QuerySessionController::complete);
 }
@@ -68,6 +72,88 @@ void QuerySessionController::analyzeEditor(QueryPane &pane) {
 
 void QuerySessionController::submit(QueryPane &pane, const QString &sql, Mode mode,
                                     navidog::TransactionAction action) {
+    if (pane.executing || pane.property("bindingQueryParameters").toBool()) {
+        emit statusChanged("此标签正在准备或执行查询");
+        return;
+    }
+    const auto* profile = profileFor(pane.profileId);
+    if (!profile || mode == Mode::Analyze || action != navidog::TransactionAction::None ||
+        !navidog::mayHaveQueryParameters(profile->driver, sql) || workspace_.closingTabs() ||
+        pane.property("closingWorkspace").toBool() || service_.operationBusy()) {
+        dispatch(pane, sql, mode, action);
+        return;
+    }
+    const auto id = pane.profileId;
+    const auto session = pane.sessionId;
+    const auto database = pane.database;
+    const auto schema = pane.schema;
+    const auto kind = profile->driver;
+    const auto catalogDatabase = database.isEmpty() ? profile->database : database;
+    auto metadata = workspace_.metadata ? workspace_.metadata(*profile, pane) : navidog::MetadataSnapshotPtr{};
+    const QPointer<QueryPane> guarded(&pane);
+    pane.setProperty("bindingQueryParameters", true);
+    emit statusChanged("正在检查 SQL 参数…");
+    parameterChecks_.start(QRunnable::create([this, guarded, sql, id, session, database, schema,
+                                              kind, catalogDatabase, metadata, mode, action] {
+        navidog::QueryParameterPlan plan;
+        QString error;
+        try {
+            plan = navidog::inspectQueryParameters(kind, sql, catalogDatabase, schema, metadata);
+        } catch (const std::exception& failure) {
+            error = QString::fromUtf8(failure.what());
+        }
+        QMetaObject::invokeMethod(this, [this, guarded, sql, id, session, database, schema, kind, mode, action,
+                                        plan = std::move(plan), error] {
+            if (!guarded) return;
+            const auto reset = qScopeGuard([guarded] {
+                if (guarded) guarded->setProperty("bindingQueryParameters", false);
+            });
+            const auto valid = [&] {
+                if (!guarded || workspace_.closingTabs() || guarded->property("closingWorkspace").toBool())
+                    return false;
+                const auto* activeProfile = profileFor(id);
+                return activeProfile && activeProfile->driver == kind && guarded->profileId == id &&
+                    guarded->sessionId == session && guarded->database == database && guarded->schema == schema;
+            };
+            if (!valid()) {
+                emit statusChanged("查询上下文已变化，请重新运行");
+                return;
+            }
+            if (!error.isEmpty()) {
+                emit statusChanged("SQL 参数检查失败");
+                emit errorOccurred("无法准备 SQL 参数", error);
+                return;
+            }
+            QVector<navidog::BoundQueryStatement> bindings;
+            if (!plan.parameters.isEmpty()) {
+                if (mode == Mode::Explain && plan.statements.size() != 1) {
+                    emit errorOccurred("无法查看执行计划", "请选择一条语句再查看执行计划");
+                    return;
+                }
+                const auto values = navidog::ui::promptQueryParameters(owner_, plan.parameters);
+                if (!values) {
+                    emit statusChanged("已取消 SQL 执行");
+                    return;
+                }
+                if (!valid()) {
+                    emit statusChanged("查询上下文已变化，请重新运行");
+                    return;
+                }
+                try {
+                    bindings = navidog::bindQueryParameters(plan, *values);
+                } catch (const std::exception& failure) {
+                    emit errorOccurred("无法绑定 SQL 参数", QString::fromUtf8(failure.what()));
+                    return;
+                }
+            }
+            dispatch(*guarded, sql, mode, action, std::move(bindings));
+        }, Qt::QueuedConnection);
+    }));
+}
+
+void QuerySessionController::dispatch(QueryPane &pane, const QString &sql, Mode mode,
+                                      navidog::TransactionAction action,
+                                      QVector<navidog::BoundQueryStatement> bindings) {
     if (workspace_.closingTabs() || pane.property("closingWorkspace").toBool()) {
         emit statusChanged("正在处理标签关闭，请稍后执行");
         return;
@@ -89,14 +175,22 @@ void QuerySessionController::submit(QueryPane &pane, const QString &sql, Mode mo
     const bool analyzeOnly = mode == Mode::Analyze;
     const QPointer<QueryPane> alive(&pane);
     auto target = *profile;
+    const auto originalDriver = target.driver;
+    const auto originalDatabase = pane.database;
+    const auto originalSchema = pane.schema;
     if (!analyzeOnly) {
         const auto authenticated = connections_.authenticatedProfile(id);
         if (!authenticated || !alive || !workspace_.prepareContext(pane) ||
             !alive || pane.profileId != id || pane.property("closingWorkspace").toBool())
             return;
         target = *authenticated;
+        if (!bindings.isEmpty() && (target.driver != originalDriver ||
+            pane.database != originalDatabase || pane.schema != originalSchema)) {
+            emit statusChanged("查询上下文已变化，请重新确认参数");
+            return;
+        }
     }
-    if (!pane.database.isEmpty() && target.driver != navidog::DatabaseKind::SQLite &&
+    if (!pane.database.isEmpty() && !navidog::isFileDatabase(target.driver) &&
         !navidog::usesOracleSql(target.driver))
         target.database = pane.database;
     navidog::QueryLimits limits;
@@ -108,6 +202,7 @@ void QuerySessionController::submit(QueryPane &pane, const QString &sql, Mode mo
     options.explain = mode == Mode::Explain;
     options.analyzeOnly = analyzeOnly;
     options.schema = pane.schema;
+    options.bindings = std::move(bindings);
     if (const auto redisKey = pane.property("redisPreviewKey"); redisKey.isValid())
         options.redisKey = QByteArray::fromBase64(redisKey.toString().toLatin1());
     if (!service_.run(target, sql, limits, options)) {

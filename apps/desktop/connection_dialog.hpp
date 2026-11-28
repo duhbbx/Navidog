@@ -15,6 +15,7 @@ public:
     navidog::ConnectionProfile profile() const;
     void reject() override;
 private:
+    QLineEdit* mongoAuthDatabase_ = nullptr;
     navidog::ConnectionProfile original_;
     navidog::QueryService& service_;
     QString testId_;

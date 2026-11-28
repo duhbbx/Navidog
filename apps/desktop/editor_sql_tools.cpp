@@ -40,9 +40,11 @@ void EditorSqlTools::open(QWidget &pane, const SqlEditor &editor, EditorSqlTool 
             statisticsKey = "optimizer.statistics." + navidog::metadataKey(*found, effectiveDatabase, schema);
     }
     const auto sqlText = editor.selectedSqlOrAll();
+    const auto kind = found == profiles_.cend() ? navidog::DatabaseKind::Unknown : found->driver;
     if (tool == EditorSqlTool::Convert)
-        showSqlConversion(&pane, context.dialect, sqlText, context, snapshot, settings_.formatting, output);
+        showSqlConversion(&pane, context.dialect, sqlText, context, snapshot, settings_.formatting,
+                          output, kind);
     else
         showSqlOptimization(&pane, context.dialect, sqlText, context, snapshot, storePath_,
-                            statisticsKey, settings_, output);
+                            statisticsKey, settings_, output, kind);
 }

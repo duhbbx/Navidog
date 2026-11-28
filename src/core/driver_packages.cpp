@@ -23,6 +23,7 @@ QString packageKey(DriverPackage package) {
     case DriverPackage::Db2: return "db2";
     case DriverPackage::Kingbase: return "kingbase";
     case DriverPackage::GaussDb: return "gaussdb";
+    case DriverPackage::OpenGauss: return "opengauss";
     }
     return {};
 }
@@ -91,6 +92,7 @@ QString managedJdbcJar(DatabaseKind kind) {
     case DatabaseKind::Db2: package = DriverPackage::Db2; break;
     case DatabaseKind::Kingbase: package = DriverPackage::Kingbase; break;
     case DatabaseKind::GaussDb: package = DriverPackage::GaussDb; break;
+    case DatabaseKind::OpenGauss: package = DriverPackage::OpenGauss; break;
     default: return {};
     }
     const auto jar = QFileInfo(QDir(driverPackageDirectory(package)).filePath(driverDownload(package).asset));
@@ -121,6 +123,9 @@ DriverDownload driverDownload(DriverPackage package) {
     case DriverPackage::GaussDb:
         return jar("com/huaweicloud/gaussdb/gaussdbjdbc/506.0.0.b058/gaussdbjdbc-506.0.0.b058.jar",
                    "f7cbac0cb554a408bbe683167f9b25e61fc2b21552098ac12e925a205e342765");
+    case DriverPackage::OpenGauss:
+        return jar("org/opengauss/opengauss-jdbc/7.0.0-og/opengauss-jdbc-7.0.0-og.jar",
+                   "976a3eb98a9ca537a667be672d9bd8f6bc6415fcc6f4a782217a5bd7be30dc4f");
     case DriverPackage::Java:
     case DriverPackage::Redis: {
         const auto platform = packagePlatform();

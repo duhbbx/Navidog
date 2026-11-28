@@ -1,4 +1,5 @@
 #include "export_paths.hpp"
+#include "task_center.hpp"
 #include "navidog/result_export.hpp"
 #include "navidog/types.hpp"
 #include <QDir>
@@ -6,7 +7,6 @@
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QRegularExpression>
-#include <QSaveFile>
 #include <QStandardPaths>
 #include <QVariant>
 #include <QStringList>
@@ -161,11 +161,17 @@ QString exportCachedResult(QWidget *parent, const QueryResult &result,
     if (!accepted)
       return {};
   }
-  const auto bytes = exportResult(result, format, kind, tableName);
-  QSaveFile file(path);
-  if (!file.open(QIODevice::WriteOnly) ||
-      file.write(bytes) != bytes.size() || !file.commit())
-    throw std::runtime_error(file.errorString().toStdString());
+  if (auto* tasks = backgroundTasksFor(parent)) {
+    QString rejection;
+    const auto output = QFileInfo(path).absoluteFilePath();
+    const auto id = tasks->submit({purpose, output, {}, output},
+        [result, format, kind, tableName, output](const TaskContext& task) {
+          return exportResultFile(output, result, format, kind, tableName, task);
+        }, &rejection);
+    if (id.isEmpty()) throw std::runtime_error(rejection.toStdString());
+  } else {
+    exportResultFile(path, result, format, kind, tableName, {cancellation(), {}});
+  }
   return path;
 }
 } // namespace navidog::ui

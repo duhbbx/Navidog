@@ -8,6 +8,7 @@
 #include "navidog/query_context.hpp"
 #include "navidog/query_analysis.hpp"
 #include "navidog/redis_commands.hpp"
+#include "navidog/document_commands.hpp"
 #include <QElapsedTimer>
 #include <QHash>
 #include <map>
@@ -55,6 +56,49 @@ public:
             : options.explain ? TimedOperation::Explain : TimedOperation::QueryExecute);
         QElapsedTimer timer;timer.start();QueryOutcome outcome;outcome.profileId=profile.id;outcome.database=profile.database;outcome.sessionId=options.sessionId;outcome.transactionAction=options.transaction;const auto key=profile.id+QChar(0x1f)+profile.database+(options.sessionId.isEmpty()?QString{}:QChar(0x1f)+options.sessionId);
         auto cancelledBeforeExecution=[&]{outcome.result.cancelled=true;outcome.result.elapsedMs=timer.elapsed();auto existing=sessions.find(key);if(existing!=sessions.end() && existing->second.db)outcome.transactionState=existing->second.db->transactionState();return outcome;};
+        if(profile.driver==DatabaseKind::MongoDb) {
+            outcome.transactionState=TransactionState::Unavailable;
+            try {
+                if (options.explain) {
+                    outcome.explained = true;
+                    outcome.estimatedPlan.driver = profile.driver;
+                    outcome.result = readQueryPlan(profile, script, limits, cancel, connected, {},
+                                                  &outcome.estimatedPlan.request);
+                    auto trace = std::move(outcome.estimatedPlan.request);
+                    outcome.estimatedPlan = decodeEstimatedPlan(profile.driver, outcome.result);
+                    outcome.estimatedPlan.request = std::move(trace);
+                    outcome.results << outcome.result;
+                    outcome.result.elapsedMs = timer.elapsed();
+                    return outcome;
+                }
+                if(options.analyzeOnly || options.transaction!=TransactionAction::None)
+                    throw std::runtime_error("MongoDB 查询页使用 JSON 命令");
+                if(cancel->load()) return cancelledBeforeExecution();
+                auto& active=session(profile,options.sessionId);
+                if(connected)connected();
+                outcome.serverVersion=active.db->serverVersion();
+                outcome.detectedVersion=detectVersion(profile.driver,outcome.serverVersion);
+                outcome.attemptedStatements=1;
+                outcome.result=active.db->execute(script,limits,cancel);
+                outcome.results << outcome.result;
+                outcome.executedStatements=1;
+                const auto command=parseDocumentCommand(script).name;
+                outcome.catalogChanged=outcome.result.error.isEmpty() && !outcome.result.cancelled &&
+                    QStringList{"create","drop","dropDatabase","renameCollection","createIndexes","dropIndexes"}.contains(command);
+                if(outcome.catalogChanged && structureChanged)structureChanged();
+            } catch(const std::exception& error) {
+                outcome.result.error=QString::fromUtf8(error.what());
+                if (options.explain) {
+                    outcome.estimatedPlan.warning = outcome.result.error;
+                } else {
+                    sessions.erase(key);
+                    outcome.sessionClosed=true;
+                }
+            }
+            outcome.result.cancelled|=cancel->load();
+            outcome.result.elapsedMs=timer.elapsed();
+            return outcome;
+        }
         if(profile.driver==DatabaseKind::Redis) {
             outcome.transactionState=TransactionState::Unavailable;
             try {
@@ -107,7 +151,8 @@ public:
             return outcome; // Deliberately before session(), authentication and all database calls.
         }
         if(options.explain){
-            outcome.explained=true;outcome.estimatedPlan.driver=profile.driver;try{auto bytes=script.toUtf8();auto d=scriptDialect(profile.driver);auto spans=sql::splitStatements(bytes.toStdString(),d);outcome.analysis=analyzeQueryScript(profile,options.schema,std::string_view(bytes.constData(),bytes.size()),spans,cancel);if(cancel->load())return cancelledBeforeExecution();outcome.result=readQueryPlan(profile,script,limits,cancel,connected,options.schema,&outcome.estimatedPlan.request);auto trace=std::move(outcome.estimatedPlan.request);outcome.estimatedPlan=decodeEstimatedPlan(profile.driver,outcome.result);outcome.estimatedPlan.request=std::move(trace);outcome.results<<outcome.result;}catch(const std::exception& e){outcome.result.error=QString::fromUtf8(e.what());outcome.estimatedPlan.warning=outcome.result.error;}
+            outcome.explained=true;outcome.estimatedPlan.driver=profile.driver;try{if(options.bindings.size()>1)throw std::runtime_error("执行计划只能绑定一条语句");auto bytes=script.toUtf8();auto d=scriptDialect(profile.driver);auto spans=sql::splitStatements(bytes.toStdString(),d);outcome.analysis=analyzeQueryScript(profile,options.schema,std::string_view(bytes.constData(),bytes.size()),spans,cancel);if(cancel->load())return cancelledBeforeExecution();outcome.result=readQueryPlan(profile,script,limits,cancel,connected,options.schema,&outcome.estimatedPlan.request,
+                options.bindings.isEmpty() ? nullptr : &options.bindings.front());auto trace=std::move(outcome.estimatedPlan.request);outcome.estimatedPlan=decodeEstimatedPlan(profile.driver,outcome.result);outcome.estimatedPlan.request=std::move(trace);outcome.results<<outcome.result;}catch(const std::exception& e){outcome.result.error=QString::fromUtf8(e.what());outcome.estimatedPlan.warning=outcome.result.error;}
             outcome.result.cancelled|=cancel->load();auto existing=sessions.find(key);if(existing!=sessions.end() && existing->second.db)outcome.transactionState=existing->second.db->transactionState();outcome.result.elapsedMs=timer.elapsed();return outcome;
         }
         try {
@@ -115,6 +160,17 @@ public:
             const auto dialect=scriptDialect(profile.driver);
             auto bytes=script.toUtf8();std::vector<sql::StatementSpan> statements;if(options.transaction==TransactionAction::None)statements=sql::splitStatements(bytes.toStdString(),dialect);
             if(options.transaction==TransactionAction::None)outcome.analysis=analyzeQueryScript(profile,options.schema,std::string_view(bytes.constData(),bytes.size()),statements,cancel);
+            QHash<int, const BoundQueryStatement*> bindings;
+            for (const auto& bound : options.bindings) {
+                if (bound.index < 0 || std::size_t(bound.index) >= statements.size() ||
+                    bound.sql.isEmpty() || bound.values.isEmpty() || bindings.contains(bound.index))
+                    throw std::runtime_error("SQL 参数与待执行语句不匹配");
+                const auto original = sql::statementSource(
+                    std::string_view(bytes.constData(), bytes.size()), statements[bound.index], dialect);
+                if (bound.original != QString::fromUtf8(original.data(), int(original.size())))
+                    throw std::runtime_error("SQL 已变化，请重新绑定参数");
+                bindings.insert(bound.index, &bound);
+            }
             if(cancel->load())return cancelledBeforeExecution();
             auto& active=session(profile,options.sessionId);
             if(active.schema!=options.schema){
@@ -124,7 +180,8 @@ public:
             }
             if(connected)connected();outcome.serverVersion=active.db->serverVersion();outcome.detectedVersion=detectVersion(profile.driver,outcome.serverVersion);active.db->setAutoCommit(options.autoCommit);
             auto publishCatalogChange=[&](bool rolledBack) {
-                if(active.catalogChangesPending && active.db->transactionState()==TransactionState::Idle) {
+                const auto state = active.db->transactionState();
+                if(active.catalogChangesPending && (state==TransactionState::Idle || state==TransactionState::Unavailable)) {
                     outcome.catalogChanged|=!rolledBack;
                     active.catalogChangesPending=false;
                 }
@@ -152,7 +209,14 @@ public:
                     if(first=="SET" || first=="USE" || first=="DECLARE" || first=="DISCARD" || first=="CALL" || first=="EXEC" || first=="EXECUTE" || first=="DO")outcome.sessionContextChanged=true;
                     if(first=="SELECT")for(auto token:words)if(token.kind==sql::TokenKind::Word && text.toUtf8().mid(token.begin,token.end-token.begin).toUpper()=="SET_CONFIG")outcome.sessionContextChanged=true;
                     if(first=="CREATE")for(auto token:words)if(token.kind==sql::TokenKind::Word){auto raw=text.toUtf8().mid(token.begin,token.end-token.begin).toUpper();if(raw=="TEMP" || raw=="TEMPORARY")outcome.sessionContextChanged=true;}
-                    QueryLimits current=limits;current.maxBytes=remaining;QElapsedTimer statementTimer;statementTimer.start();++outcome.attemptedStatements;auto result=span.compound?active.db->executeDefinition(text,current,cancel):active.db->execute(text,current,cancel);result.elapsedMs=statementTimer.elapsed();auto more=std::move(result.moreResults);result.moreResults.clear();outcome.results<<result;outcome.result=result;remaining-=result.cachedBytes;
+                    QueryLimits current=limits;current.maxBytes=remaining;QElapsedTimer statementTimer;statementTimer.start();++outcome.attemptedStatements;
+                    QueryResult result;
+                    if (const auto* bound = bindings.value(int(i))) {
+                        result = span.compound ? active.db->executeDefinition(bound->sql, current, cancel, bound->values)
+                                               : active.db->executeBound(bound->sql, bound->values, current, cancel);
+                    } else result = span.compound ? active.db->executeDefinition(text, current, cancel)
+                                                  : active.db->execute(text, current, cancel);
+                    result.elapsedMs=statementTimer.elapsed();auto more=std::move(result.moreResults);result.moreResults.clear();outcome.results<<result;outcome.result=result;remaining-=result.cachedBytes;
                     if(result.error.isEmpty() && !result.cancelled) {
                         active.catalogChangesPending|=catalogShape;
                         publishCatalogChange(first=="ROLLBACK");
@@ -210,6 +274,7 @@ void QueryService::publishSessions(){
 }
 QueryService::QueryService(QObject* parent) : QObject(parent), worker_(new QueryWorker), metadataWorker_(new QObject) {
     qRegisterMetaType<MetadataResult>();qRegisterMetaType<MetadataSnapshotPtr>();
+    qRegisterMetaType<CatalogObjectDetails>();qRegisterMetaType<CatalogObjectChangeResult>();qRegisterMetaType<CatalogBatchDropResult>();
     qRegisterMetaType<SourceDesignResult>();qRegisterMetaType<TableTaskResult>();qRegisterMetaType<NamespaceOptions>();qRegisterMetaType<NamespaceResult>();qRegisterMetaType<QueryOutcome>(); qRegisterMetaType<CatalogResult>(); qRegisterMetaType<TableDesignResult>();qRegisterMetaType<DataPageResult>();qRegisterMetaType<DataCommitResult>(); worker_->moveToThread(&thread_);
     connect(&thread_, &QThread::finished, worker_, &QObject::deleteLater);
     thread_.setObjectName("navidog-catalog-worker"); thread_.start();
@@ -267,7 +332,7 @@ bool QueryService::catalog(const ConnectionProfile& original, const CatalogNode&
     QMetaObject::invokeMethod(worker_, [this, original, node, requestId, token,isolated] {
         const OperationTimer timing(node.kind == "connection" ? TimedOperation::OpenConnection : TimedOperation::LoadCatalog);
         CatalogResult result; auto profile = original;
-        if (!node.database.isEmpty() && profile.driver != navidog::DatabaseKind::SQLite && !usesSchemaAtConnection(profile.driver)) profile.database = node.database;
+        if (!node.database.isEmpty() && !isFileDatabase(profile.driver) && !usesSchemaAtConnection(profile.driver)) profile.database = node.database;
         try {
             if (token->load()) result.cancelled = true;
             else {
@@ -343,6 +408,63 @@ void QueryService::disconnectSession(const QString& id,const QString& database,c
     if(!sessionId.isEmpty()){closeQueryLanes(id,&database,&sessionId);return;}
     QMetaObject::invokeMethod(worker_,[this,id,database,sessionId]{worker_->sessions.erase(id+QChar(0x1f)+database+(sessionId.isEmpty()?QString{}:QChar(0x1f)+sessionId));auto count=worker_->sessions.size();auto ids=worker_->connectedProfiles();QMetaObject::invokeMethod(this,[this,count,ids]{updateSessions(count,ids);},Qt::QueuedConnection);},Qt::QueuedConnection);
 }
+bool QueryService::objectDetails(const ConnectionProfile& profile, const CatalogNode& node, QString id) {
+    if (busy()) return false;
+    busy_ = true;
+    const auto token = cancellation_ = cancellation();
+    QMetaObject::invokeMethod(worker_, [this, profile, node, id, token] {
+        const OperationTimer timing(TimedOperation::ReadSourceDefinition);
+        CatalogObjectDetails result;
+        try {
+            auto db = connectDatabase(profile);
+            result = readCatalogObjectDetails(*db, profile, node, token);
+        } catch (const std::exception& error) {
+            result.error = QString::fromUtf8(error.what());
+        }
+        result.cancelled = token->load();
+        QMetaObject::invokeMethod(this, [this, id, result = std::move(result)] {
+            busy_ = false;
+            emit objectDetailsCompleted(id, result);
+        }, Qt::QueuedConnection);
+    }, Qt::QueuedConnection);
+    return true;
+}
+
+bool QueryService::changeObject(const ConnectionProfile& profile, const CatalogNode& node,
+                                CatalogObjectChange change, QString id, const QString& newName) {
+    if (busy()) return false;
+    busy_ = true;
+    const auto token = cancellation_ = cancellation();
+    QMetaObject::invokeMethod(worker_, [this, profile, node, change, id, token, newName] {
+        const OperationTimer timing(TimedOperation::SaveSourceDefinition);
+        const auto result = changeCatalogObject(profile, node, change, token, newName);
+        QMetaObject::invokeMethod(this, [this, id, profile, result] {
+            busy_ = false;
+            if (result.applied || result.cancelled) invalidateMetadata(profile.id, profile.database);
+            emit objectChangeCompleted(id, result);
+        }, Qt::QueuedConnection);
+    }, Qt::QueuedConnection);
+    return true;
+}
+
+bool QueryService::dropObjects(const ConnectionProfile& profile, const QVector<CatalogNode>& nodes,
+                               bool cascade, QString id) {
+    if (busy()) return false;
+    busy_ = true;
+    const auto token = cancellation_ = cancellation();
+    QMetaObject::invokeMethod(worker_, [this, profile, nodes, cascade, id, token] {
+        const OperationTimer timing(TimedOperation::SaveSourceDefinition);
+        const auto result = dropCatalogBatch(profile, nodes, cascade, {token, {}});
+        QMetaObject::invokeMethod(this, [this, id, profile, result] {
+            busy_ = false;
+            if (!result.removed.isEmpty() || result.cancelled || !result.error.isEmpty())
+                invalidateMetadata(profile.id, profile.database);
+            emit objectBatchDropCompleted(id, result);
+        }, Qt::QueuedConnection);
+    }, Qt::QueuedConnection);
+    return true;
+}
+
 bool QueryService::sourceDefinition(const ConnectionProfile& p,const CatalogNode& node,QString id){
     if(busy())return false;busy_=true;cancellation_=cancellation();auto token=cancellation_;QMetaObject::invokeMethod(worker_,[this,p,node,id,token]{
         const OperationTimer timing(TimedOperation::ReadSourceDefinition);
@@ -364,7 +486,12 @@ bool QueryService::testConnection(const ConnectionProfile& profile,QString reque
                 auto db=connectDatabase(profile);
                 outcome.serverVersion=db->serverVersion();outcome.detectedVersion=detectVersion(profile.driver,outcome.serverVersion);
                 QueryLimits limits;limits.maxRows=1;limits.maxBytes=1024;
-                outcome.result=db->execute((usesOracleSql(profile.driver) || profile.driver==DatabaseKind::Dameng) ? "SELECT 1 FROM dual" : profile.driver==DatabaseKind::Db2 ? "VALUES 1" : "SELECT 1",limits,token);
+                QString probe = "SELECT 1";
+                if (usesOracleSql(profile.driver) || profile.driver == DatabaseKind::Dameng) probe = "SELECT 1 FROM dual";
+                else if (profile.driver == DatabaseKind::Db2) probe = "VALUES 1";
+                else if (profile.driver == DatabaseKind::Redis) probe = "PING";
+                else if (profile.driver == DatabaseKind::MongoDb) probe = R"({"ping":1})";
+                outcome.result=db->execute(probe,limits,token);
             }
         }catch(const SshHostKeyError& e){outcome.result.error=QString::fromUtf8(e.what());outcome.sshHostKey=e.publicKey;outcome.sshFingerprint=e.fingerprint;outcome.sshHostKeyMismatch=e.mismatch;}catch(const std::exception& e){outcome.result.error=QString::fromUtf8(e.what());}
         outcome.result.cancelled=outcome.result.cancelled || token->load();outcome.result.elapsedMs=timer.elapsed();
@@ -373,10 +500,15 @@ bool QueryService::testConnection(const ConnectionProfile& profile,QString reque
     },Qt::QueuedConnection);return true;
 }
 bool QueryService::tableTask(const ConnectionProfile& p,const TableTask& task,QString id) {
-    if(busy())return false;if(tableActionWrites(task.action))invalidateMetadata(p.id,p.database);
+    if (busy()) return false;
+    const bool readOnlyPreview = task.action == TableAction::GenerateData && task.generation.preview;
+    if (tableActionWrites(task.action) && !readOnlyPreview) invalidateMetadata(p.id,p.database);
     busy_=true;cancellation_=cancellation();auto token=cancellation_;
     QMetaObject::invokeMethod(worker_,[this,p,task,id,token]{
-        auto result=runTableTask(p,task,token);
+        auto result = runTableTask(p, task, token, [this, id](qint64 done, qint64 total) {
+            QMetaObject::invokeMethod(this, [this, id, done, total] { emit tableTaskProgress(id, done, total); },
+                                      Qt::QueuedConnection);
+        });
         QMetaObject::invokeMethod(this,[this,id,result]{busy_=false;emit tableTaskCompleted(id,result);},Qt::QueuedConnection);
     },Qt::QueuedConnection);return true;
 }
@@ -396,14 +528,14 @@ bool QueryService::createNamespace(const ConnectionProfile& p,const NamespaceDra
         QMetaObject::invokeMethod(this,[this,id,result]{busy_=false;emit namespaceCompleted(id,result);},Qt::QueuedConnection);
     },Qt::QueuedConnection);return true;
 }
-bool QueryService::dropNamespace(const ConnectionProfile& p,NamespaceKind kind,const QString& name,QString id) {
+bool QueryService::dropNamespace(const ConnectionProfile& p,NamespaceKind kind,const QString& name,QString id,bool cascade) {
     if(busy())return false;
     invalidateMetadata(p.id,kind==NamespaceKind::Database?name:p.database);
     busy_=true;
     cancellation_=cancellation();
     auto token=cancellation_;
-    QMetaObject::invokeMethod(worker_,[this,p,kind,name,id,token]{
-        auto result=navidog::dropNamespace(p,kind,name,token);
+    QMetaObject::invokeMethod(worker_,[this,p,kind,name,id,token,cascade]{
+        auto result=navidog::dropNamespace(p,kind,name,token,cascade);
         QMetaObject::invokeMethod(this,[this,id,result]{busy_=false;emit namespaceCompleted(id,result);},Qt::QueuedConnection);
     },Qt::QueuedConnection);
     return true;

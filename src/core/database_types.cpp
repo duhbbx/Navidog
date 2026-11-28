@@ -5,6 +5,25 @@ namespace navidog {
 namespace {
 using K=DatabaseKind; using V=DatabaseVersion;
 constexpr VersionInfo versions[]{
+    {V::DuckDb1,K::DuckDb,"duckdb1","DuckDB 1.x"},
+    {V::DuckDb2,K::DuckDb,"duckdb2","DuckDB 2.x"},
+    {V::ClickHouse25,K::ClickHouse,"clickhouse25","ClickHouse 25.x"},
+    {V::ClickHouse26,K::ClickHouse,"clickhouse26","ClickHouse 26.x"},
+    {V::OpenGauss5,K::OpenGauss,"opengauss5","openGauss 5.x"},
+    {V::OpenGauss6,K::OpenGauss,"opengauss6","openGauss 6.x"},
+    {V::OpenGauss7,K::OpenGauss,"opengauss7","openGauss 7.x"},
+    {V::MongoDb7,K::MongoDb,"mongodb7","MongoDB 7.x"},
+    {V::MongoDb8,K::MongoDb,"mongodb8","MongoDB 8.x"},
+    {V::Doris2,K::Doris,"doris2","Apache Doris 2.x"},
+    {V::Doris3,K::Doris,"doris3","Apache Doris 3.x"},
+    {V::Doris4,K::Doris,"doris4","Apache Doris 4.x"},
+    {V::StarRocks3,K::StarRocks,"starrocks3","StarRocks 3.x"},
+    {V::StarRocks4,K::StarRocks,"starrocks4","StarRocks 4.x"},
+    {V::Cockroach24,K::CockroachDb,"cockroachdb24","CockroachDB 24.x"},
+    {V::Cockroach25,K::CockroachDb,"cockroachdb25","CockroachDB 25.x"},
+    {V::Cockroach26,K::CockroachDb,"cockroachdb26","CockroachDB 26.x"},
+    {V::Yugabyte2,K::YugabyteDb,"yugabytedb2","YugabyteDB YSQL 2.x"},
+    {V::YugabyteCalendar,K::YugabyteDb,"yugabytedb2025","YugabyteDB 2025+"},
     {V::H2_2,K::H2,"h2_2","H2 2.x"},
     {V::Kingbase8,K::Kingbase,"kingbase8","KingbaseES V8"},
     {V::Kingbase9,K::Kingbase,"kingbase9","KingbaseES V9"},
@@ -44,10 +63,18 @@ constexpr VersionInfo versions[]{
     {V::SQLServer2014,K::SQLServer,"sqlserver2014","SQL Server 2014"},{V::SQLServer2016,K::SQLServer,"sqlserver2016","SQL Server 2016"},
     {V::SQLServer2017,K::SQLServer,"sqlserver2017","SQL Server 2017"},{V::SQLServer2019,K::SQLServer,"sqlserver2019","SQL Server 2019"},
     {V::SQLServer2022,K::SQLServer,"sqlserver2022","SQL Server 2022"},{V::SQLServer2025,K::SQLServer,"sqlserver2025","SQL Server 2025"}};
-constexpr std::array kinds{K::SQLite,K::MySQL,K::PostgreSQL,K::Oracle,K::OceanBase,K::SQLServer,K::MariaDB,K::TiDB,K::OceanBaseOracle,K::Dameng,K::H2,K::Kingbase,K::UxDb,K::Redis,K::PolarDbMySql,K::PolarDbPostgres,K::GaussDb,K::Db2};
+constexpr std::array kinds{K::SQLite,K::MySQL,K::PostgreSQL,K::Oracle,K::OceanBase,K::SQLServer,K::MariaDB,K::TiDB,K::OceanBaseOracle,K::Dameng,K::H2,K::Kingbase,K::UxDb,K::Redis,K::PolarDbMySql,K::PolarDbPostgres,K::GaussDb,K::Db2,K::DuckDb,K::ClickHouse,K::OpenGauss,K::MongoDb,K::Doris,K::StarRocks,K::CockroachDb,K::YugabyteDb};
 }
 QString databaseKindKey(K kind) {
     switch(kind) {
+    case K::DuckDb:return "duckdb";
+    case K::ClickHouse:return "clickhouse";
+    case K::OpenGauss:return "opengauss";
+    case K::MongoDb:return "mongodb";
+    case K::Doris:return "doris";
+    case K::StarRocks:return "starrocks";
+    case K::CockroachDb:return "cockroachdb";
+    case K::YugabyteDb:return "yugabytedb";
     case K::H2:return "h2";
     case K::Kingbase:return "kingbase";
     case K::UxDb:return "uxdb";
@@ -64,6 +91,14 @@ QString databaseKindKey(K kind) {
 }
 QString databaseKindName(K kind) {
     switch(kind) {
+    case K::DuckDb:return "DuckDB";
+    case K::ClickHouse:return "ClickHouse";
+    case K::OpenGauss:return "openGauss";
+    case K::MongoDb:return "MongoDB";
+    case K::Doris:return "Apache Doris";
+    case K::StarRocks:return "StarRocks";
+    case K::CockroachDb:return "CockroachDB";
+    case K::YugabyteDb:return "YugabyteDB YSQL";
     case K::H2:return "H2";
     case K::Kingbase:return "金仓 KingbaseES";
     case K::UxDb:return "优炫 UXDB";
@@ -95,6 +130,15 @@ bool versionBelongsTo(V version,K kind) { if(isOceanBase(kind))kind=K::OceanBase
 V detectVersion(K kind,const QString& raw) {
     if(raw.contains("MariaDB",Qt::CaseInsensitive) && kind!=K::MariaDB)return V::Unknown;
     auto source=raw;
+    if (isDistributedPostgres(kind) || isAnalyticalMySql(kind)) {
+        const QString label = kind==K::CockroachDb ? "CockroachDB(?: CCL| OSS)?" :
+                              kind==K::YugabyteDb ? "YugabyteDB|YB" :
+                              kind==K::Doris ? "Doris" : "StarRocks";
+        const auto match = QRegularExpression("(?:"+label+")(?: version)?[ /-]*v?(\\d+\\.\\d+)",
+                                              QRegularExpression::CaseInsensitiveOption).match(raw);
+        if (match.hasMatch()) source=match.captured(1);
+        else if (!QRegularExpression("^v?\\d+\\.\\d+(?:\\.\\d+)?$").match(raw.trimmed()).hasMatch()) return V::Unknown;
+    }
     if(kind==K::TiDB) {
         const auto version=QRegularExpression(R"(TiDB[- ]*v?(\d+)\.(\d+))",QRegularExpression::CaseInsensitiveOption).match(raw);
         if(!version.hasMatch())return V::Unknown;
@@ -110,6 +154,14 @@ V detectVersion(K kind,const QString& raw) {
     if(!match.hasMatch()) return V::Unknown;
     int major=match.captured(1).toInt(), minor=match.captured(2).toInt();
     switch(kind) {
+    case K::DuckDb:return major==1 ? V::DuckDb1 : major==2 ? V::DuckDb2 : V::Unknown;
+    case K::ClickHouse:return major==25 ? V::ClickHouse25 : major==26 ? V::ClickHouse26 : V::Unknown;
+    case K::OpenGauss:return major==5 ? V::OpenGauss5 : major==6 ? V::OpenGauss6 : major==7 ? V::OpenGauss7 : V::Unknown;
+    case K::MongoDb:return major==7 ? V::MongoDb7 : major==8 ? V::MongoDb8 : V::Unknown;
+    case K::Doris:return major==2 ? V::Doris2 : major==3 ? V::Doris3 : major==4 ? V::Doris4 : V::Unknown;
+    case K::StarRocks:return major==3 ? V::StarRocks3 : major==4 ? V::StarRocks4 : V::Unknown;
+    case K::CockroachDb:return major==24 ? V::Cockroach24 : major==25 ? V::Cockroach25 : major==26 ? V::Cockroach26 : V::Unknown;
+    case K::YugabyteDb:return major==2 ? V::Yugabyte2 : major>=2025 ? V::YugabyteCalendar : V::Unknown;
     case K::H2:return major==2 ? V::H2_2 : V::Unknown;
     case K::Kingbase:return major==8 ? V::Kingbase8 : major==9 ? V::Kingbase9 : V::Unknown;
     case K::UxDb:return major==2 ? V::UxDb2 : V::Unknown;

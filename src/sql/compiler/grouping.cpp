@@ -160,6 +160,45 @@ class Grouping {
            i == 0 && (e.kind == ExprKind::Window ||
                       (covered && e.kind == ExprKind::AggregateFilter))});
   }
+  std::vector<ExprId> duckDbGroupingKeys(bool &incompleteGroups) {
+    std::vector<ExprId> keys;
+    for (const auto &projection : q.projections) {
+      const auto id = projection.expression;
+      bool hasAggregate = false, hasWindow = false, hasColumn = false;
+      std::vector<ExprId> pending{id};
+      while (!pending.empty()) {
+        budget();
+        const auto current = pending.back();
+        pending.pop_back();
+        const auto &e = expression(current);
+        if (e.kind == ExprKind::Window && !e.operands.empty()) {
+          hasWindow = true;
+          const auto &call = expression(e.operands.front());
+          pending.insert(pending.end(), call.operands.begin(), call.operands.end());
+          pending.insert(pending.end(), std::next(e.operands.begin()), e.operands.end());
+          continue;
+        }
+        if (aggregate(e)) {
+          hasAggregate = true;
+          continue;
+        }
+        hasColumn |= e.kind == ExprKind::Name && !e.localSymbol &&
+                     (!e.binding || e.binding->scope == q.id);
+        pending.insert(pending.end(), e.operands.begin(), e.operands.end());
+      }
+      const auto &value = expression(id);
+      if (value.kind == ExprKind::Star) {
+        incompleteGroups = true;
+      } else if (hasColumn && (hasAggregate || hasWindow)) {
+        c.report(DiagnosticCode::InvalidQueryShape, value.origin,
+                 "DuckDB GROUP BY ALL cannot infer a grouping key from a projection "
+                 "that combines input columns with an aggregate or a window");
+      } else if (hasColumn) {
+        keys.push_back(id);
+      }
+    }
+    return keys;
+  }
   void distinctOrder() {
     if (c.dialect != Dialect::PostgreSQL || !q.distinct || q.orderBy.empty() ||
         std::any_of(q.projections.begin(), q.projections.end(),
@@ -219,12 +258,15 @@ public:
                  "SQLite HAVING requires an aggregate/grouped query");
       return;
     }
-    if (q.groupBy.empty() && q.groupingSets.empty() && !q.having && !features->aggregate)
+    if (q.groupBy.empty() && q.groupingSets.empty() && !q.groupByAll &&
+        !q.having && !features->aggregate)
       return;
     std::set<std::size_t> grouped;
     bool incompleteGroups = false;
     std::map<std::size_t, std::set<std::string>> groupedColumns;
-    for (auto id : q.groupBy) {
+    const bool inferred = q.groupByAll && c.options.extension == SqlExtension::DuckDb;
+    auto groupingKeys = inferred ? duckDbGroupingKeys(incompleteGroups) : q.groupBy;
+    for (auto id : groupingKeys) {
       const auto &reference = expression(id);
       if (reference.kind == ExprKind::Number && !reference.outputColumn &&
           (c.dialect == Dialect::PostgreSQL || c.dialect == Dialect::SQLite ||
@@ -255,6 +297,12 @@ public:
         incompleteGroups = true;
     }
     auto work = roots();
+    if (inferred) {
+      work.clear();
+      if (!q.having)
+        for (const auto &order : q.orderBy)
+          work.push_back({order.expression, false});
+    }
     std::set<std::pair<ExprId, bool>> seen;
     while (!work.empty()) {
       budget();
@@ -290,14 +338,14 @@ public:
           report(e, current.id);
       } else if (e.kind == ExprKind::Name && !e.localSymbol &&
                  !e.outputColumn && (!e.binding || e.binding->scope == q.id)) {
-        if (q.groupBy.empty())
+        if (groupingKeys.empty() && !incompleteGroups)
           report(e, current.id);
         else if (!incompleteGroups && column(e)) {
           // PostgreSQL permits functional dependency only for actual table
           // primary keys. Until key metadata is known, defer base-table
           // cases; derived tables/CTEs never inherit that exception.
           bool defer = false;
-          if (c.dialect == Dialect::PostgreSQL) {
+          if (c.dialect == Dialect::PostgreSQL && !inferred) {
             defer = true;
             if (e.binding && e.binding->table < q.tables.size()) {
               const auto &table = q.tables[e.binding->table];

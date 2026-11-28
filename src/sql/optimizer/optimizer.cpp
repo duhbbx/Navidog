@@ -699,6 +699,9 @@ void lowerLogical(PlannerContext &context, const compiler::ModelProgram &model) 
         }
       }
     }
+    if (q.prewhere || q.qualify || q.systemTime || q.limitBy || q.groupByAll ||
+        std::any_of(q.tables.begin(), q.tables.end(), [](const auto &table) { return table.finalRead || table.clickHouseSampling; }))
+      context.fail(q.origin, "vendor query modifiers require the database optimizer");
     if (q.ddl || q.expressions.size() > 65536 ||
         q.tables.size() > options.maxNodes ||
         q.relations.size() > options.maxNodes ||

@@ -2,6 +2,7 @@
 #include "connection_controller.hpp"
 #include "navigation_pane.hpp"
 #include "navidog/node_actions.hpp"
+#include "navidog/document_commands.hpp"
 #include "query_pane.hpp"
 #include "source_pane.hpp"
 #include "data_pane.hpp"
@@ -186,7 +187,7 @@ void MainWindow::populateNavigationMenu(QMenu *contextMenu, QTreeWidgetItem *ite
     case A::DumpDatabaseSql: {
       auto *dump = menu.addMenu("转储 SQL 文件");
       dump->setObjectName("contextDumpDatabaseSql");
-      dump->setEnabled(!quickBackup_);
+      dump->setEnabled(quickBackup_.isEmpty());
       for (bool withData : {true, false})
         dump->addAction(withData ? "结构和数据…" : "仅结构…", this, [this, id, node, withData] {
           QTimer::singleShot(0, this, [this, id, node, withData] { dumpDatabaseSql(id, node, withData); });
@@ -200,9 +201,11 @@ void MainWindow::populateNavigationMenu(QMenu *contextMenu, QTreeWidgetItem *ite
       added->setObjectName("contextNamespaceProperties");
       break;
     case A::NewQuery:
-      added = menu.addAction("新建查询", this, [this, item] {
+      added = menu.addAction("新建查询", this, [this, item, driver] {
         auto n = item->data(0, Qt::UserRole + 2).value<navidog::CatalogNode>();
-        newQuery({}, item->data(0, Qt::UserRole).toString(), n.database,
+        const auto draft = driver == navidog::DatabaseKind::MongoDb && n.kind == "mongoCollection"
+            ? navidog::mongoCatalogCommand("find", n.object) : QString{};
+        newQuery(draft, item->data(0, Qt::UserRole).toString(), n.database,
                  navidog::WorkspaceTabKind::Query, n.schema);
       });
       added->setShortcut(QKeySequence("Ctrl+Y"));
@@ -277,27 +280,69 @@ void MainWindow::populateNavigationMenu(QMenu *contextMenu, QTreeWidgetItem *ite
                      [node] { QApplication::clipboard()->setText(node.name); });
       break;
     case A::Preview:
-      added = menu.addAction(kind == "table" ? "打开表" : kind == "redisKey" ? "查看键" : "预览前 100 行", this,
+      added = menu.addAction(kind == "table" ? "打开表" : kind == "redisKey" ? "查看键" : kind == "mongoCollection" ? "预览集合" : "预览前 100 行", this,
                              [this, item] { openObject(item, false); });
       break;
-    case A::NewSource:
-      added = menu.addAction(kind == "view" || kind == "views" ? "新建视图…"
-                             : kind == "function" || kind == "functions"
-                                 ? "新建函数…"
-                                 : "新建存储过程…",
-                             this, [this, item] { openSource(item, false); });
-      added->setEnabled(idle && sourceWritable);
-      added = nullptr;
+    case A::NewSourceList: {
+      auto *objects = menu.addMenu("新建对象");
+      objects->setObjectName("contextNewSourceObjects");
+      objects->setEnabled(idle && sourceWritable);
+      for (const auto& object : {QString("view"), QString("materializedView"), QString("function"), QString("procedure")}) {
+        if (!navidog::supportsSourceDesign(driver, object)) continue;
+        auto target = node;
+        target.kind = object;
+        objects->addAction(navidog::catalogObjectTypeName(object) + "…", this,
+                           [this, id, target] { openSource(id, target, false); });
+      }
       break;
+    }
+    case A::NewSource: {
+      auto object = kind;
+      if (object.endsWith('s')) object.chop(1);
+      menu.addAction("新建" + navidog::catalogObjectTypeName(object) + "…",
+                     this, [this, item] { openSource(item, false); })
+          ->setEnabled(idle && sourceWritable);
+      break;
+    }
     case A::EditSource:
       added = menu.addAction("设计 / 编辑定义…", this,
                              [this, item] { openSource(item, true); });
       break;
     case A::DropSource:
-      added =
-          menu.addAction("删除对象…", this, [this, item] { dropSource(item); });
+      added = menu.addAction("删除" + navidog::catalogObjectTypeName(kind) + "…",
+                             this, [this, item] { dropSource(item); });
+      added->setObjectName("contextDropObject");
       added->setEnabled(idle && sourceWritable);
       added = nullptr;
+      break;
+    case A::DropCascade:
+      added = menu.addAction("级联删除" + navidog::catalogObjectTypeName(kind) + "…", this,
+        [this, item, id, node, kind] {
+          if (kind == "table") tableTaskDialog(item, navidog::TableAction::Drop, {}, true, true);
+          else if (kind == "schema") dropNamespaceDialog(item, true);
+          else changeObject(id, node, navidog::CatalogObjectChange::DropCascade);
+        });
+      added->setObjectName("contextCascadeDrop");
+      added->setEnabled(idle && sourceWritable);
+      added = nullptr;
+      break;
+    case A::CompileObject:
+      added = menu.addAction("编译" + navidog::catalogObjectTypeName(kind), this,
+        [this, id, node] { changeObject(id, node, navidog::CatalogObjectChange::Compile); });
+      added->setObjectName("contextCompileObject");
+      added->setEnabled(idle && sourceWritable);
+      added = nullptr;
+      break;
+    case A::RenameObject:
+      added = menu.addAction("重命名…", this,
+        [this, id, node] { changeObject(id,node,navidog::CatalogObjectChange::Rename); });
+      added->setObjectName("contextRenameObject");
+      added->setEnabled(idle && sourceWritable);
+      added = nullptr;
+      break;
+    case A::ObjectProperties:
+      added = menu.addAction("属性…", this, [this, id, node] { showObjectProperties(id, node); });
+      added->setObjectName("contextObjectProperties");
       break;
     case A::CallSource:
       added = menu.addAction("生成调用 SQL…", this, [this, item] {
@@ -328,6 +373,29 @@ void MainWindow::populateNavigationMenu(QMenu *contextMenu, QTreeWidgetItem *ite
       added = menu.addAction("查看定义 / 结构", this,
                              [this, item] { openObject(item, true); });
       break;
+    case A::MongoCreateCollection:
+    case A::MongoInsertDocument:
+    case A::MongoCreateIndex:
+    case A::MongoDropIndex:
+    case A::MongoDropCollection: {
+      const bool create = action == A::MongoCreateCollection;
+      const bool insert = action == A::MongoInsertDocument;
+      const bool index = action == A::MongoCreateIndex;
+      const bool dropIndex = action == A::MongoDropIndex;
+      if ((dropIndex && node.name == "_id_") ||
+          ((insert || index) && node.detail == "view")) break;
+      const auto text = create ? "新建集合命令" : insert ? "插入文档命令" :
+          index ? "新建索引命令" : dropIndex ? "删除索引命令" : "删除集合命令";
+      const auto command = create ? "create" : insert ? "insert" :
+          index ? "createIndexes" : dropIndex ? "dropIndexes" : "drop";
+      const auto draft = navidog::mongoCommandDraft(command, create ? QString("new_collection") : node.object, node.name);
+      auto *entry = menu.addAction(text, this, [this, draft, id, node] {
+        newQuery(draft, id, node.database);
+        status_->setText("已打开 MongoDB 命令草稿，可编辑后执行");
+      });
+      entry->setEnabled(idle && !readOnly);
+      break;
+    }
     case A::TableViews: {
       auto *views = menu.addMenu("通过配置文件打开表");
       views->setEnabled(idle);
@@ -384,11 +452,13 @@ void MainWindow::populateNavigationMenu(QMenu *contextMenu, QTreeWidgetItem *ite
       }
       break;
     case A::GenerateTableData:
-      added = menu.addAction("数据生成…", this, [this, item] {
-        tableTaskDialog(item, navidog::TableAction::GenerateData);
-      });
-      added->setEnabled(idle && !readOnly);
-      added = nullptr;
+      if (navidog::supportsTableAction(driver, navidog::TableAction::GenerateData)) {
+        added = menu.addAction("数据生成…", this, [this, item] {
+          tableTaskDialog(item, navidog::TableAction::GenerateData);
+        });
+        added->setEnabled(idle);
+        added = nullptr;
+      }
       break;
     case A::TableModel: {
       const QPersistentModelIndex index(navigation_->indexFor(item));

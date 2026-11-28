@@ -11,12 +11,15 @@
 #include <QDropEvent>
 #include <QHeaderView>
 #include <QInputDialog>
+#include <QItemSelectionModel>
+#include <QMouseEvent>
 #include <QJsonArray>
 #include <QLabel>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QResizeEvent>
 #include <QScopeGuard>
+#include <QScopedValueRollback>
 #include <QSignalBlocker>
 #include <QStyledItemDelegate>
 #include <QTimer>
@@ -73,6 +76,11 @@ class NavigationOrderItem final : public QTreeWidgetItem {
     }
 };
 
+bool batchSelectable(const QModelIndex& index) {
+    const auto kind = index.data(CatalogRole).value<navidog::CatalogNode>().kind;
+    return kind == "table" || navidog::isSourceRelation(kind) || navidog::isRoutineObject(kind);
+}
+
 class NavigationTree final : public navidog::ui::ObjectTree {
   public:
     using Reorder =
@@ -83,12 +91,44 @@ class NavigationTree final : public navidog::ui::ObjectTree {
                    Reorder reorder)
         : ObjectTree(parent), canReorder_(std::move(canReorder)),
           reorder_(std::move(reorder)) {
+        setSelectionMode(QAbstractItemView::ExtendedSelection);
         setDragDropMode(QAbstractItemView::DragDrop);
         setDefaultDropAction(Qt::MoveAction);
         setDropIndicatorShown(false);
     }
 
   protected:
+    void selectionChanged(const QItemSelection& selected, const QItemSelection& deselected) override {
+        ObjectTree::selectionChanged(selected,deselected);
+        if (adjustingSelection_ || !selectionModel()) return;
+        const auto rows=selectionModel()->selectedRows(0);
+        if (rows.size()<2) return;
+        const auto current=currentIndex();
+        const auto anchor=rows.contains(current) ? current : rows.front();
+        QItemSelection outside;
+        for (const auto& row : rows)
+            if (row!=anchor && (row.parent()!=anchor.parent() || !batchSelectable(anchor) || !batchSelectable(row)))
+                outside.select(row,row);
+        if (outside.isEmpty()) return;
+        const QScopedValueRollback<bool> guard(adjustingSelection_,true);
+        selectionModel()->select(outside,QItemSelectionModel::Deselect | QItemSelectionModel::Rows);
+    }
+
+    void mousePressEvent(QMouseEvent* event) override {
+        const auto modifiers = event->modifiers();
+        if (event->button() == Qt::LeftButton && (modifiers & (Qt::ShiftModifier | Qt::ControlModifier))) {
+            const auto selected = selectionModel()->selectedRows(0);
+            const auto requested = indexAt(event->pos());
+            if (!selected.isEmpty() && requested.isValid() &&
+                (requested.parent() != selected.front().parent() ||
+                 (requested != selected.front() && (!batchSelectable(requested) || !batchSelectable(selected.front()))))) {
+                event->accept();
+                return;
+            }
+        }
+        ObjectTree::mousePressEvent(event);
+    }
+
     bool viewportEvent(QEvent *event) override {
         if (event->type() == QEvent::Resize)
             header()->setMinimumSectionSize(
@@ -115,7 +155,7 @@ class NavigationTree final : public navidog::ui::ObjectTree {
 
     void startDrag(Qt::DropActions) override {
         auto *source = currentItem();
-        if (!source || !canReorder_())
+        if (!source || selectedItems().size() != 1 || !canReorder_())
             return;
         auto *data = mimeData({source});
         if (!data)
@@ -222,6 +262,7 @@ class NavigationTree final : public navidog::ui::ObjectTree {
     QPersistentModelIndex dropIndex_;
     bool dropAfter_ = false;
     bool dropIntoGroup_ = false;
+    bool adjustingSelection_ = false;
 
     QByteArray dragKey(const QTreeWidgetItem *item) const {
         if (NavigationPane::isConnectionGroup(item))
@@ -502,9 +543,9 @@ void NavigationPane::activate(QTreeWidgetItem *item) {
     if (!data.isValid())
         return;
     const auto node = data.value<navidog::CatalogNode>();
-    if (node.kind == "table" || node.kind == "view" || node.kind == "redisKey")
+    if (node.kind == "table" || navidog::isSourceRelation(node.kind) || node.kind == "redisKey" || node.kind == "mongoCollection")
         emit previewRequested(item);
-    else if (QStringList{"column", "index", "foreignKey", "check", "trigger",
+    else if (QStringList{"column", "index", "constraint", "foreignKey", "check", "trigger",
                          "primaryKey"}
                  .contains(node.kind))
         emit tableChildRequested(item);
@@ -530,11 +571,24 @@ void NavigationPane::showContextMenu(QTreeWidgetItem *item,
             applyCatalogResult(request, result);
         scheduleRefresh();
     });
-    tree_->setCurrentItem(item);
+    const bool partOfSelection = item && tree_->selectionModel()->isSelected(tree_->indexFromItem(item));
+    tree_->setCurrentItem(item, 0, partOfSelection ? QItemSelectionModel::NoUpdate : QItemSelectionModel::ClearAndSelect);
     emit selectionChanged();
     navidog::ui::ContextMenu menu(this);
     menu.setObjectName("nodeContextMenu");
-    emit populateContextMenu(&menu, item);
+    QVector<navidog::CatalogNode> selected;
+    if (partOfSelection) {
+        const auto id = item->data(0, ProfileRole).toString();
+        auto rows = tree_->selectedItems();
+        std::sort(rows.begin(), rows.end(), [this](const auto* a, const auto* b) {
+            return tree_->indexFromItem(a).row() < tree_->indexFromItem(b).row();
+        });
+        for (const auto* row : rows)
+            if (!row->isHidden() && row->parent() == item->parent() && row->data(0, ProfileRole).toString() == id)
+                selected << row->data(0, CatalogRole).value<navidog::CatalogNode>();
+        if (selected.size() > 1 && !id.isEmpty()) emit populateBatchContextMenu(&menu, id, selected);
+    }
+    if (menu.isEmpty()) emit populateContextMenu(&menu, item);
     if (!menu.isEmpty())
         menu.execAt(global, tree_);
 }
@@ -652,7 +706,7 @@ bool NavigationPane::isConnectionGroup(const QTreeWidgetItem *item) {
 
 QString NavigationPane::selectedConnectionGroup() const {
     auto *item = currentItem();
-    if (!item || !item->isSelected())
+    if (!item || !tree_->selectionModel()->isSelected(tree_->indexFromItem(item)))
         return {};
     for (; item; item = item->parent())
         if (isConnectionGroup(item))
@@ -919,7 +973,7 @@ QString NavigationPane::selectedObjectCategory() const {
 }
 
 void NavigationPane::selectItem(QTreeWidgetItem *item, bool reveal) {
-    tree_->setCurrentItem(item);
+    tree_->setCurrentItem(item, 0, QItemSelectionModel::ClearAndSelect);
     if (item && reveal)
         tree_->scrollToItem(item);
 }
@@ -1172,7 +1226,7 @@ NavigationPane::addCatalogItem(QTreeWidgetItem *parent, const QString &id,
     if (node.kind == "column")
         return item;
     if (QStringList{"connection", "database",  "schema",     "table",
-                    "tables",     "view",      "views", "redisKeys", "redisKey",
+                    "tables",     "view",      "views", "materializedView", "materializedViews", "redisKeys", "redisKey", "mongoCollection",
                     "index",      "indexes",   "foreignKey", "foreignKeys",
                     "check",      "checks",    "trigger",    "triggers",
                     "primaryKey", "functions", "function",   "procedures",
@@ -1336,11 +1390,12 @@ void NavigationPane::queueRefresh(const QString &profileId) {
     if (profile == profiles_.cend())
         return;
     const bool schemaList =
-        profile->driver == navidog::DatabaseKind::PostgreSQL ||
-        profile->driver == navidog::DatabaseKind::SQLServer;
+        navidog::usesNativePostgres(profile->driver) ||
+        profile->driver == navidog::DatabaseKind::SQLServer ||
+        profile->driver == navidog::DatabaseKind::MongoDb;
     const QStringList folders{
-        "tables",  "views",       "functions", "procedures", "columns",
-        "indexes", "foreignKeys", "checks",    "triggers",   "parameters"};
+        "tables",  "views", "materializedViews", "functions", "procedures", "columns",
+        "indexes", "foreignKeys", "checks", "constraints", "triggers", "parameters", "mongoCollection"};
     for (QTreeWidgetItemIterator it(tree_); *it; ++it) {
         auto *item = *it;
         if (item->data(0, ProfileRole).toString() != profileId ||
@@ -1567,6 +1622,25 @@ void NavigationPane::updateTableSettingsForObjectChange(
     saveTableSettings_(tableSettings_);
 }
 
+void NavigationPane::removeTableSettings(const QString& id, const QVector<navidog::CatalogNode>& nodes) {
+    auto updated = tableSettings_;
+    for (const auto& node : nodes) {
+        if (node.kind!="table") continue;
+        const auto key=tableSettingsKey(id,node);
+        if (!updated.contains(key)) continue;
+        auto settings=updated.value(key).toObject();
+        for (const auto* field : {"members","profiles"}) {
+            auto entries=settings.value(field).toObject();
+            if (entries.contains(node.object)) {
+                entries.remove(node.object);
+                settings[field]=entries;
+            }
+        }
+        updated[key]=settings;
+    }
+    if (updated!=tableSettings_ && saveTableSettings_(updated)) tableSettings_=std::move(updated);
+}
+
 void NavigationPane::regroupTables(const QString &id,
                                    const navidog::CatalogNode &node) {
     for (QTreeWidgetItemIterator i(tree_); *i; ++i) {
@@ -1760,7 +1834,7 @@ void NavigationPane::applyFilter(const QString &text, bool revealMatches) {
 void NavigationPane::updateLocateAvailability() {
     const auto *item = tree_->currentItem();
     locate_->setEnabled(!search_->text().isEmpty() && item &&
-                        item->isSelected() && !item->isHidden());
+                        tree_->selectionModel()->isSelected(tree_->indexFromItem(item)) && !item->isHidden());
 }
 
 void NavigationPane::locateFilteredItem() {

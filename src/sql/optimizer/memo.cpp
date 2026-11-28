@@ -773,7 +773,7 @@ class Memo {
     if (n.withOrdinality)
       s << "ordinality";
     if (n.sampling) {
-      s << 's' << n.sampling->milliPercent << '/';
+      s << 's' << tableSamplingMethodName(n.sampling->method) << ':' << n.sampling->milliPercent << '/';
       if (n.sampling->repeatable) s << *n.sampling->repeatable;
     }
     for (auto input : n.inputs)
@@ -3623,7 +3623,8 @@ class Memo {
       base.kind=PhysicalKind::Sample;
       base.rows=bounded(inputRows*n.sampling->milliPercent/TableSampling::full);
       base.self.cpu=inputRows*.05;
-      base.description="PostgreSQL BERNOULLI "+tableSamplePercent(n.sampling->milliPercent)+"%";
+      base.description=std::string("PostgreSQL ") + tableSamplingMethodName(n.sampling->method) + " " +
+                       tableSamplePercent(n.sampling->milliPercent) + "%";
       return addPlan(base);
     case RelKind::Unnest: {
       const auto literal=postgresIntegerArrayLiteral(logical,n.keys.front(),4096);

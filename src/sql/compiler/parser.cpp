@@ -1252,6 +1252,11 @@ bool Parser::trailingProjectionAlias() const {
   return false;
 }
 std::optional<NamePart> Parser::alias(bool isTable) {
+  const auto extension = context_.options.extension;
+  if ((extension == SqlExtension::ClickHouse && (at("PREWHERE") || (isTable && (at("FINAL") || at("SAMPLE"))))) ||
+      (supportsQualify(extension) && at("QUALIFY")) ||
+      (isTable && extension == SqlExtension::CockroachDb && at("AS") && at("OF", 1) &&
+       at("SYSTEM", 2))) return {};
   if (isTable && (pivotAhead() || unpivotAhead())) return {};
   auto aliasName=[&]() {
     if(!isTable && (dmlGrammar().mysql || context_.dialect==Dialect::SQLServer) && current().kind==TokenKind::String) {
@@ -1283,6 +1288,24 @@ std::optional<NamePart> Parser::alias(bool isTable) {
     return aliasName();
   return {};
 }
+ClickHouseSampleRatio Parser::clickHouseSampleRatio() {
+  const auto begin = current().range.begin;
+  const auto number = [&]() {
+    const auto &token = current();
+    if (token.kind != TokenKind::Number || token.value.empty() ||
+        token.value.front() == '.' || token.value.find_first_not_of("0123456789.eE+-") != std::string::npos)
+      fail("SAMPLE requires an unsigned number or a ratio");
+    if (token.value.size() > 128)
+      fail("SAMPLE number exceeds local size limit", DiagnosticCode::ResourceLimit);
+    return take().value;
+  };
+  ClickHouseSampleRatio ratio;
+  ratio.numerator = number();
+  if (eat("/")) ratio.denominator = number();
+  ratio.origin = {begin, previous().range.end};
+  return ratio;
+}
+
 TableSource Parser::table(JoinKind kind, bool updateTarget, bool allowDeleteWildcard) {
   auto start = current().range.begin;
   TableSource source;
@@ -1341,24 +1364,37 @@ TableSource Parser::table(JoinKind kind, bool updateTarget, bool allowDeleteWild
     if (context_.dialect!=Dialect::Oracle || !at("MATCH_RECOGNIZE"))
       if (!updateTarget || context_.dialect!=Dialect::PostgreSQL || !at("SET"))
         source.alias = alias(true);
+  if (!updateTarget && context_.options.extension == SqlExtension::ClickHouse) {
+    source.finalRead = eat("FINAL");
+    if (eat("SAMPLE")) {
+      ClickHouseSampling sampling{clickHouseSampleRatio(), {}};
+      if (eat("OFFSET")) sampling.offset = clickHouseSampleRatio();
+      if (at("+") || at("-") || at("*") || at("/"))
+        fail("SAMPLE accepts a numeric literal or ratio, not an arithmetic expression");
+      source.clickHouseSampling = std::move(sampling);
+    }
+  }
   if (context_.dialect==Dialect::PostgreSQL && eat("TABLESAMPLE")) {
-    if (!eat("BERNOULLI"))
-      fail("only TABLESAMPLE BERNOULLI is supported",DiagnosticCode::UnsupportedSyntax);
+    const auto method = eat("SYSTEM") ? TableSamplingMethod::System : TableSamplingMethod::Bernoulli;
+    if (method == TableSamplingMethod::Bernoulli && !eat("BERNOULLI"))
+      fail("supported TABLESAMPLE methods are BERNOULLI and SYSTEM", DiagnosticCode::UnsupportedSyntax);
+    if (method == TableSamplingMethod::System && context_.options.extension != SqlExtension::None)
+      fail("SYSTEM sampling is only modeled for PostgreSQL", DiagnosticCode::UnsupportedSyntax);
     expect("(");
     const auto token=current();
     if (token.kind!=TokenKind::Number || token.value.size()>7)
-      fail("BERNOULLI requires a constant percentage in the range 0 to 100");
+      fail("TABLESAMPLE requires a constant percentage in the range 0 to 100");
     const auto point=token.value.find('.');
     const auto whole=token.value.substr(0,point);
     auto fraction=point==std::string::npos?std::string{}:token.value.substr(point+1);
     if (whole.size()>3 || fraction.size()>3 ||
         whole.find_first_not_of("0123456789")!=std::string::npos ||
         fraction.find_first_not_of("0123456789")!=std::string::npos)
-      fail("BERNOULLI requires a decimal percentage with at most three fractional digits");
+      fail("TABLESAMPLE requires a decimal percentage with at most three fractional digits");
     fraction.resize(3,'0');
     const auto rate=static_cast<std::uint32_t>((whole.empty()?0:std::stoi(whole))*1000+std::stoi(fraction));
-    if (rate>TableSampling::full) fail("BERNOULLI percentage exceeds 100");
-    source.sampling=TableSampling{rate,{}};
+    if (rate>TableSampling::full) fail("TABLESAMPLE percentage exceeds 100");
+    source.sampling=TableSampling{rate,{},method};
     take();
     expect(")");
     if (eat("REPEATABLE")) {
@@ -1465,35 +1501,65 @@ SelectStatement Parser::select(bool nested, bool embedded, bool setOperand) {
     if (at("WHERE") || at("GROUP") || at("HAVING") || at("WINDOW") || at("JOIN"))
       fail("TABLE query accepts a relation, ordering, and pagination; use SELECT for this clause");
   } else {
-    expect("SELECT");
-    s.distinct = eat("DISTINCT");
-    if (!s.distinct)
-      eat("ALL");
-    s.fixedJoinOrder = dmlGrammar().mysql && eat("STRAIGHT_JOIN");
-    selectPrefix(s);
-    const bool emptyPostgresTarget=context_.dialect==Dialect::PostgreSQL && !s.distinct &&
+    const auto extension = context_.options.extension;
+    const bool fromFirst = extension == SqlExtension::DuckDb && eat("FROM");
+    const auto fromRange = previous().range;
+    if (fromFirst) fromClause(s);
+    if (fromFirst && !at("SELECT")) {
+      s.projections.push_back({node({ExprKind::Star, fromRange, {}, {}, {}}), {}});
+    } else {
+      expect("SELECT");
+      s.distinct = eat("DISTINCT");
+      if (!s.distinct) eat("ALL");
+      s.fixedJoinOrder = dmlGrammar().mysql && eat("STRAIGHT_JOIN");
+      selectPrefix(s);
+      const bool emptyPostgresTarget=context_.dialect==Dialect::PostgreSQL &&
+        extension != SqlExtension::DuckDb && !s.distinct &&
         (at("FROM") || at("WHERE") || at("GROUP") || at("HAVING") || at("WINDOW") ||
          at("ORDER") || at("LIMIT") || at("OFFSET") || at("FETCH") || at("UNION") ||
          at("INTERSECT") || at("EXCEPT") || at(";") || (nested && at(")")) ||
          current().kind==TokenKind::End);
-    if (!emptyPostgresTarget) projections(s.projections,true);
-    if (eat("FROM"))
+      if (!emptyPostgresTarget) projections(s.projections,true);
+    }
+    if (fromFirst && at("FROM")) fail("FROM-first query cannot declare a second FROM");
+    if (!fromFirst && eat("FROM"))
       fromClause(s);
+    if (extension == SqlExtension::CockroachDb && !s.tables.empty() && at("AS") && at("OF", 1) &&
+        at("SYSTEM", 2)) {
+      take();
+      take();
+      expect("SYSTEM");
+      expect("TIME");
+      s.systemTime = expression();
+      requireScalar(s.systemTime);
+    }
     if (s.tables.empty() && requiresFrom())
       fail("FROM is required by the Oracle 12c/19c grammar baseline");
+    if (context_.options.extension == SqlExtension::ClickHouse && eat("PREWHERE")) {
+      if (s.tables.empty()) fail("PREWHERE requires FROM");
+      s.prewhere = expression();
+      requireScalar(s.prewhere);
+    }
     if (eat("WHERE")) {
       s.where = expression();
       requireScalar(s.where);
     }
     if (eat("GROUP")) {
       expect("BY");
-      groupingClause(s);
+      s.groupByAll = (extension == SqlExtension::DuckDb ||
+                      extension == SqlExtension::ClickHouse) && eat("ALL");
+      if (!s.groupByAll) groupingClause(s);
+      else if (at(",")) fail("GROUP BY ALL cannot be mixed with explicit grouping keys");
     }
     if (eat("HAVING")) {
       s.having = expression();
       requireScalar(s.having);
     }
     windowClause(s);
+    if (supportsQualify(extension) && eat("QUALIFY")) {
+      s.qualify = expression();
+      requireScalar(s.qualify);
+    }
   }
   s.range.begin = begin;
   s.range.end = previous().range.end;
@@ -1525,6 +1591,8 @@ SelectStatement Parser::select(bool nested, bool embedded, bool setOperand) {
          DiagnosticCode::UnsupportedSyntax);
   orderBy(s);
   pagination(s);
+  if (s.setOperation && s.limitBy)
+    fail("LIMIT BY on a set operation requires an outer SELECT", DiagnosticCode::UnsupportedSyntax);
   if (s.limit.withTies && s.orderBy.empty() && context_.dialect != Dialect::Oracle)
     fail("WITH TIES requires ORDER BY in this query");
   if (context_.dialect == Dialect::SQLite &&
@@ -1561,6 +1629,23 @@ void Parser::limitOffset(SelectStatement &s, bool comma, bool all) {
       s.limit.syntax = LimitSyntax::CommaLimit;
     } else if (eat("OFFSET"))
       s.limit.offset = limitValue();
+    if (context_.options.extension == SqlExtension::ClickHouse && eat("BY")) {
+      if (s.limitBy) fail("duplicate LIMIT BY clause");
+      GroupedRowLimit grouped;
+      grouped.count = s.limit.count;
+      grouped.offset = s.limit.offset;
+      grouped.all = eat("ALL");
+      if (!grouped.all) do {
+        if (grouped.keys.size() >= context_.options.limits.columnsPerQuery)
+          fail("LIMIT BY expression limit exceeded", DiagnosticCode::ResourceLimit);
+        const auto key = expression();
+        requireScalar(key);
+        grouped.keys.push_back(key);
+      } while (eat(","));
+      s.limitBy = std::move(grouped);
+      s.limit = {};
+      if (at("LIMIT")) limitOffset(s, comma, all);
+    }
   } else if (all && eat("OFFSET")) {
     s.limit.offset = limitValue();
     if (!eat("ROW"))

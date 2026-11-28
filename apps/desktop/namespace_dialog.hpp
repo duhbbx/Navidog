@@ -40,7 +40,7 @@ private:
 class NamespaceDropDialog final : public navidog::ui::Dialog {
 public:
   NamespaceDropDialog(navidog::DatabaseKind, navidog::NamespaceKind,
-                      const QString &name, const QString &sql, QWidget *parent);
+                      const QString &name, const QString &sql, QWidget *parent, bool cascade = false);
   void done(int result) override;
 
 private:

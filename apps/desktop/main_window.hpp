@@ -11,6 +11,7 @@
 #include <optional>
 #include <utility>
 
+namespace navidog::ui { class TaskCenter; }
 class ApplicationHelp;
 class ConnectionController;
 class EditorSqlTools;
@@ -58,6 +59,8 @@ class MainWindow final : public QMainWindow {
     navidog::ProfileStore store_;
     QVector<navidog::ConnectionProfile> profiles_;
     navidog::QueryService service_;
+    navidog::BackgroundTasks* tasks_;
+    navidog::ui::TaskCenter* taskCenter_;
     std::unique_ptr<MetadataController> metadata_;
     std::unique_ptr<EditorSqlTools> editorSqlTools_;
     ConnectionController *connectionController_;
@@ -76,9 +79,10 @@ class MainWindow final : public QMainWindow {
         navidog::NamespaceKind kind;
         QString name, request;
         bool started = false;
+        bool cascade = false;
     };
     std::optional<NamespaceDeletion> namespaceDeletion_;
-    void dropNamespaceDialog(QTreeWidgetItem *);
+    void dropNamespaceDialog(QTreeWidgetItem *, bool cascade = false);
     void startPendingNamespaceDrop();
     void showNamespaceProperties(QTreeWidgetItem *);
     std::optional<navidog::ConnectionProfile>
@@ -135,9 +139,10 @@ class MainWindow final : public QMainWindow {
     void runScheduledBackup(bool now = false);
     void startSqliteBackup(const QString &source, const QString &destination,
                            bool scheduled = false);
-    void startBackupOperation(std::function<QString()> operation,
-                              const QString &destination, bool scheduled);
-    QPointer<QThread> quickBackup_;
+    void startBackupOperation(std::function<QString(const navidog::TaskContext&)> operation,
+                              const QString& title, const QString& destination, bool scheduled,
+                              const QString& resource, bool fileOutput = true);
+    QString quickBackup_;
     QTimer *quickBackupTimer_ = nullptr;
     QJsonObject quickBackupSchedule_;
     bool saveQuickBackupSchedule(const QJsonObject &);
@@ -177,8 +182,15 @@ class MainWindow final : public QMainWindow {
     SourcePane *createSourcePane(const navidog::ConnectionProfile &,
                                  const navidog::CatalogNode &, bool existing);
     void openSource(QTreeWidgetItem *, bool existing);
+    void openSource(const QString &profileId, navidog::CatalogNode, bool existing);
     void loadSource(SourcePane *);
-    void saveSource(SourcePane *, bool remove = false);
+    void saveSource(SourcePane *);
+    void populateBatchObjectMenu(QMenu *, const QString &, const QVector<navidog::CatalogNode> &);
+    void submitBatchObjectSql(const QString &, const QVector<navidog::CatalogNode> &,
+                              std::optional<navidog::StatementTemplate>, bool saveFile);
+    void deleteSelectedObjects(const QString &, const QVector<navidog::CatalogNode> &, bool cascade);
+    void showObjectProperties(const QString &profileId, const navidog::CatalogNode &);
+    void changeObject(const QString &profileId, const navidog::CatalogNode &, navidog::CatalogObjectChange);
     void dropSource(QTreeWidgetItem *);
     void callSource(SourcePane *);
     void showError(const QString &, const QString &);
@@ -192,7 +204,7 @@ class MainWindow final : public QMainWindow {
     void handleConnectionSaved(const QString &id, bool edited, bool endpointChanged);
     void namespaceDialog(QTreeWidgetItem *, navidog::NamespaceKind);
     void tableTaskDialog(QTreeWidgetItem *, navidog::TableAction,
-                         const QString &option = {}, bool withData = true);
+                         const QString &option = {}, bool withData = true, bool cascade = false);
     void pasteTable(QTreeWidgetItem *);
     int addWorkspaceTab(WorkspacePane *, const QString &);
     QVector<QPointer<WorkspacePane>> pendingCloseTabs_;

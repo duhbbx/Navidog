@@ -12,6 +12,8 @@ struct SourceDesignResult {
     QString error,refreshError,warning;
     bool applied=false,deleted=false,rolledBack=false,restored=false,partial=false,cancelled=false;
 };
+inline bool isRoutineObject(const QString& kind) {return kind=="function" || kind=="procedure";}
+inline bool isSourceRelation(const QString& kind) {return kind=="view" || kind=="materializedView";}
 bool supportsSourceDesign(DatabaseKind,const QString& kind);
 QString sourceTemplate(const ConnectionProfile&,const CatalogNode&);
 QString rewriteSourceTarget(const QString&,const ConnectionProfile&,const CatalogNode&);

@@ -93,3 +93,16 @@ JDK 25 builds the JDBC bridge JAR and a platform-specific `jlink` image. The app
 `NAVIDOG_BUNDLE_HIREDIS=ON` builds the separate Redis shared library from upstream hiredis 1.3.0. Local builds default to a system hiredis when found. For JDBC development, `NAVIDOG_JAVA` can point to an absolute Java 25 executable. In the local build tree the bridge also uses the generated runtime.
 
 The OpenJDK runtime retains its module license notices. See [OpenJDK 25 update sources](https://github.com/openjdk/jdk25u) and [Azul Zulu license information](https://docs.azul.com/core/tpls/). The Redis asset includes upstream hiredis's COPYING file. The proprietary JDBC binaries are downloaded directly from the applicable vendor distribution and stay outside the repository.
+### Extended database adapters
+
+For a build with all three optional native adapters, configure CMake with
+`-DNAVIDOG_DUCKDB_ROOT=/path/to/duckdb-sdk`,
+`-DNAVIDOG_MONGOC_ROOT=/path/to/mongo-c-driver-prefix` and
+`-DNAVIDOG_WITH_CLICKHOUSE=ON`. Use the DuckDB C SDK and MongoDB C driver
+2.x for the target OS and architecture. CMake fetches the pinned ClickHouse C++
+source. With OpenSSL available the ClickHouse driver also supports TLS.
+Retain the SDK licenses alongside the libraries for packaging.
+
+Doris and StarRocks use the MySQL driver. CockroachDB and YugabyteDB YSQL use
+libpq. Install the official openGauss JDBC JAR and Java runtime through Driver
+Management. The connection's advanced settings can override the managed JAR.

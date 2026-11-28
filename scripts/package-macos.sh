@@ -21,6 +21,14 @@ for plugin in platforms/libqcocoa.dylib styles/libqmacstyle.dylib iconengines/li
   ditto "$plugin_dir/$plugin" "$stage_dir/Contents/PlugIns/$plugin"
 done
 deploy_args=("-libpath=$qt_lib_dir")
+duckdb_library="$(sed -n 's/^NAVIDOG_DUCKDB_LIBRARY:FILEPATH=//p' "$build_dir/CMakeCache.txt")"
+mongoc_config="$(sed -n 's/^mongoc_DIR:PATH=//p' "$build_dir/CMakeCache.txt")"
+if [[ -f "$duckdb_library" ]]; then
+  deploy_args+=("-libpath=$(dirname "$duckdb_library")")
+fi
+if [[ -d "$mongoc_config" ]]; then
+  deploy_args+=("-libpath=$(cd "$mongoc_config/../.." && pwd)")
+fi
 # Homebrew distributes QtSvg separately from QtBase.
 if [[ -d /opt/homebrew/opt/qtsvg/lib ]]; then
   deploy_args+=("-libpath=/opt/homebrew/opt/qtsvg/lib")
@@ -50,6 +58,22 @@ fi
 mkdir -p "$stage_dir/Contents/Resources/licenses"
 ditto LICENSE "$stage_dir/Contents/Resources/licenses/Navidog-LICENSE"
 ditto NOTICE "$stage_dir/Contents/Resources/licenses/Navidog-NOTICE"
+if [[ -f "$duckdb_library" && -f "$(dirname "$duckdb_library")/LICENSE" ]]; then
+  ditto "$(dirname "$duckdb_library")/LICENSE" "$stage_dir/Contents/Resources/licenses/DuckDB-LICENSE"
+fi
+if [[ -d "$mongoc_config" ]]; then
+  mongoc_prefix="$(cd "$mongoc_config/../../.." && pwd)"
+  for notice in "$mongoc_prefix"/share/mongo-c-driver/*/{COPYING,THIRD_PARTY_NOTICES}; do
+    if [[ -f "$notice" ]]; then
+      ditto "$notice" "$stage_dir/Contents/Resources/licenses/Mongo-C-$(basename "$notice")"
+    fi
+  done
+fi
+clickhouse_source="$(sed -n 's/^FETCHCONTENT_SOURCE_DIR_NAVIDOG_CLICKHOUSE:PATH=//p' "$build_dir/CMakeCache.txt")"
+if [[ -z "$clickhouse_source" ]]; then clickhouse_source="$build_dir/_deps/navidog_clickhouse-src"; fi
+if [[ -f "$clickhouse_source/LICENSE" ]]; then
+  ditto "$clickhouse_source/LICENSE" "$stage_dir/Contents/Resources/licenses/ClickHouse-Cpp-LICENSE"
+fi
 find "$build_dir" -path '*/odpi-*/LICENSE*' -type f -maxdepth 6 -exec cp {} "$stage_dir/Contents/Resources/licenses/" \;
 mysql_client_root="$(sed -n 's/^NAVIDOG_MYSQL_CLIENT_ROOT:PATH=//p' "$build_dir/CMakeCache.txt")"
 if [[ -n "$mysql_client_root" && -f "$mysql_client_root/LICENSE" ]]; then

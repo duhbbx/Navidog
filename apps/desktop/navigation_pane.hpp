@@ -68,6 +68,7 @@ class NavigationPane final : public QWidget {
     void updateTableSettingsForObjectChange(const QString &id,
                                             const navidog::CatalogNode &,
                                             const QString &newName = {});
+    void removeTableSettings(const QString &, const QVector<navidog::CatalogNode> &);
     void rebuild();
     int refreshConnectionStates(const QString &disconnectingProfile);
     void updateConnectionTooltip(const navidog::ConnectionProfile &profile);
@@ -101,6 +102,7 @@ class NavigationPane final : public QWidget {
     void tableChildRequested(QTreeWidgetItem *item);
     void sourceRequested(QTreeWidgetItem *item);
     void populateContextMenu(QMenu *menu, QTreeWidgetItem *item);
+    void populateBatchContextMenu(QMenu *menu, const QString &profileId, const QVector<navidog::CatalogNode>&);
     void catalogActivityChanged();
     void serverInfoReceived(const QString &id, const QString &version,
                             navidog::DatabaseVersion detected);

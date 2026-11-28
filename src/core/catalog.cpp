@@ -1,7 +1,9 @@
 #include "navidog/catalog.hpp"
 #include "jdbc_catalog.hpp"
+#include "extended_catalog.hpp"
 #include "navidog/redis_commands.hpp"
 #include "navidog/table_design.hpp"
+#include "navidog/source_design.hpp"
 #include <QRegularExpression>
 #include <algorithm>
 #include <stdexcept>
@@ -38,7 +40,7 @@ CatalogNode child(const CatalogNode &parent, QString kind, QString name,
   } else if (kind == "schema") {
     node.schema = name;
     node.object.clear();
-  } else if (kind == "table" || kind == "view" || kind == "function" ||
+  } else if (kind == "table" || kind == "materializedView" || kind == "view" || kind == "function" ||
              kind == "procedure")
     node.object = name;
   return node;
@@ -49,7 +51,7 @@ QString quoteIdentifier(QString name, navidog::DatabaseKind driver) {
     name.replace("]", "]]");
     return "[" + name + "]";
   }
-  auto q = navidog::isMySqlFamily(driver) ? QString("`") : QString("\"");
+  auto q = (navidog::isMySqlFamily(driver) || isAnalyticalMySql(driver) || driver == DatabaseKind::ClickHouse) ? QString("`") : QString("\"");
   name.replace(q, q + q);
   return q + name + q;
 }
@@ -67,6 +69,8 @@ static QString qualified(const ConnectionProfile &p, const CatalogNode &node) {
   return quoted.join('.');
 }
 QString previewSql(const ConnectionProfile &p, const CatalogNode &node) {
+  if (usesExtendedCatalog(p.driver) || p.driver == DatabaseKind::MongoDb)
+    return extendedPreview(p,node);
   if (p.driver == DatabaseKind::Redis)
     return "TYPE " + quoteRedisArgument(QByteArray::fromBase64(node.key.toLatin1()));
   auto name = qualified(p, node);
@@ -77,6 +81,9 @@ QString previewSql(const ConnectionProfile &p, const CatalogNode &node) {
   return "SELECT * FROM " + name + " LIMIT 100;";
 }
 QString definitionSql(const ConnectionProfile &p, const CatalogNode &n) {
+  if (usesExtendedCatalog(p.driver) || p.driver == DatabaseKind::MongoDb ||
+      p.driver == DatabaseKind::OpenGauss)
+    return extendedDefinition(p,n);
   auto literal = [&p](QString s) { return sqlLiteral(s, p); };
   if (n.kind == "database") {
     const auto name = literal(n.database);
@@ -143,12 +150,18 @@ QString definitionSql(const ConnectionProfile &p, const CatalogNode &n) {
            owner + " AND table_name=" + name + " ORDER BY column_id";
   }
   if (navidog::usesOracleSql(p.driver))
-    return "SELECT DBMS_METADATA.GET_DDL(" + literal(n.kind.toUpper()) + ", " +
+    return "SELECT DBMS_METADATA.GET_DDL(" + literal(n.kind == "materializedView" ? "MATERIALIZED_VIEW" : n.kind.toUpper()) + ", " +
            literal(n.object) + ", " + literal(n.schema) +
            ") AS definition FROM dual";
-  if (n.kind == "function" || n.kind == "procedure")
-    return "SELECT pg_get_functiondef(" + n.key + ") AS definition;";
-  if (n.kind == "view")
+  if (isRoutineObject(n.kind)) {
+    if (!QRegularExpression("^[0-9]{1,10}$").match(n.key).hasMatch())
+      throw std::runtime_error("无法定位例程，请从导航树刷新并重新选择");
+    return "SELECT pg_get_functiondef(p.oid) AS definition FROM pg_proc p "
+           "JOIN pg_namespace n ON n.oid=p.pronamespace WHERE p.oid=" + n.key +
+           "::oid AND n.nspname=" + literal(n.schema) + " AND p.proname=" + literal(n.object) +
+           (n.kind == "procedure" ? " AND p.prokind='p'" : " AND p.prokind IN ('f','w')");
+  }
+  if (isSourceRelation(n.kind))
     return "SELECT pg_get_viewdef(" + literal(qualified(p, n)) +
            "::regclass, true) AS definition;";
   return "SELECT column_name, data_type, is_nullable, column_default FROM "
@@ -180,6 +193,9 @@ CatalogResult loadCatalog(Database &db, const ConnectionProfile &p,
     }
     return out;
   }
+  if (usesExtendedCatalog(p.driver) || p.driver == DatabaseKind::MongoDb ||
+      (p.driver == DatabaseKind::OpenGauss && (n.kind == "indexes" || n.kind == "constraints")))
+    return loadExtendedCatalog(db,p,n,cancel);
   if (usesJdbcCatalog(p.driver))
     return loadJdbcCatalog(db, p, n, cancel);
   CatalogResult out;
@@ -242,7 +258,8 @@ CatalogResult loadCatalog(Database &db, const ConnectionProfile &p,
     folder("views", "视图");
     folder("functions", "函数");
     folder("procedures", "存储过程");
-  } else if (n.kind == "table" || n.kind == "view") {
+    if (supportsSourceDesign(p.driver, "materializedView")) folder("materializedViews", "物化视图");
+  } else if (n.kind == "table" || isSourceRelation(n.kind)) {
     folder("columns", "字段");
     if (n.kind == "table" && p.driver != DatabaseKind::Dameng) {
       folder("indexes", "索引");
@@ -330,7 +347,10 @@ CatalogResult loadCatalog(Database &db, const ConnectionProfile &p,
                 " ORDER BY ordinal_position",
             "parameter", false);
   } else if (usesNativePostgres(p.driver)) {
-    if (n.kind == "tables" || n.kind == "views")
+    if (n.kind == "materializedViews")
+      query("SELECT matviewname, CASE WHEN ispopulated THEN '已填充' ELSE '未填充' END FROM pg_matviews "
+            "WHERE schemaname=" + sch + " ORDER BY matviewname", "materializedView");
+    else if (n.kind == "tables" || n.kind == "views")
       query("SELECT table_name, table_type FROM information_schema.tables "
             "WHERE table_schema = " +
                 sch + " AND table_type = " +
@@ -338,10 +358,12 @@ CatalogResult loadCatalog(Database &db, const ConnectionProfile &p,
                 " ORDER BY table_name",
             n.kind == "tables" ? "table" : "view");
     else if (n.kind == "columns")
-      query("SELECT column_name, data_type || ' · nullable=' || is_nullable "
-            "FROM information_schema.columns WHERE table_schema = " +
-                sch + " AND table_name = " + obj + " ORDER BY ordinal_position",
-            "column", false);
+      query("SELECT a.attname, format_type(a.atttypid,a.atttypmod) || "
+            "CASE WHEN a.attnotnull THEN ' · NOT NULL' ELSE '' END "
+            "FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid "
+            "JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=" +
+                sch + " AND c.relname=" + obj +
+                " AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum", "column", false);
     else if (n.kind == "indexes")
       query("SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = " +
                 sch + " AND tablename = " + obj + " ORDER BY indexname",
@@ -350,9 +372,8 @@ CatalogResult loadCatalog(Database &db, const ConnectionProfile &p,
       query("SELECT p.proname, pg_get_function_identity_arguments(p.oid), "
             "p.oid::text FROM pg_proc p JOIN pg_namespace s ON "
             "s.oid=p.pronamespace WHERE s.nspname=" +
-                sch + " AND p.prokind " +
-                QString(n.kind == "functions" ? "<> 'p'" : "= 'p'") +
-                " ORDER BY p.proname",
+                sch + QString(n.kind == "functions" ? " AND p.prokind IN ('f','w')" : " AND p.prokind='p'") +
+                " ORDER BY p.proname,p.oid",
             n.kind == "functions" ? "function" : "procedure");
     else if (n.kind == "parameters") {
       if (!QRegularExpression("^[0-9]+$").match(n.key).hasMatch())
@@ -400,10 +421,15 @@ CatalogResult loadCatalog(Database &db, const ConnectionProfile &p,
                 ") AND parameter_id>0 ORDER BY parameter_id",
             "parameter", false);
   } else if (navidog::usesSchemaAtConnection(p.driver)) {
-    if (n.kind == "tables" || n.kind == "views")
+    if (n.kind == "materializedViews")
+      query("SELECT mview_name, staleness FROM all_mviews WHERE owner=" + sch +
+            " ORDER BY mview_name", "materializedView");
+    else if (n.kind == "tables" || n.kind == "views")
       query("SELECT object_name, object_type FROM all_objects WHERE owner=" +
                 sch + " AND object_type=" +
                 literal(n.kind == "tables" ? "TABLE" : "VIEW") +
+                (n.kind == "tables" && supportsSourceDesign(p.driver,"materializedView") ?
+                    " AND NOT EXISTS (SELECT 1 FROM all_mviews m WHERE m.owner=all_objects.owner AND m.mview_name=all_objects.object_name)" : "") +
                 " ORDER BY object_name",
             n.kind == "tables" ? "table" : "view");
     else if (n.kind == "columns")

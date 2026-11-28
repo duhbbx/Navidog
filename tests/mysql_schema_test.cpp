@@ -17,6 +17,7 @@
 #include "navidog/data_edit.hpp"
 #include "navidog/query_service.hpp"
 #include "navidog/query_plan.hpp"
+#include "navidog/query_parameters.hpp"
 #include "navidog/sql.hpp"
 #include "navidog/sql/compiler/compiler.hpp"
 #include "navidog/sql/optimizer/optimizer.hpp"
@@ -54,6 +55,60 @@ private slots:
         for(int i=0;i<100;++i){try{auto db=navidog::connectDatabase(p_);auto r=db->execute("CREATE DATABASE navidog_owned CHARACTER SET utf8mb4",{},navidog::cancellation());if(r.error.isEmpty()){ready=true;break;}}catch(...){}QTest::qWait(100);}
         if(!ready){QFile log(dir_.filePath("server.log"));if(log.open(QIODevice::ReadOnly))qWarning().noquote()<<log.readAll();}QVERIFY(ready);p_.database="navidog_owned";
 #endif
+    }
+    void editorParametersBindValuesWithTheNativeDriver() {
+        using namespace navidog;
+        const QString sql = "SELECT CAST(? AS SIGNED) AS n, '?' AS literal, ? AS supplied, ? AS nullable";
+        const auto plan = inspectQueryParameters(p_.driver, sql, p_.database, {});
+        QCOMPARE(plan.parameters.size(), 3);
+        QCOMPARE(plan.parameters[0].type, QueryParameterType::Integer);
+        const QString value = "甲's; ? ";
+        QueryExecutionOptions options;
+        options.sessionId = "native-mysql-parameters";
+        options.bindings = bindQueryParameters(plan, {qlonglong(18), value, QVariant{}});
+        QueryService service;
+        QSignalSpy finished(&service, &QueryService::completed);
+        QVERIFY(service.run(p_, sql, {}, options));
+        QVERIFY(finished.wait(5000));
+        const auto result = qvariant_cast<QueryOutcome>(finished.takeFirst()[0]).result;
+        QVERIFY2(result.error.isEmpty(), qPrintable(result.error));
+        QCOMPARE(result.rows.size(), 1);
+        QCOMPARE(result.rows[0][0].toInt(), 18);
+        QCOMPARE(result.rows[0][1].toString(), QString("?"));
+        QCOMPARE(result.rows[0][2].toString(), value);
+        QVERIFY(result.rows[0][3].isNull());
+    }
+    void generationBindsUnicodeAndValidatesForeignKeys() {
+        using namespace navidog;
+        auto db = connectDatabase(p_);
+        const auto cancel = cancellation();
+        const auto query = [&](const QString& text) { return db->execute(text, {}, cancel); };
+        QVERIFY(query("CREATE TABLE gen_parent (a INT, b VARCHAR(16), PRIMARY KEY(a,b)) ENGINE=InnoDB").error.isEmpty());
+        QVERIFY(query("INSERT INTO gen_parent VALUES (10,'甲'), (20,'乙')").error.isEmpty());
+        QVERIFY(query("CREATE TABLE gen_child (id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,"
+                      "a INT NOT NULL,b VARCHAR(16) NOT NULL, name VARCHAR(16) NOT NULL, age TINYINT UNSIGNED,"
+                      "code VARCHAR(20) NOT NULL UNIQUE, rate DECIMAL(4,2) NOT NULL, "
+                      "CONSTRAINT gen_fk FOREIGN KEY(a,b) REFERENCES gen_parent(a,b)) "
+                      "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4").error.isEmpty());
+        TableTask task;
+        task.node.kind = "table";
+        task.node.database = p_.database;
+        task.node.object = "gen_child";
+        task.action = TableAction::GenerateData;
+        task.generation.size = "290";
+        task.generationRules = suggestedGenerationRules(readTableDefinition(*db, p_, task.node, cancel), p_.driver);
+        task.generationRules["code"] = QJsonObject{{"kind", "regex"}, {"value", "测[A-Z]{2}[0-9]{7}"}};
+        task.generationRules["age"] = QJsonObject{{"kind", "number"}, {"value", "18..35@70;36..60@30"}};
+        const auto inserted = runTableTask(p_, task, cancel);
+        QVERIFY2(inserted.applied, qPrintable(inserted.error));
+        QCOMPARE(inserted.rows, qint64(290));
+        const auto result = query("SELECT COUNT(*), COUNT(DISTINCT a), MIN(CHAR_LENGTH(name)), MIN(OCTET_LENGTH(name)) "
+                                  "FROM gen_child JOIN gen_parent USING(a,b)");
+        QVERIFY2(result.error.isEmpty(), qPrintable(result.error));
+        QCOMPARE(result.rows.front()[0].toInt(), 290);
+        QCOMPARE(result.rows.front()[1].toInt(), 2);
+        QVERIFY(result.rows.front()[2].toInt() >= 2);
+        QVERIFY(result.rows.front()[3].toInt() >= 6);
     }
     void erReverseAndDiffUseNativeCatalog() { try {
         using namespace navidog;

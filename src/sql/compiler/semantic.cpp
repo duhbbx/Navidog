@@ -1,10 +1,12 @@
 #include "parser.hpp"
 #include "navidog/sql/compiler/operator_catalog.hpp"
 #include <algorithm>
+#include <charconv>
 #include <cmath>
 #include <iterator>
 #include <set>
 #include <tuple>
+#include <unordered_set>
 namespace navidog::sql::compiler {
 ValueType typeCategory(const std::vector<std::string> &name, Dialect dialect) {
   if (name.size() != 1)
@@ -413,6 +415,8 @@ class Semantics {
       condition(q, clause.deleteWhere);
     }
     condition(q, q.where);
+    condition(q, q.prewhere);
+    condition(q, q.qualify);
     condition(q, q.having);
     condition(q, q.conflict.where);
     condition(q, q.conflict.targetWhere);
@@ -432,6 +436,7 @@ class Semantics {
     if (q.ddl) {
       const auto &d = *q.ddl;
       condition(q, d.predicate);
+      if (d.olap) validateOlapLayout(d);
       auto constraint = [&](const auto &k) { condition(q, k.check); };
       auto column = [&](const auto &col) {
         for (const auto &k : col.constraints)
@@ -448,6 +453,40 @@ class Semantics {
           constraint(*a.constraint);
       }
     }
+  }
+  void validateOlapLayout(const ModelDdl &d) {
+    const auto &layout = *d.olap;
+    const auto error = [&](SourceRange range, std::string message) {
+      c.report(DiagnosticCode::InvalidQueryShape, range, std::move(message));
+    };
+    if (layout.distribution == OlapDistribution::Random &&
+        layout.key != OlapKeyKind::Unspecified && layout.key != OlapKeyKind::Duplicate)
+      error(layout.distributionOrigin, "random distribution requires a DUPLICATE KEY table");
+    const bool doris = c.options.extension == SqlExtension::Doris;
+    if (doris && !layout.sortColumns.empty() && layout.key != OlapKeyKind::Unique)
+      error(layout.sortOrigin, "Doris table ORDER BY requires UNIQUE KEY");
+    if (d.definitions.empty()) return;
+    std::unordered_set<std::string> declared;
+    for (const auto &column : d.definitions) declared.insert(asciiUpper(column.name));
+    const auto checkColumns = [&](const std::vector<std::string> &columns, SourceRange origin) {
+      std::unordered_set<std::string> seen;
+      for (const auto &name : columns) {
+        const auto key = asciiUpper(name);
+        if (!declared.count(key))
+          error(origin, "unknown column in OLAP layout: " + name);
+        else if (!seen.insert(key).second)
+          error(origin, "duplicate column in OLAP layout: " + name);
+      }
+    };
+    checkColumns(layout.keyColumns, layout.keyOrigin);
+    checkColumns(layout.distributionColumns, layout.distributionOrigin);
+    checkColumns(layout.sortColumns, layout.sortOrigin);
+    if (doris && layout.keyColumns.size() <= d.definitions.size() &&
+        !std::equal(layout.keyColumns.begin(), layout.keyColumns.end(), d.definitions.begin(),
+                    [](const auto &key, const auto &column) {
+                      return asciiUpper(key) == asciiUpper(column.name);
+                    }))
+      error(layout.keyOrigin, "Doris key columns must lead the table definition in the same order");
   }
   void walk(const ModelSelect &q, ExprId root, bool allowWindow,
             bool allowAggregate, std::string_view schemaClause = {}, bool rowLimit=false) {
@@ -528,7 +567,7 @@ class Semantics {
                "window function " + asciiUpper(e.name.back()) + " requires OVER");
       if(builtinCandidate(e,c.dialect) && asciiUpper(e.name.back())=="GROUPING") {
         if(!allowAggregate || w.aggregate)report(e,"GROUPING is only allowed in grouped output, HAVING or ORDER BY");
-        if(q.groupBy.empty() && q.groupingSets.empty())report(e,"GROUPING requires an explicit grouped query");
+        if(q.groupBy.empty() && q.groupingSets.empty() && !q.groupByAll)report(e,"GROUPING requires a grouped query");
       }
       if (e.kind == ExprKind::Call)
         arity(e);
@@ -730,11 +769,64 @@ public:
       }
     }
   }
+  void clickHouseSamples(const ModelSelect &q) {
+    const auto zero = [](const std::string &number) {
+      const auto mantissa = std::string_view(number).substr(0, number.find_first_of("eE"));
+      return !mantissa.empty() && mantissa.find_first_of("123456789") == std::string_view::npos;
+    };
+    const auto decimal = [](std::string_view number)
+        -> std::optional<std::pair<std::string, int>> {
+      int exponent = 0;
+      const auto exponentAt = number.find_first_of("eE");
+      if (exponentAt != std::string_view::npos) {
+        auto suffix = number.substr(exponentAt + 1);
+        if (!suffix.empty() && suffix.front() == '+') suffix.remove_prefix(1);
+        const auto end = suffix.data() + suffix.size();
+        const auto parsed = std::from_chars(suffix.data(), end, exponent);
+        if (parsed.ec != std::errc{} || parsed.ptr != end || exponent < -10000 || exponent > 10000)
+          return {};
+        number = number.substr(0, exponentAt);
+      }
+      std::string digits(number);
+      const auto point = digits.find('.');
+      if (point != std::string::npos) {
+        exponent -= static_cast<int>(digits.size() - point - 1);
+        digits.erase(point, 1);
+      }
+      const auto first = digits.find_first_not_of('0');
+      if (first == std::string::npos) return std::pair{std::string("0"), 0};
+      const auto last = digits.find_last_not_of('0');
+      exponent += static_cast<int>(digits.size() - last - 1);
+      return std::pair{digits.substr(first, last - first + 1), exponent};
+    };
+    for (const auto &table : q.tables) {
+      if (!table.clickHouseSampling) continue;
+      const auto &sample = *table.clickHouseSampling;
+      if (table.query)
+        c.report(DiagnosticCode::InvalidQueryShape, sample.size.origin,
+                 "ClickHouse SAMPLE cannot apply to a CTE reference");
+      const auto validate = [&](const ClickHouseSampleRatio &ratio) {
+        if (zero(ratio.denominator))
+          c.report(DiagnosticCode::InvalidQueryShape, ratio.origin, "SAMPLE ratio denominator cannot be zero");
+      };
+      validate(sample.size);
+      if (sample.offset) {
+        validate(*sample.offset);
+        if (zero(sample.offset->numerator)) continue;
+        const auto size = decimal(sample.size.numerator);
+        const auto whole = decimal(sample.size.denominator.empty() ? "1" : sample.size.denominator);
+        if (zero(sample.size.numerator) || (size && size == whole))
+          c.report(DiagnosticCode::InvalidQueryShape, sample.offset->origin,
+                   "nonzero SAMPLE OFFSET requires a partial sample");
+      }
+    }
+  }
   void run() {
     for (const auto &q : c.model.queries) {
       mysqlTemporalOperands(q);
       checkStop(c);
       conditions(q);
+      clickHouseSamples(q);
       sqlBooleanValues(q);
       for (const auto &p : q.projections)
         walk(q, p.expression, q.kind == StatementKind::Select, true);
@@ -750,6 +842,10 @@ public:
           walk(q, a.value, false, false);
       }
       walk(q, q.where, false, false);
+      walk(q, q.prewhere, false, false);
+      walk(q, q.qualify, true, true);
+      walk(q, q.systemTime, false, false);
+      if (q.limitBy) for (auto id : q.limitBy->keys) walk(q, id, false, false);
       if (q.trigger) walk(q, q.trigger->when, false, false);
       walk(q, q.having, false, true);
       for (auto id : q.groupBy)

@@ -37,6 +37,7 @@ private:
     bool canFormat() const;
     SqlHighlighter* highlighter_;
     navidog::sql::compiler::Dialect dialect_ = navidog::sql::compiler::Dialect::PostgreSQL;
+    navidog::sql::compiler::SqlExtension extension_ = navidog::sql::compiler::SqlExtension::None;
     std::optional<navidog::sql::compiler::FormatStyle> formatStyle_;
     QString sourceSql_;
     quint64 formatContext_ = 0;
@@ -78,6 +79,7 @@ public:
     const QVector<SqlEditorDiagnostic>& diagnostics() const { return diagnostics_; }
     QString diagnosticAtPosition(int position) const;
     QString diagnosticStatus() const { return diagnosticStatus_; }
+    navidog::sql::compiler::SqlExtension sqlExtension() const { return extension_; }
 signals:
     void largeDocumentChanged(bool);
     void highlightDialectChanged();
@@ -119,6 +121,7 @@ private:
     SqlDiagnosticController* diagnosticController_;
     QVector<SqlEditorDiagnostic> diagnostics_;
     QString diagnosticStatus_;
+    navidog::sql::compiler::SqlExtension extension_ = navidog::sql::compiler::SqlExtension::None;
     void updateEditorSelections();
     void scheduleEditorSelections();
     void requestCompletionForText(const QString&);

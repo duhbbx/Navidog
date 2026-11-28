@@ -11,6 +11,7 @@
 #include <QKeyEvent>
 #include <QPainter>
 #include <QPainterPath>
+#include <QRegularExpression>
 #include <QScrollBar>
 #include <QScopedValueRollback>
 #include <QSignalBlocker>
@@ -141,15 +142,26 @@ public:
       rehighlight();
   }
 
-  void setRedisMode(bool enabled) {
-    if (redis_ == enabled) return;
-    redis_ = enabled;
+  void setCommandMode(navidog::DatabaseKind kind) {
+    if (commandKind_ == kind) return;
+    commandKind_ = kind;
     rehighlight();
   }
 
 protected:
   void highlightBlock(const QString &text) override {
-    if (redis_) {
+    if (commandKind_ == navidog::DatabaseKind::MongoDb) {
+      static const QRegularExpression strings(R"re("(?:[^"\\]|\\.)*")re");
+      auto matches = strings.globalMatch(text);
+      while (matches.hasNext()) {
+        const auto match = matches.next();
+        const bool key = text.mid(match.capturedEnd()).trimmed().startsWith(':');
+        setFormat(match.capturedStart(), match.capturedLength(), QColor(key ? "#315bb0" : "#247867"));
+      }
+      setCurrentBlockState(0);
+      return;
+    }
+    if (commandKind_ == navidog::DatabaseKind::Redis) {
       int first = 0;
       while (first < text.size() && text.at(first).isSpace()) ++first;
       int end = first;
@@ -167,7 +179,7 @@ protected:
 
 private:
   navidog::sql::Dialect dialect_ = navidog::sql::Dialect::PostgreSQL;
-  bool redis_ = false;
+  navidog::DatabaseKind commandKind_ = navidog::DatabaseKind::Unknown;
 };
 SqlReadOnlyView::SqlReadOnlyView(QWidget* parent)
     : QPlainTextEdit(parent), highlighter_(new SqlHighlighter(document())) {
@@ -175,14 +187,19 @@ SqlReadOnlyView::SqlReadOnlyView(QWidget* parent)
   setReadOnly(true);
 }
 void SqlReadOnlyView::setDialect(navidog::sql::compiler::Dialect dialect) {
-  if (dialect_ == dialect)
+  if (dialect_ == dialect && extension_ == navidog::sql::compiler::SqlExtension::None)
     return;
+  extension_ = navidog::sql::compiler::SqlExtension::None;
   dialect_ = dialect;
   ++formatContext_;
   highlighter_->setDialect(dialect);
 }
 void SqlReadOnlyView::setDatabaseKind(navidog::DatabaseKind kind) {
+  const auto extension = navidog::compilerExtensionFor(kind);
+  if (dialect_ == displayDialect(kind) && extension_ == extension) return;
   setDialect(displayDialect(kind));
+  extension_ = extension;
+  ++formatContext_;
 }
 void SqlReadOnlyView::setSourceSql(const QString &sql) {
   if (sourceSql_ == sql)
@@ -620,8 +637,9 @@ void SqlEditor::setDiagnosticContext(navidog::DatabaseKind kind,
                                      const QString &database,
                                      const QString &schema,
                                      bool calciteExtensions) {
+  extension_ = navidog::compilerExtensionFor(kind);
   setHighlightDialect(displayDialect(kind));
-  highlighter_->setRedisMode(kind == navidog::DatabaseKind::Redis);
+  highlighter_->setCommandMode(navidog::isCommandDatabase(kind) ? kind : navidog::DatabaseKind::Unknown);
   diagnosticController_->setContext(kind, database, schema, calciteExtensions);
   completionController_->setContext(kind, database, schema, calciteExtensions);
 }

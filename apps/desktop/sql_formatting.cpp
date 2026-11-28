@@ -70,6 +70,7 @@ class FormatTask final : public QObject, public QRunnable {
   Q_OBJECT
 public:
   sc::Dialect dialect;
+  sc::SqlExtension extension = sc::SqlExtension::None;
   QString source, global, script;
   std::optional<sc::FormatStyle> style;
   std::shared_ptr<std::atomic_bool> cancel =
@@ -79,6 +80,7 @@ public:
     sc::FormatResult result;
     try {
       auto options = sc::FormatOptions{};
+      options.language.extension = extension;
       const auto deadline =
           std::chrono::steady_clock::now() + std::chrono::seconds(5);
       options.shouldStop = [flag = cancel, deadline] {
@@ -269,6 +271,7 @@ void SqlReadOnlyView::formatSql() {
   const auto context = formatContext_;
   auto *task = new FormatTask;
   task->dialect = dialect_;
+  task->extension = extension_;
   task->source = input;
   task->style = formatStyle_;
   for (auto *ancestor = this->parentWidget(); ancestor; ancestor = ancestor->parentWidget()) {
@@ -343,6 +346,7 @@ void formatEditorAsync(SqlEditor *editor, sc::Dialect dialect,
   const auto originalPosition = cursor.position();
   auto *task = new FormatTask;
   task->dialect = dialect;
+  task->extension = editor->sqlExtension();
   task->source = selected;
   task->global = globalConfig;
   task->script = scriptPath;

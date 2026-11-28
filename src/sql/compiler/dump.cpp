@@ -222,9 +222,36 @@ void alias(std::ostream &out, const Compilation &c,
 }
 void samplingJson(std::ostream &out,const std::optional<TableSampling> &sampling) {
   if (!sampling) return;
-  out << ",\"sampling\":{\"method\":\"bernoulli\",\"percent\":" << tableSamplePercent(sampling->milliPercent);
+  out << ",\"sampling\":{\"method\":\"" << tableSamplingMethodName(sampling->method)
+      << "\",\"percent\":" << tableSamplePercent(sampling->milliPercent);
   if (sampling->repeatable) out << ",\"repeatable\":" << *sampling->repeatable;
   out << '}';
+}
+void clickHouseSamplingJson(std::ostream &out, const std::optional<ClickHouseSampling> &sample) {
+  if (!sample) return;
+  const auto ratio = [&](const ClickHouseSampleRatio &value) {
+    out << "{\"numerator\":" << json(value.numerator);
+    if (!value.denominator.empty())
+      out << ",\"denominator\":" << json(value.denominator);
+    out << '}';
+  };
+  out << ",\"clickHouseSampling\":{\"size\":";
+  ratio(sample->size);
+  if (sample->offset) {
+    out << ",\"offset\":";
+    ratio(*sample->offset);
+  }
+  out << '}';
+}
+void limitByJson(std::ostream &out, const std::optional<GroupedRowLimit> &limit) {
+  if (!limit) return;
+  out << ",\"limitBy\":{\"count\":" << limit->count << ",\"offset\":" << limit->offset
+      << ",\"all\":" << (limit->all ? "true" : "false") << ",\"keys\":[";
+  for (std::size_t i = 0; i < limit->keys.size(); ++i) {
+    if (i) out << ',';
+    out << limit->keys[i];
+  }
+  out << "]}";
 }
 template<class Name,class WriteName>
 void rowMatchJson(std::ostream &out,const std::optional<BasicRowMatch<Name>> &match,WriteName write) {
@@ -932,6 +959,8 @@ void syntaxQuery(std::ostream &out, const Compilation &c,
         << ",\"query\":" << t.query << ",\"lateralLeft\":" << t.lateralLeft
         << ",\"inheritance\":" << int(t.inheritance);
     samplingJson(out,t.sampling);
+    clickHouseSamplingJson(out, t.clickHouseSampling);
+    if (t.finalRead) out << ",\"finalRead\":true";
     rowMatchJson(out,t.rowMatch,[&](const auto &field) { names(out,c,{field}); });
     if (t.postgresFunction==PostgresRowFunction::Unnest) out << ",\"unnestFunction\":true";
     if (t.postgresFunction==PostgresRowFunction::GenerateSeries) out << ",\"postgresFunction\":\"generate_series\"";
@@ -945,7 +974,12 @@ void syntaxQuery(std::ostream &out, const Compilation &c,
     unpivotJson(out,t.unpivot,[&](const auto &n) { names(out,c,{n}); });
     out << '}';
   }
-  out << "],\"where\":" << s.where << ",\"groupBy\":";
+  out << "],\"prewhere\":" << s.prewhere << ",\"where\":" << s.where
+      << ",\"qualify\":" << s.qualify;
+  if (s.systemTime) out << ",\"systemTime\":" << s.systemTime;
+  if (s.groupByAll) out << ",\"groupByAll\":true";
+  limitByJson(out, s.limitBy);
+  out << ",\"groupBy\":";
   numbers(out, s.groupBy);
   out<<",\"groupingSets\":[";for(std::size_t i=0;i<s.groupingSets.size();++i){if(i)out<<',';numbers(out,s.groupingSets[i]);}out<<']';
   out << ",\"having\":" << s.having << ",\"orderBy\":";
@@ -1168,6 +1202,8 @@ std::string dumpModel(const Compilation &c, std::size_t maxBytes) {
           << ",\"inheritance\":" << int(t.inheritance)
           << ",\"pseudo\":" << (t.pseudo ? "true" : "false");
       samplingJson(out,t.sampling);
+      clickHouseSamplingJson(out, t.clickHouseSampling);
+      if (t.finalRead) out << ",\"finalRead\":true";
       rowMatchJson(out,t.rowMatch,[&](const auto &field) { out << json(field); });
       if (t.postgresFunction==PostgresRowFunction::Unnest) out << ",\"unnestFunction\":true";
       if (t.postgresFunction==PostgresRowFunction::GenerateSeries) out << ",\"postgresFunction\":\"generate_series\"";
@@ -1198,7 +1234,12 @@ std::string dumpModel(const Compilation &c, std::size_t maxBytes) {
       out << "{\"name\":" << json(symbol.name) << ",\"table\":" << symbol.table
           << '}';
     }
-    out << "]},\"where\":" << m.where << ",\"groupBy\":";
+    out << "]},\"prewhere\":" << m.prewhere << ",\"where\":" << m.where
+        << ",\"qualify\":" << m.qualify;
+    if (m.systemTime) out << ",\"systemTime\":" << m.systemTime;
+    if (m.groupByAll) out << ",\"groupByAll\":true";
+    limitByJson(out, m.limitBy);
+    out << ",\"groupBy\":";
     numbers(out, m.groupBy);
     out<<",\"groupingSets\":[";for(std::size_t i=0;i<m.groupingSets.size();++i){if(i)out<<',';numbers(out,m.groupingSets[i]);}out<<']';
     out << ",\"having\":" << m.having << ",\"orderBy\":";

@@ -1,0 +1,7 @@
+case split-tablets valid <<SQL
+CREATE TABLE events (id INTEGER PRIMARY KEY, data text) SPLIT INTO 4 TABLETS;
+SQL
+
+case missing-tablets-keyword syntax-error <<SQL
+CREATE TABLE events (id INTEGER PRIMARY KEY) SPLIT INTO 4;
+SQL

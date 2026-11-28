@@ -58,6 +58,61 @@ void expect(const CompletionResult &r, const std::string &label,
 int main() {
   try {
     {
+      CompletionOptions options;
+      const auto completeExtension = [&](Dialect dialect, SqlExtension extension, std::string sql) {
+        options.language.extension = extension;
+        return completeSql(dialect, sql, sql.size(), nullptr, {}, options);
+      };
+      expect(completeExtension(Dialect::PostgreSQL, SqlExtension::DuckDb, "FR"),
+             "FROM", CompletionKind::Keyword);
+      expect(completeExtension(Dialect::PostgreSQL, SqlExtension::DuckDb,
+                               "SELECT id FROM sales GROUP BY "),
+             "ALL", CompletionKind::Keyword);
+      expect(completeExtension(Dialect::MySQL, SqlExtension::ClickHouse, "SELECT id FROM sales F"),
+             "FINAL", CompletionKind::Keyword);
+      expect(completeExtension(Dialect::MySQL, SqlExtension::ClickHouse, "SELECT id FROM sales LIMIT 5 B"),
+             "BY", CompletionKind::Keyword);
+      check(!find(completeExtension(Dialect::MySQL, SqlExtension::None, "SELECT id FROM sales F"),
+                  "FINAL", CompletionKind::Keyword), "FINAL leaked into MySQL completion");
+      expect(completeExtension(Dialect::MySQL, SqlExtension::ClickHouse, "SELECT id FROM sales FINAL SA"),
+             "SAMPLE", CompletionKind::Keyword);
+      expect(completeExtension(Dialect::MySQL, SqlExtension::ClickHouse, "SELECT id FROM sales SAMPLE 1/4 O"),
+             "OFFSET", CompletionKind::Keyword);
+      expect(completeExtension(Dialect::PostgreSQL, SqlExtension::None,
+                               "SELECT id FROM sales TABLESAMPLE S"),
+             "SYSTEM", CompletionKind::Keyword);
+      expect(completeExtension(Dialect::PostgreSQL, SqlExtension::None,
+                               "SELECT id FROM sales TABLESAMPLE SYSTEM (10.5) REP"),
+             "REPEATABLE", CompletionKind::Keyword);
+      check(!find(completeExtension(Dialect::PostgreSQL, SqlExtension::None,
+                                    "SELECT id FROM (SELECT id FROM sales) AS s TABLES"),
+                  "TABLESAMPLE", CompletionKind::Keyword), "TABLESAMPLE suggested on a derived table");
+      expect(completeExtension(Dialect::PostgreSQL, SqlExtension::CockroachDb,
+                               "SELECT id FROM sales AS OF SYS"),
+             "SYSTEM TIME", CompletionKind::Keyword);
+      expect(completeExtension(Dialect::PostgreSQL, SqlExtension::CockroachDb,
+                               "SELECT id FROM sales AS OF SYSTEM T"),
+             "TIME", CompletionKind::Keyword);
+      expect(completeExtension(Dialect::PostgreSQL, SqlExtension::YugabyteDb,
+                               "CREATE TABLE sales (id INT PRIMARY KEY) SPLIT INTO 4 TAB"),
+             "TABLETS", CompletionKind::Keyword);
+      const std::string table = "CREATE TABLE sales (id INT NOT NULL, amount DECIMAL(12,2)) ";
+      expect(completeExtension(Dialect::MySQL, SqlExtension::Doris, table + "UNIQUE KEY(id) ORD"),
+             "ORDER BY", CompletionKind::Keyword);
+      expect(completeExtension(Dialect::MySQL, SqlExtension::StarRocks,
+                               table + "PRIMARY KEY(id) DISTRIBUTED BY HASH(id) ORDER BY (amo"),
+             "amount", CompletionKind::Column);
+      const auto columns = completeExtension(Dialect::MySQL, SqlExtension::Doris,
+                                             table + "DUPLICATE KEY(id) DISTRIBUTED BY HASH(id, ");
+      expect(columns, "amount", CompletionKind::Column);
+      check(!find(columns, "id", CompletionKind::Column), "prior layout column was repeated");
+      const auto methods = completeExtension(Dialect::MySQL, SqlExtension::StarRocks,
+                                             table + "PRIMARY KEY(id) DISTRIBUTED BY ");
+      expect(methods, "HASH", CompletionKind::Keyword);
+      check(!find(methods, "RANDOM", CompletionKind::Keyword),
+            "StarRocks primary key offered random distribution");
+    }
+    {
       constexpr auto pg=Dialect::PostgreSQL;
       MemoryCatalog large;
       for (int i=0;i<128;++i) {

@@ -245,13 +245,14 @@ void QueryPane::updateSqlActions() {
     const bool interactive = canRun(activity_.exclusiveOperation);
     run->setEnabled(interactive && sourceAvailable);
     runStatement->setEnabled(interactive && !editor->largeDocument());
-    const bool redis = statementDriver_ == navidog::DatabaseKind::Redis;
-    const bool hasCompiler = !redis && statementDriver_ != navidog::DatabaseKind::Dameng;
+    const bool command = navidog::isCommandDatabase(statementDriver_);
+    const bool hasCompiler = !command && statementDriver_ != navidog::DatabaseKind::Dameng;
     parseAst->setEnabled(interactive && sourceAvailable && hasCompiler);
-    explain->setEnabled(interactive && sourceAvailable && !redis);
+    explain->setEnabled(interactive && sourceAvailable &&
+                        (!command || statementDriver_ == navidog::DatabaseKind::MongoDb));
     format->setEnabled(sourceAvailable && hasCompiler);
     conversion->setEnabled(sourceAvailable && hasCompiler);
-    optimize->setEnabled(sourceAvailable && !redis);
+    optimize->setEnabled(sourceAvailable && !command);
     if (auto *save = findChild<QToolButton *>("saveSqlFile"))
         save->setEnabled(scriptReady());
     if (auto *library = findChild<QToolButton *>("saveSqlToLibrary"))
@@ -287,6 +288,7 @@ void QueryPane::updateScriptPolicy(const QString &progress) {
 }
 
 QString QueryPane::statementAtCursor() const {
+    if (statementDriver_ == navidog::DatabaseKind::MongoDb) return editor->selectedSqlOrAll();
     if (!scriptReady() || editor->largeDocument())
         return {};
     if (statementDriver_ == navidog::DatabaseKind::Redis) {
@@ -379,6 +381,8 @@ void QueryPane::showReturnedDefinition(const navidog::QueryOutcome &outcome) {
         const auto column = result.columns.at(i);
         if (column.compare("sql", Qt::CaseInsensitive) != 0 &&
             column.compare("definition", Qt::CaseInsensitive) != 0 &&
+            column.compare("create_statement", Qt::CaseInsensitive) != 0 &&
+            !(statementDriver_ == navidog::DatabaseKind::ClickHouse && column == "statement") &&
             !column.startsWith("Create ", Qt::CaseInsensitive))
             continue;
         const auto sql = result.rows.front().value(i).toString();

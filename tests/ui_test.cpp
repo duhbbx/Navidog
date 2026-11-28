@@ -1,3 +1,5 @@
+#include "task_center.hpp"
+#include "navidog/query_parameters.hpp"
 #include <algorithm>
 #include <QtTest>
 #include <QTemporaryDir>
@@ -289,6 +291,39 @@ private slots:
         completion->request(SqlCompletionController::Activation::Manual);
         QTRY_VERIFY(!ready.isEmpty());
         QVERIFY(labels().contains("ROWNUM"));
+    }
+    void extendedEditorChecksAndCompletesNativeSyntax() {
+        using navidog::DatabaseKind;
+        SqlEditor editor;
+        auto* completion = editor.findChild<SqlCompletionController*>();
+        QVERIFY(completion);
+        QSignalSpy ready(completion, &SqlCompletionController::ready);
+        auto request = [&](const QString& text) {
+            ready.clear();
+            editor.setPlainText(text);
+            editor.moveCursor(QTextCursor::End);
+            completion->request(SqlCompletionController::Activation::Manual);
+        };
+        editor.setDiagnosticContext(DatabaseKind::MongoDb);
+        request("{\"fi");
+        QTRY_VERIFY(!ready.isEmpty());
+        const auto commands = qvariant_cast<EditorCompletionResult>(ready.takeLast().at(0)).items;
+        QVERIFY(!commands.isEmpty());
+        QCOMPARE(commands.first().insertText, QString("find\": "));
+        request("{\"find\": \"orders\", \"fi");
+        QTRY_VERIFY(!ready.isEmpty());
+        const auto options = qvariant_cast<EditorCompletionResult>(ready.takeLast().at(0)).items;
+        QVERIFY(!options.isEmpty());
+        QCOMPARE(options.first().label, "filter");
+        editor.setPlainText("{\"find\":\"orders\",\"filter\":[]}");
+        QTRY_VERIFY(!editor.diagnostics().isEmpty());
+        QVERIFY(editor.diagnostics().first().message.contains("filter"));
+        editor.setDiagnosticContext(DatabaseKind::ClickHouse);
+        request("SELECT id FROM events PREW");
+        QTRY_VERIFY(!ready.isEmpty());
+        const auto sqlItems = qvariant_cast<EditorCompletionResult>(ready.takeLast().at(0)).items;
+        QVERIFY(std::any_of(sqlItems.begin(), sqlItems.end(),
+            [](const auto& item) { return item.label == "PREWHERE"; }));
     }
     void completionReplacementPreservesUnicodeDocumentOffsets() {
         using namespace navidog;
@@ -1822,6 +1857,7 @@ private slots:
         expected.chop(4);
         expected += ".json";
         QFile result(QDir(folder).filePath(expected));
+        QTRY_VERIFY_WITH_TIMEOUT(result.exists(), 4000);
         QVERIFY(result.open(QIODevice::ReadOnly));
         QVERIFY(result.readAll().contains("\"number\""));
 
@@ -3156,9 +3192,322 @@ a
         QCOMPARE(folder->child(0)->text(0), QString("customers"));
         QCOMPARE(restored->cachedRows().rows.size(), 1);
     }
+    void navigationMultiSelectStaysInsideOneDirectory() {
+        using namespace navidog;
+        QTemporaryDir directory;
+        ConnectionProfile profile;
+        profile.database=ensureDemoDatabase(directory.path());
+        auto db=connectDatabase(profile);
+        auto token=cancellation();
+        for (const auto* name : {"choose_a","choose_b","choose_c"})
+            QVERIFY(db->execute(QString("CREATE TABLE %1(id INTEGER)").arg(name),{},token).error.isEmpty());
+        QVERIFY(db->execute("CREATE VIEW choose_other AS SELECT 1",{},token).error.isEmpty());
+        MainWindow window(directory.path());
+        window.resize(1100,900);
+        window.show();
+        auto* tree=window.findChild<QTreeWidget*>("connectionTree");
+        QVERIFY(tree);
+        auto* connection=tree->topLevelItem(0);
+        connection->setExpanded(true);
+        QTRY_COMPARE(connection->childCount(),1);
+        auto* database=connection->child(0);
+        database->setExpanded(true);
+        QTRY_COMPARE(database->childCount(),3);
+        auto* tables=database->child(0);
+        auto* views=database->child(1);
+        tables->setExpanded(true);
+        views->setExpanded(true);
+        QTRY_VERIFY(views->childCount()>0);
+        const auto pick=[&](QTreeWidgetItem* parent,const QString& name) -> QTreeWidgetItem* {
+            for (int i=0;i<parent->childCount();++i)
+                if (parent->child(i)->text(0)==name) return parent->child(i);
+            return nullptr;
+        };
+        QTRY_VERIFY(pick(tables,"choose_c") && pick(views,"choose_other"));
+        auto* a=pick(tables,"choose_a");
+        auto* b=pick(tables,"choose_b");
+        auto* c=pick(tables,"choose_c");
+        auto* other=pick(views,"choose_other");
+        const auto click=[&](QTreeWidgetItem* item, Qt::KeyboardModifiers modifiers) {
+            tree->scrollToItem(item);
+            QTest::mouseClick(tree->viewport(),Qt::LeftButton,modifiers,tree->visualItemRect(item).center());
+        };
+        click(a,Qt::NoModifier);
+        click(c,Qt::ControlModifier);
+        QCOMPARE(tree->selectedItems().size(),2);
+        const auto selectedNames=[&] {
+            QStringList names;
+            for (auto* selected : tree->selectedItems()) names << selected->text(0);
+            names.sort();
+            return names;
+        };
+        QCOMPARE(selectedNames(), QStringList({"choose_a","choose_c"}));
+        click(other,Qt::ControlModifier);
+        QCOMPARE(selectedNames(), QStringList({"choose_a","choose_c"}));
+        click(a,Qt::NoModifier);
+        click(c,Qt::ShiftModifier);
+        QCOMPARE(selectedNames(), QStringList({"choose_a","choose_b","choose_c"}));
+        click(other,Qt::ShiftModifier);
+        QCOMPARE(selectedNames(), QStringList({"choose_a","choose_b","choose_c"}));
+
+        bool batchMenu = false;
+        QTimer::singleShot(40,&window,[&] {
+            auto* menu=qobject_cast<QMenu*>(QApplication::activePopupWidget());
+            if (!menu) return;
+            auto* generate=menu->findChild<QMenu*>("contextGenerateBatchSql");
+            batchMenu=generate && menu->findChild<QMenu*>("contextExportBatchSql") &&
+                menu->findChild<QAction*>("contextBatchDrop");
+            if (batchMenu)
+                for (auto* action : generate->actions())
+                    if (action->text()=="SELECT") { action->trigger(); break; }
+            menu->close();
+        });
+        tree->scrollToItem(b);
+        QMetaObject::invokeMethod(tree,"customContextMenuRequested",Qt::DirectConnection,
+                                  Q_ARG(QPoint,tree->visualItemRect(b).center()));
+        QVERIFY(batchMenu);
+        QCOMPARE(tree->selectedItems().size(),3);
+        auto* tabs=window.findChild<QTabWidget*>("queryTabs");
+        QVERIFY(tabs);
+        QTRY_VERIFY(qobject_cast<QueryPane*>(tabs->currentWidget()) &&
+                    qobject_cast<QueryPane*>(tabs->currentWidget())->editor->toPlainText().contains("choose_c"));
+        const auto draft=qobject_cast<QueryPane*>(tabs->currentWidget())->editor->toPlainText();
+        QVERIFY(draft.contains("choose_a") && draft.contains("choose_b"));
+    }
+
+    void navigationObjectPropertiesAndConfirmedDropUseTheSelectedView() {
+        using namespace navidog;
+        QTemporaryDir directory;
+        auto token = cancellation();
+        ConnectionProfile profile;
+        profile.database = ensureDemoDatabase(directory.path());
+        auto db = connectDatabase(profile);
+        QVERIFY(db->execute("CREATE VIEW object_properties_owned AS SELECT 93 AS number", {}, token).error.isEmpty());
+        QVERIFY(db->execute("CREATE VIEW object_preserved_owned AS SELECT 95 AS number", {}, token).error.isEmpty());
+        MainWindow window(directory.path());
+        window.show();
+        auto* tree = window.findChild<QTreeWidget*>("connectionTree");
+        QVERIFY(tree);
+        auto* connection = tree->topLevelItem(0);
+        connection->setExpanded(true);
+        QTRY_COMPARE(connection->childCount(), 1);
+        auto* database = connection->child(0);
+        database->setExpanded(true);
+        QTRY_COMPARE(database->childCount(), 3);
+        auto viewFolder = database->child(1);
+        QCOMPARE(viewFolder->data(0, Qt::UserRole + 2).value<CatalogNode>().kind, QString("views"));
+        viewFolder->setExpanded(true);
+        const auto findTarget = [&]() -> QTreeWidgetItem* {
+            for (int i = 0; i < viewFolder->childCount(); ++i)
+                if (viewFolder->child(i)->text(0) == "object_properties_owned") return viewFolder->child(i);
+            return nullptr;
+        };
+        QTRY_VERIFY(findTarget());
+        const auto invokeMenu = [&](const QString& id) {
+            bool invoked = false;
+            QTimer::singleShot(40, &window, [&] {
+                auto* menu = qobject_cast<QMenu*>(QApplication::activePopupWidget());
+                if (!menu) return;
+                if (auto* action = menu->findChild<QAction*>(id); action && action->isEnabled()) {
+                    invoked = true;
+                    action->trigger();
+                }
+                menu->close();
+            });
+            QMetaObject::invokeMethod(tree, "customContextMenuRequested", Qt::DirectConnection,
+                                      Q_ARG(QPoint, tree->visualItemRect(findTarget()).center()));
+            return invoked;
+        };
+        QVERIFY(invokeMenu("contextObjectProperties"));
+        auto* properties = window.findChild<QDialog*>("objectPropertiesDialog");
+        QVERIFY(properties);
+        auto* sql = properties->findChild<QPlainTextEdit*>("objectPropertiesSql");
+        QVERIFY(sql);
+        QTRY_VERIFY(sql->toPlainText().contains("SELECT 93"));
+        const auto* model = properties->findChild<QTableView*>("objectPropertiesGrid")->model();
+        QCOMPARE(model->index(0, 1).data().toString(), QString("object_properties_owned"));
+        QVERIFY(!window.findChild<SourcePane*>());
+        properties->close();
+        QSignalSpy modified(&window, &MainWindow::queryFinished);
+        bool correctPreview = false;
+        QTimer confirmation;
+        confirmation.setInterval(10);
+        connect(&confirmation, &QTimer::timeout, &window, [&] {
+            auto* dialog = window.findChild<QDialog*>("sourceDropDialog");
+            if (!dialog || !dialog->isVisible()) return;
+            confirmation.stop();
+            auto* name = dialog->findChild<QLineEdit*>("confirmObjectDrop");
+            auto* drop = dialog->findChild<QPushButton*>("executeObjectDrop");
+            auto* preview = dialog->findChild<QPlainTextEdit*>("dropObjectSqlPreview");
+            correctPreview = name && drop && !drop->isEnabled() && preview &&
+                preview->toPlainText().contains("DROP VIEW") && preview->toPlainText().contains("object_properties_owned");
+            if (!correctPreview) { dialog->reject(); return; }
+            name->setText("object_properties_owned");
+            drop->click();
+        });
+        confirmation.start();
+        QVERIFY(invokeMenu("contextDropObject"));
+        QVERIFY(correctPreview);
+        QTRY_COMPARE(modified.size(), 1);
+        QVERIFY(db->execute("SELECT name FROM sqlite_schema WHERE name='object_properties_owned'", {}, token).rows.isEmpty());
+        QCOMPARE(db->execute("SELECT number FROM object_preserved_owned", {}, token).rows.front().front().toInt(), 95);
+        QTRY_VERIFY(!findTarget());
+    }
+
+    void queryParameterDialogValidatesExecutesAndCancels() {
+        using namespace navidog;
+        QTemporaryDir directory;
+        MainWindow window(directory.path());
+        window.show();
+        auto* pane = qobject_cast<QueryPane*>(window.findChild<QTabWidget*>("queryTabs")->currentWidget());
+        QVERIFY(pane);
+        pane->editor->setPlainText("SELECT CAST(:id AS INTEGER) AS result, :id AS repeated, ':skip' AS literal");
+        QSignalSpy completed(&window, &MainWindow::queryFinished);
+        const auto intercept = [&](std::function<void(QDialog*)> action) {
+            auto* timer = new QTimer(&window);
+            timer->setInterval(10);
+            connect(timer, &QTimer::timeout, &window, [&, timer, action] {
+                auto* dialog = window.findChild<QDialog*>("queryParameterDialog");
+                if (!dialog || !dialog->isVisible()) return;
+                timer->stop();
+                timer->deleteLater();
+                action(dialog);
+            });
+            timer->start();
+        };
+        bool validated = false;
+        intercept([&](QDialog* dialog) {
+            const auto values = dialog->findChildren<QLineEdit*>("queryParameterValue");
+            const auto types = dialog->findChildren<QComboBox*>("queryParameterType");
+            auto* run = dialog->findChild<QPushButton*>("confirmQueryParameterBindings");
+            if (values.size() != 1 || types.size() != 1 || !run ||
+                types.front()->currentData().toInt() != int(QueryParameterType::Integer)) {
+                dialog->reject();
+                return;
+            }
+            values.front()->setText("invalid");
+            run->click();
+            validated = dialog->isVisible() && !dialog->findChild<QLabel*>("queryParameterInputError")->text().isEmpty();
+            values.front()->setText("42");
+            run->click();
+        });
+        window.runCurrent();
+        QTRY_VERIFY_WITH_TIMEOUT(validated, 5000);
+        QTRY_COMPARE_WITH_TIMEOUT(completed.size(), 1, 5000);
+        QCOMPARE(pane->model->result().rows.size(), 1);
+        QCOMPARE(pane->model->result().rows.front().value(0).toInt(), 42);
+        QCOMPARE(pane->model->result().rows.front().value(1).toInt(), 42);
+        bool cancelled = false;
+        intercept([&](QDialog* dialog) {
+            cancelled = true;
+            dialog->reject();
+        });
+        window.runCurrent();
+        QTRY_VERIFY_WITH_TIMEOUT(cancelled, 5000);
+        QCOMPARE(completed.size(), 1);
+    }
+
+    void taskCenterRestoresGenerationAndTracksExportFile() {
+        using namespace navidog;
+        QTemporaryDir directory;
+        ConnectionProfile profile;
+        profile.database = ensureDemoDatabase(directory.path());
+        auto db = connectDatabase(profile);
+        const auto token = cancellation();
+        QVERIFY(db->execute("CREATE TABLE queued_generation(id INTEGER PRIMARY KEY, label TEXT)", {}, token).error.isEmpty());
+        QMainWindow window;
+        BackgroundTasks tasks(&window);
+        navidog::ui::TaskCenter center(tasks, *window.statusBar(), window);
+        window.show();
+        QueryService service;
+        const auto gate = cancellation();
+        const auto blocker = tasks.submit({"等待测试", {}, QFileInfo(profile.database).canonicalFilePath(), {}},
+            [gate](const TaskContext& task) {
+                while (!gate->load() && !task.cancel->load()) QThread::msleep(4);
+                return TaskResult{};
+            });
+        QVERIFY(!blocker.isEmpty());
+
+        TableTask request;
+        request.action = TableAction::GenerateData;
+        request.node.kind = "table";
+        request.node.schema = "main";
+        request.node.object = "queued_generation";
+        request.maxRows = 25;
+        TableTaskDialog generation(profile, request, service, &window);
+        QString generationId;
+        connect(&generation, &TableTaskDialog::backgroundStarted, &window, [&](const QString& id) {
+            generationId = id;
+            center.rememberDialog(id, generation);
+        });
+        generation.show();
+        auto* buttons = generation.findChild<QDialogButtonBox*>();
+        auto* okay = buttons->button(QDialogButtonBox::Ok);
+        QTRY_VERIFY(okay->isEnabled());
+        okay->click();
+        QVERIFY(!generationId.isEmpty());
+        QCOMPARE(tasks.info(generationId)->state, TaskState::Queued);
+        QVERIFY(!service.busy());
+        QVERIFY(generation.findChild<QWidget*>("tableTaskProgress")->isVisible());
+        generation.close();
+        QVERIFY(!generation.isVisible());
+        QCOMPARE(tasks.info(generationId)->state, TaskState::Queued);
+        window.findChild<QPushButton*>("taskCenterButton")->click();
+        auto* list = window.findChild<QTableView*>("backgroundTaskList");
+        QVERIFY(list->isVisible());
+        list->selectRow(0);
+        auto* restore = window.findChild<QPushButton*>("restoreTaskWindow");
+        QVERIFY(restore->isEnabled());
+        restore->click();
+        QVERIFY(generation.isVisible());
+        QCOMPARE(generation.findChild<QLineEdit*>("generationSize")->text(), QString("25"));
+        buttons->button(QDialogButtonBox::Cancel)->click();
+        QVERIFY(!generation.isVisible());
+        gate->store(true);
+        QTRY_COMPARE(tasks.info(generationId)->state, TaskState::Succeeded);
+        QCOMPARE(tasks.info(generationId)->progress.done, qint64(25));
+        QCOMPARE(db->execute("SELECT count(*) FROM queued_generation", {}, token).rows[0][0].toInt(), 25);
+
+        request.action = TableAction::ExportCsv;
+        request.path = directory.filePath("generated.csv");
+        TableTaskDialog exporter(profile, request, service, &window);
+        QString exportId;
+        connect(&exporter, &TableTaskDialog::backgroundStarted, &window,
+                [&](const QString& id) { exportId = id; });
+        exporter.show();
+        exporter.findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Ok)->click();
+        QVERIFY(!exportId.isEmpty());
+        QTRY_COMPARE(tasks.info(exportId)->state, TaskState::Succeeded);
+        QCOMPARE(tasks.info(exportId)->artifacts, QStringList{request.path});
+        QFile exported(request.path);
+        QVERIFY(exported.open(QIODevice::ReadOnly));
+        QCOMPARE(exported.readAll().count('\n'), 26);
+        list->selectRow(0);
+        QVERIFY(window.findChild<QPushButton*>("openTaskFile")->isEnabled());
+        QVERIFY(window.findChild<QPushButton*>("openTaskFolder")->isEnabled());
+    }
+
     void dataGenerationAndReportsHaveWorkingNativeControls() {
         using namespace navidog;QTemporaryDir directory;ConnectionProfile p;p.database=ensureDemoDatabase(directory.path());auto db=connectDatabase(p);db->execute("CREATE TABLE ui_generated(id INTEGER PRIMARY KEY,title TEXT UNIQUE NOT NULL,n INTEGER NOT NULL)",{},cancellation());QueryService service;TableTask task;task.node.kind="table";task.node.schema="main";task.node.object="ui_generated";task.action=TableAction::GenerateData;task.maxRows=3;
-        TableTaskDialog dialog(p,task,service);dialog.show();auto* ok=dialog.findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Ok);QTRY_VERIFY_WITH_TIMEOUT(ok->isEnabled(),3000);auto* grid=dialog.findChild<QTableView*>("generationRules");QCOMPARE(grid->model()->rowCount(),3);ok->click();QTRY_VERIFY_WITH_TIMEOUT(dialog.succeeded(),3000);QCOMPARE(db->execute("SELECT count(*) FROM ui_generated",{},cancellation()).rows[0][0].toInt(),3);dialog.reject();
+        TableTaskDialog dialog(p, task, service);
+        dialog.show();
+        auto* ok = dialog.findChild<QDialogButtonBox*>()->button(QDialogButtonBox::Ok);
+        QTRY_VERIFY_WITH_TIMEOUT(ok->isEnabled(), 3000);
+        auto* grid = dialog.findChild<QTableView*>("generationRules");
+        QCOMPARE(grid->model()->rowCount(), 3);
+        auto* size = dialog.findChild<QLineEdit*>("generationSize");
+        auto* estimate = dialog.findChild<QPushButton*>("estimateGeneration");
+        auto* message = dialog.findChild<QLabel*>("taskMessage");
+        QVERIFY(size && estimate && message);
+        size->setText("100,000,000,000,000");
+        estimate->click();
+        QTRY_VERIFY_WITH_TIMEOUT(message->text().contains("此规模仅估算"), 3000);
+        QCOMPARE(db->execute("SELECT count(*) FROM ui_generated", {}, cancellation()).rows[0][0].toInt(), 0);
+        size->setText("3");
+        ok->click();
+        QTRY_VERIFY_WITH_TIMEOUT(dialog.succeeded(), 3000);
+        QCOMPARE(db->execute("SELECT count(*) FROM ui_generated", {}, cancellation()).rows[0][0].toInt(), 3);
+        dialog.reject();
         task.action=TableAction::ReverseModel;auto model=runTableTask(p,task,cancellation());QVERIFY(model.applied);auto* report=new TableReportDialog(task,model);navidog::ui::applyTheme(report);report->show();auto* view=report->findChild<QGraphicsView*>("tableModelView");QVERIFY(view);QVERIFY(view->scene()->items().size()>=4);
         if(!qEnvironmentVariableIsEmpty("NAVIDOG_TABLE_MODEL_SCREENSHOT"))QVERIFY(report->grab().save(qEnvironmentVariable("NAVIDOG_TABLE_MODEL_SCREENSHOT")));report->close();
         task.action=TableAction::BuildBI;task.dimension="title";auto result=runTableTask(p,task,cancellation());QVERIFY(result.applied);auto* chart=new TableReportDialog(task,result);navidog::ui::applyTheme(chart);chart->show();QVERIFY(chart->findChild<QWidget*>("distributionChart"));if(!qEnvironmentVariableIsEmpty("NAVIDOG_TABLE_BI_SCREENSHOT"))QVERIFY(chart->grab().save(qEnvironmentVariable("NAVIDOG_TABLE_BI_SCREENSHOT")));chart->close();
@@ -3198,9 +3547,9 @@ a
         navidog::CatalogNode node;node.kind="database";node.name=node.database="owned";auto* database=new QTreeWidgetItem(parent,{node.name});database->setData(0,Qt::UserRole,pg.id);database->setData(0,Qt::UserRole+2,QVariant::fromValue(node));
         // Mark the parent loaded before expanding to avoid fixture network access.
         parent->setData(0,Qt::UserRole+3,true);parent->setExpanded(true);
-        inspect(database,{"打开数据库","---","编辑数据库…","新建数据库…","新建 Schema…","删除数据库…","---","新建查询","---","命令列","运行 SQL 文件…","转储 SQL 文件","数据库字典…","逆向到 ER 图…","在数据库中查找…","---","刷新","复制名称"},false);
+        inspect(database,{"打开数据库","---","编辑数据库…","新建数据库…","新建 Schema…","删除数据库…","数据库属性","---","新建查询","---","命令列","运行 SQL 文件…","转储 SQL 文件","数据库字典…","逆向到 ER 图…","在数据库中查找…","---","刷新","复制名称"},false);
         node.kind="schema";node.name=node.schema="draft";database->setData(0,Qt::UserRole+2,QVariant::fromValue(node));
-        inspect(database,{"打开 Schema","---","新建数据库…","新建 Schema…","删除 Schema…","Schema 属性","---","新建查询","新建表…","---","命令列","运行 SQL 文件…","转储 SQL 文件","数据库字典…","逆向到 ER 图…","在 Schema 中查找…","---","刷新","复制名称"},false);
+        inspect(database,{"打开 Schema","---","新建数据库…","新建 Schema…","删除 Schema…","级联删除Schema…","Schema 属性","---","新建查询","新建表…","新建对象","---","命令列","运行 SQL 文件…","转储 SQL 文件","数据库字典…","逆向到 ER 图…","在 Schema 中查找…","---","刷新","复制名称"},false);
     }
     void databaseMenuRunsConsoleSearchAndDictionary() {
         QTemporaryDir directory;

@@ -1,4 +1,5 @@
 #include "navidog/operation_timing.hpp"
+#include "navidog/database_sql.hpp"
 #include "sql_conversion.hpp"
 #include "components.hpp"
 #include "editor.hpp"
@@ -56,6 +57,7 @@ class ConversionTask final : public QObject, public QRunnable {
   Q_OBJECT
 public:
   sc::Dialect source, target;
+  sc::SqlExtension extension = sc::SqlExtension::None;
   sc::FormatStyle style;
   QString text, fromQualifier, toQualifier;
   bool allowDdl = false;
@@ -68,14 +70,14 @@ public:
     sc::ConversionResult result;
     try {
       sc::ConversionOptions options;
+      options.language.extension = extension;
       options.names = names;
       navidog::MetadataCatalog catalog(snapshot);
       if (snapshot && snapshot->usable() &&
           snapshot->database.toStdString() == names.database &&
           snapshot->schema.toStdString() == names.schema &&
-          sc::parseDialect(
-              navidog::databaseKindKey(snapshot->driver).toStdString()) ==
-              source)
+          navidog::compilerDialectFor(snapshot->driver) == source &&
+          navidog::compilerExtensionFor(snapshot->driver) == extension)
         options.catalog = &catalog;
       options.language.limits.sourceBytes = 1024 * 1024;
       options.generation.maxBytes = 4 * 1024 * 1024;
@@ -97,6 +99,7 @@ public:
       if(result.ok()) {
         sc::FormatOptions format;
         format.language=options.language;
+        format.language.extension = sc::SqlExtension::None;
         format.language.limits.sourceBytes=options.generation.maxBytes;
         format.maxOutputBytes=options.generation.maxBytes;
         format.shouldStop=options.language.shouldStop;
@@ -116,6 +119,7 @@ signals:
 };
 class ConversionDialog final : public navidog::ui::Dialog {
   sc::Dialect initial;
+  navidog::DatabaseKind sourceKind;
   sc::NameResolutionContext names;
   navidog::MetadataSnapshotPtr snapshot;
   sc::FormatStyle formatting;
@@ -160,6 +164,8 @@ class ConversionDialog final : public navidog::ui::Dialog {
     auto *task = new ConversionTask;
     task->source =
         static_cast<sc::Dialect>(sourceDialect->currentData().toInt());
+    task->extension = static_cast<sc::SqlExtension>(
+        sourceDialect->currentData(Qt::UserRole + 1).toInt());
     task->target =
         static_cast<sc::Dialect>(targetDialect->currentData().toInt());
     task->text = source->toPlainText();
@@ -241,9 +247,9 @@ public:
   ConversionDialog(QWidget *parent, sc::Dialect dialect, const QString &text,
                    sc::NameResolutionContext names,
                    navidog::MetadataSnapshotPtr snapshot, sc::FormatStyle style,
-                   navidog::ui::ExportContext exportContext)
-      : navidog::ui::Dialog(parent), initial(dialect), names(std::move(names)),
-        snapshot(std::move(snapshot)), formatting(std::move(style)) {
+                   navidog::ui::ExportContext exportContext, navidog::DatabaseKind kind)
+      : navidog::ui::Dialog(parent), initial(dialect), sourceKind(kind),
+        names(std::move(names)), snapshot(std::move(snapshot)), formatting(std::move(style)) {
     setObjectName("sqlConversionDialog");
     setWindowTitle("SQL 转换");
     resize(1240, 820);
@@ -263,6 +269,13 @@ public:
       targetDialect->addItem(label, int(d));
     }
     sourceDialect->setCurrentIndex(sourceDialect->findData(int(initial)));
+    const auto sourceExtension = navidog::compilerExtensionFor(sourceKind);
+    if (sourceExtension != sc::SqlExtension::None) {
+      sourceDialect->addItem(navidog::databaseKindName(sourceKind), int(initial));
+      const int index = sourceDialect->count() - 1;
+      sourceDialect->setItemData(index, int(sourceExtension), Qt::UserRole + 1);
+      sourceDialect->setCurrentIndex(index);
+    }
     targetDialect->setCurrentIndex(targetDialect->findData(
         int(initial == sc::Dialect::PostgreSQL ? sc::Dialect::MySQL
                                                : sc::Dialect::PostgreSQL)));
@@ -403,9 +416,9 @@ public:
 void showSqlConversion(QWidget *parent, sc::Dialect dialect,
                        const QString &source, sc::NameResolutionContext names,
                        navidog::MetadataSnapshotPtr snapshot, sc::FormatStyle formatting,
-                       navidog::ui::ExportContext exportContext) {
+                       navidog::ui::ExportContext exportContext, navidog::DatabaseKind kind) {
   ConversionDialog dialog(parent, dialect, source, std::move(names),
-                          std::move(snapshot),std::move(formatting),std::move(exportContext));
+                          std::move(snapshot),std::move(formatting),std::move(exportContext),kind);
   dialog.exec();
 }
 #include "sql_conversion.moc"

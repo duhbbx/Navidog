@@ -28,6 +28,7 @@
 #include "table_pane.hpp"
 #include "table_report_dialog.hpp"
 #include "table_task_dialog.hpp"
+#include "task_center.hpp"
 #include "workspace_session_store.hpp"
 #include <QAction>
 #include <QApplication>
@@ -167,6 +168,8 @@ MainWindow::MainWindow(const QString &dataDirectory, QWidget *parent,
     statusBar()->addWidget(status_, 1);
     connectionCount_ = new QLabel;
     statusBar()->addPermanentWidget(connectionCount_);
+    tasks_ = new navidog::BackgroundTasks(this);
+    taskCenter_ = new navidog::ui::TaskCenter(*tasks_, *statusBar(), *this);
     statusBar()->setSizeGripEnabled(false);
     connectionController_ = new ConnectionController(
         service_, store_, profiles_, navidog::localStorePath(dataDirectory_),
@@ -194,6 +197,11 @@ MainWindow::MainWindow(const QString &dataDirectory, QWidget *parent,
              return guarded &&
                     (!pane.schemaContext->property("schemaSelectable").toBool() ||
                      changeQueryContext(&pane, QueryContextPart::Schema));
+         },
+         [this](const navidog::ConnectionProfile &profile, const QueryPane &pane) {
+             if (pane.hasActiveTransaction() || pane.sessionContextChanged)
+                 return navidog::MetadataSnapshotPtr{};
+             return metadata_->snapshot(profile, pane.database, pane.schema);
          }},
         this);
     connect(querySessions_, &QuerySessionController::activityChanged,
@@ -290,11 +298,26 @@ MainWindow::MainWindow(const QString &dataDirectory, QWidget *parent,
     connect(navigation_, &NavigationPane::previewRequested, this,
             [this](QTreeWidgetItem *item) { openObject(item, false); });
     connect(navigation_, &NavigationPane::tableChildRequested, this,
-            [this](QTreeWidgetItem *item) { editTableChild(item); });
+            [this](QTreeWidgetItem *item) {
+                const auto id = item->data(0, Qt::UserRole).toString();
+                const auto node = item->data(0, Qt::UserRole + 2).value<navidog::CatalogNode>();
+                const auto profile = std::find_if(profiles_.cbegin(), profiles_.cend(),
+                    [&](const auto &entry) { return entry.id == id; });
+                if (profile == profiles_.cend()) return;
+                if (navidog::usesExtendedCatalog(profile->driver) ||
+                    profile->driver == navidog::DatabaseKind::OpenGauss ||
+                    profile->driver == navidog::DatabaseKind::MongoDb) {
+                    if (node.kind != "column") openObject(item, true);
+                } else {
+                    editTableChild(item);
+                }
+            });
     connect(navigation_, &NavigationPane::sourceRequested, this,
             [this](QTreeWidgetItem *item) { openObject(item, true); });
     connect(navigation_, &NavigationPane::populateContextMenu, this,
             &MainWindow::populateNavigationMenu);
+    connect(navigation_, &NavigationPane::populateBatchContextMenu, this,
+            &MainWindow::populateBatchObjectMenu);
     connect(navigation_, &NavigationPane::catalogActivityChanged, this,
             &MainWindow::refreshWorkspaceActivity);
     connect(navigation_, &NavigationPane::catalogLoaded, this,
@@ -398,6 +421,10 @@ MainWindow::MainWindow(const QString &dataDirectory, QWidget *parent,
                     showError("删除数据库对象失败", result.error);
                 }
             });
+    connect(&service_, &navidog::QueryService::objectDetailsCompleted, this,
+            &MainWindow::refreshWorkspaceActivity);
+    connect(&service_, &navidog::QueryService::objectChangeCompleted, this,
+            &MainWindow::refreshWorkspaceActivity);
     connect(&service_, &navidog::QueryService::tableTaskCompleted, this,
             &MainWindow::refreshWorkspaceActivity);
     auto *startupConnections = new QTimer(this);
@@ -614,6 +641,7 @@ void MainWindow::newQuery(const QString &sql, const QString &explicitProfile,
                                 [&](const auto &p) { return p.id == id; });
     const auto defaultSql =
         profile != profiles_.end() && profile->driver==navidog::DatabaseKind::Redis ? "PING" :
+        profile != profiles_.end() && profile->driver==navidog::DatabaseKind::MongoDb ? "{\"ping\":1}" :
         profile != profiles_.end() && (navidog::usesOracleSql(profile->driver) || profile->driver==navidog::DatabaseKind::Dameng)
             ? "SELECT 1 FROM dual" : "SELECT 1;";
     pane->editor->setPlainText(sql.isEmpty() ? defaultSql : sql);
@@ -711,11 +739,15 @@ void MainWindow::openObject(QTreeWidgetItem *item, bool definition) {
     auto id = item->data(0, Qt::UserRole).toString();
     for (const auto &p : profiles_)
         if (p.id == id) {
+            if (definition && node.kind == "materializedView") {
+                showObjectProperties(id, node);
+                return;
+            }
             if (definition && navidog::supportsSourceDesign(p.driver, node.kind)) {
                 openSource(item, true);
                 return;
             }
-            if (!definition && navidog::supportsDataEditing(p.driver)) {
+            if (!definition && node.kind != "materializedView" && navidog::supportsDataEditing(p.driver)) {
                 createDataPane(p, node)->requestRefresh();
                 return;
             }
@@ -841,7 +873,7 @@ void MainWindow::openTableDesigner(QTreeWidgetItem *item, bool existing) {
         return;
     auto it = std::find_if(profiles_.begin(), profiles_.end(),
                            [&](auto p) { return p.id == id; });
-    if (it == profiles_.end() || it->driver == navidog::DatabaseKind::Dameng)
+    if (it == profiles_.end() || it->driver == navidog::DatabaseKind::Dameng || navidog::usesExtendedCatalog(it->driver) || navidog::isCommandDatabase(it->driver))
         return;
     if (existing)
         for (int i = 0; i < tabs_->count(); ++i)
@@ -972,14 +1004,16 @@ void MainWindow::namespaceDialog(QTreeWidgetItem *item,
         return;
     if (kind == navidog::NamespaceKind::Schema && node.kind != "database" &&
         node.kind != "schema" &&
-        !(it->driver == navidog::DatabaseKind::Oracle &&
+        !((it->driver == navidog::DatabaseKind::Oracle ||
+           it->driver == navidog::DatabaseKind::DuckDb ||
+           it->driver == navidog::DatabaseKind::OpenGauss) &&
           node.kind == "connection"))
         return;
     if (!promptPassword(*it))
         return;
     auto target = *it;
     if (kind == navidog::NamespaceKind::Schema &&
-        target.driver != navidog::DatabaseKind::Oracle)
+        target.driver != navidog::DatabaseKind::Oracle && !node.database.isEmpty())
         target.database = node.database;
     NamespaceDialog dialog(target, kind, service_, this);
     const bool accepted = dialog.exec() == QDialog::Accepted;
@@ -1017,7 +1051,8 @@ void MainWindow::namespaceDialog(QTreeWidgetItem *item,
     } else {
         auto *targetItem =
             kind == navidog::NamespaceKind::Database ||
-                    target.driver == navidog::DatabaseKind::Oracle
+                    navidog::usesSchemaAtConnection(target.driver) ||
+                    target.driver == navidog::DatabaseKind::DuckDb
                 ? navigation_->connectionItem(id)
                 : navigation_->findCatalogItem(id, [&](const auto &node) {
                       return node.kind == "database" &&
@@ -1037,21 +1072,11 @@ void MainWindow::namespaceDialog(QTreeWidgetItem *item,
                   QString("已创建：") + draft.name);
 }
 void MainWindow::showNamespaceProperties(QTreeWidgetItem *item) {
-    const auto node =
-        item->data(0, Qt::UserRole + 2).value<navidog::CatalogNode>();
-    const auto id = item->data(0, Qt::UserRole).toString();
-    const auto profile =
-        std::find_if(profiles_.cbegin(), profiles_.cend(),
-                     [&](const auto &p) { return p.id == id; });
-    if (profile == profiles_.cend())
-        return;
-    const auto sql = navidog::definitionSql(*profile, node);
-    newQuery(sql, id, node.kind == "schema" ? node.database : QString{},
-             navidog::WorkspaceTabKind::Definition);
-    tabs_->setTabText(tabs_->currentIndex(), node.name + " · 属性");
-    runCurrent();
+    if (!item) return;
+    showObjectProperties(item->data(0, Qt::UserRole).toString(),
+        item->data(0, Qt::UserRole + 2).value<navidog::CatalogNode>());
 }
-void MainWindow::dropNamespaceDialog(QTreeWidgetItem *item) {
+void MainWindow::dropNamespaceDialog(QTreeWidgetItem *item, bool cascade) {
     if (!item || service_.busy() || namespaceDeletion_)
         return;
     const auto node =
@@ -1070,16 +1095,16 @@ void MainWindow::dropNamespaceDialog(QTreeWidgetItem *item) {
         return;
     const auto name = database ? node.database : node.schema;
     auto profile = *saved;
-    if (!database && profile.driver != navidog::DatabaseKind::Oracle)
+    if (!database && profile.driver != navidog::DatabaseKind::Oracle && !node.database.isEmpty())
         profile.database = node.database;
     QString sql;
     try {
-        sql = navidog::dropNamespaceSql(profile, kind, name);
+        sql = navidog::dropNamespaceSql(profile, kind, name, cascade);
     } catch (const std::exception &e) {
         showError("无法生成删除语句", QString::fromUtf8(e.what()));
         return;
     }
-    NamespaceDropDialog dialog(profile.driver, kind, name, sql, this);
+    NamespaceDropDialog dialog(profile.driver, kind, name, sql, this, cascade);
     if (dialog.exec() != QDialog::Accepted)
         return;
     saved = std::find_if(profiles_.begin(), profiles_.end(),
@@ -1088,10 +1113,10 @@ void MainWindow::dropNamespaceDialog(QTreeWidgetItem *item) {
         !promptPassword(*saved))
         return;
     profile = *saved;
-    if (!database && profile.driver != navidog::DatabaseKind::Oracle)
+    if (!database && profile.driver != navidog::DatabaseKind::Oracle && !node.database.isEmpty())
         profile.database = node.database;
     namespaceDeletion_ =
-        NamespaceDeletion{profile, kind, name, QUuid::createUuid().toString()};
+        NamespaceDeletion{profile, kind, name, QUuid::createUuid().toString(), false, cascade};
     if (database)
         querySessions_->disconnectDatabase(id, name);
     startPendingNamespaceDrop();
@@ -1101,7 +1126,7 @@ void MainWindow::startPendingNamespaceDrop() {
         return;
     auto &deletion = *namespaceDeletion_;
     if (service_.dropNamespace(deletion.profile, deletion.kind, deletion.name,
-                               deletion.request)) {
+                               deletion.request, deletion.cascade)) {
         deletion.started = true;
         refreshWorkspaceActivity();
         status_->setText(QString("正在删除 %1…").arg(deletion.name));
@@ -1179,7 +1204,7 @@ void MainWindow::openTableView(QTreeWidgetItem *item, const QJsonObject &view) {
 }
 void MainWindow::tableTaskDialog(QTreeWidgetItem *item,
                                  navidog::TableAction action,
-                                 const QString &option, bool withData) {
+                                 const QString &option, bool withData, bool cascade) {
     if (!item || service_.busy())
         return;
     const auto id = item->data(0, Qt::UserRole).toString();
@@ -1217,8 +1242,26 @@ void MainWindow::tableTaskDialog(QTreeWidgetItem *item,
     task.action = action;
     task.option = option;
     task.withData = withData;
+    task.cascade = cascade;
     if (action == navidog::TableAction::GenerateData)
         task.maxRows = 100;
+    if (navidog::tableActionRunsInBackground(action)) {
+        auto* dialog = new TableTaskDialog(target, task, service_, this);
+        connect(dialog, &QDialog::finished, dialog, &QObject::deleteLater);
+        connect(dialog, &TableTaskDialog::backgroundStarted, this, [this, dialog](const QString& job) {
+            taskCenter_->rememberDialog(job, *dialog);
+        });
+        connect(dialog, &TableTaskDialog::backgroundCompleted, this,
+                [this, id](const navidog::TableTask& request, const navidog::TableTaskResult& outcome) {
+            if (!outcome.applied || !navidog::tableActionWrites(request.action)) return;
+            for (int i = 0; i < tabs_->count(); ++i)
+                if (auto* pane = dynamic_cast<DataPane*>(tabs_->widget(i));
+                    pane && pane->matchesTable(id, request.node))
+                    pane->invalidateTable();
+        });
+        dialog->show();
+        return;
+    }
     TableTaskDialog dialog(target, task, service_, this);
     dialog.exec();
     refreshWorkspaceActivity();
@@ -1258,7 +1301,8 @@ void MainWindow::tableTaskDialog(QTreeWidgetItem *item,
         }
         if (tabs_->count() == 0)
             newQuery();
-        navigation_->refreshFolder(id, node, "tables");
+        if (task.cascade) navigation_->queueRefresh(id);
+        else navigation_->refreshFolder(id, node, "tables");
     }
     status_->setText(dialog.outcome().report);
 }
@@ -1367,7 +1411,7 @@ void MainWindow::formatCurrent() {
     const auto dialect =
         navidog::compilerDialectFor(p == profiles_.end() ? navidog::DatabaseKind::SQLite : p->driver)
             .value_or(navidog::sql::compiler::Dialect::SQLite);
-    if (p != profiles_.end() && p->driver == navidog::DatabaseKind::Redis)
+    if (p != profiles_.end() && navidog::isCommandDatabase(p->driver))
         return;
     const auto db = query ? query->sessionDatabase : workspace->database,
                schema = query ? query->schema : source->node.schema;
@@ -1445,7 +1489,7 @@ void MainWindow::exportCurrent() {
         const auto path = navidog::ui::exportCachedResult(
             this, result, context, "查询结果", kind, "exported_result");
         if (!path.isEmpty())
-            status_->setText("当前缓存结果已导出：" + path);
+            status_->setText("已提交导出任务：" + path);
     } catch (const std::exception &e) {
         showError("导出失败", QString::fromUtf8(e.what()));
     }
@@ -1529,7 +1573,8 @@ void MainWindow::updateNodeActions() {
             return item && p.id == item->data(0, Qt::UserRole).toString();
         });
     const bool writable = idle && p != profiles_.cend() && !p->readOnly &&
-                          p->driver != navidog::DatabaseKind::Dameng;
+                          p->driver != navidog::DatabaseKind::Dameng &&
+                          !navidog::usesExtendedCatalog(p->driver);
     if (newTableAction_)
         newTableAction_->setEnabled(create && writable);
     if (alterTableAction_)
@@ -1870,8 +1915,9 @@ void MainWindow::scheduleUpdateCheck() {
 }
 
 void MainWindow::closeEvent(QCloseEvent *event) {
-    if (quickBackup_) {
-        status_->setText("请等待备份或恢复结束后再退出");
+    if (tasks_->activeCount()) {
+        status_->setText("请等待后台任务完成，或在任务列表中取消后再退出");
+        taskCenter_->show();
         event->ignore();
         return;
     }

@@ -565,11 +565,97 @@ void Parser::tableGroupSharding(DdlSyntax &d) {
                             {begin, previous().range.end}});
 }
 
+bool Parser::vendorTableOption(DdlSyntax &d) {
+  if (d.object != ObjectKind::Table) return false;
+  const auto extension = context_.options.extension;
+  auto positiveCount = [&]() {
+    const auto token = current();
+    std::uint32_t count = 0;
+    const auto end = token.value.data() + token.value.size();
+    const auto parsed = std::from_chars(token.value.data(), end, count);
+    if (token.kind != TokenKind::Number || parsed.ec != std::errc{} || parsed.ptr != end || !count)
+      fail("expected a positive integer count");
+    take();
+    return count;
+  };
+  if (extension == SqlExtension::YugabyteDb && eat("SPLIT")) {
+    if (d.tabletCount) fail("duplicate SPLIT INTO clause");
+    expect("INTO");
+    d.tabletCount = positiveCount();
+    expect("TABLETS");
+    return true;
+  }
+  if (!isOlapExtension(extension)) return false;
+  auto layout = [&]() -> BasicOlapLayout<NamePart> & {
+    if (!d.olap) d.olap.emplace();
+    return *d.olap;
+  };
+  const auto begin = current().range.begin;
+  OlapKeyKind key = OlapKeyKind::Unspecified;
+  if (eat("DUPLICATE")) key = OlapKeyKind::Duplicate;
+  else if (eat("AGGREGATE")) key = OlapKeyKind::Aggregate;
+  else if (eat("UNIQUE")) key = OlapKeyKind::Unique;
+  else if (extension == SqlExtension::StarRocks && eat("PRIMARY")) key = OlapKeyKind::Primary;
+  if (key != OlapKeyKind::Unspecified) {
+    auto &value = layout();
+    if (value.key != OlapKeyKind::Unspecified) fail("duplicate OLAP key clause");
+    value.key = key;
+    expect("KEY");
+    columnList(value.keyColumns);
+    value.keyOrigin = {begin, previous().range.end};
+    return true;
+  }
+  if (eat("DISTRIBUTED")) {
+    auto &value = layout();
+    if (value.distribution != OlapDistribution::Unspecified) fail("duplicate DISTRIBUTED BY clause");
+    expect("BY");
+    if (eat("HASH")) {
+      value.distribution = OlapDistribution::Hash;
+      columnList(value.distributionColumns);
+    } else {
+      expect("RANDOM");
+      value.distribution = OlapDistribution::Random;
+    }
+    if (eat("BUCKETS")) {
+      value.automaticBuckets = extension == SqlExtension::Doris && eat("AUTO");
+      if (!value.automaticBuckets) value.buckets = positiveCount();
+    }
+    value.distributionOrigin = {begin, previous().range.end};
+    return true;
+  }
+  if (eat("ORDER")) {
+    auto &value = layout();
+    if (!value.sortColumns.empty()) fail("duplicate table ORDER BY clause");
+    expect("BY");
+    columnList(value.sortColumns);
+    value.sortOrigin = {begin, previous().range.end};
+    return true;
+  }
+  if (eat("PROPERTIES")) {
+    auto &properties = layout().properties;
+    if (!properties.empty()) fail("duplicate PROPERTIES clause");
+    std::unordered_set<std::string> names;
+    expect("(");
+    do {
+      syntaxNode();
+      if (current().kind != TokenKind::String) fail("property name must be quoted");
+      auto name = take().value;
+      if (name.empty() || !names.insert(asciiUpper(name)).second) fail("empty or duplicate table property");
+      expect("=");
+      if (current().kind != TokenKind::String) fail("property value must be quoted");
+      properties.emplace_back(std::move(name), take().value);
+    } while (eat(","));
+    expect(")");
+    return true;
+  }
+  return false;
+}
+
 void Parser::tableOptions(DdlSyntax &d) {
   const auto g = ddlGrammar();
   bool afterComma = false;
   while (true) {
-    if (distributionOption(d)) {
+    if (vendorTableOption(d) || distributionOption(d)) {
       // The option was recorded with its source range.
     } else if (g.mysql && eat("ENGINE")) {
       eat("=");

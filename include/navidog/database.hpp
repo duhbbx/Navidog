@@ -16,7 +16,8 @@ public:
         throw std::runtime_error("此驱动尚未实现参数绑定");
     }
     // Schema editors may submit one compound CREATE TRIGGER to the native driver.
-    QueryResult executeDefinition(const QString&,QueryLimits,const Cancellation&);
+    QueryResult executeDefinition(const QString&,QueryLimits,const Cancellation&,
+                                  const QVector<QVariant>& values = {});
     virtual TransactionState transactionState()const{return TransactionState::Unknown;}
     virtual bool healthy()const{return true;}
     virtual void setAutoCommit(bool){}

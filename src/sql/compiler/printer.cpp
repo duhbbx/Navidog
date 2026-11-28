@@ -1143,7 +1143,7 @@ class Printer {
       if (!pg() || program.sourceDialect!=Dialect::PostgreSQL || t.query ||
           t.sampling->milliPercent>TableSampling::full)
         fail("TABLESAMPLE requires native PostgreSQL scan and sampling semantics");
-      put(" TABLESAMPLE BERNOULLI (");
+      put(t.sampling->method == TableSamplingMethod::System ? " TABLESAMPLE SYSTEM (" : " TABLESAMPLE BERNOULLI (");
       put(tableSamplePercent(t.sampling->milliPercent));
       put(")");
       if (t.sampling->repeatable) {
@@ -2069,6 +2069,9 @@ public:
     const auto &q = query(id);
     const auto oldOrigin = origin;
     origin = q.origin;
+    if (q.prewhere || q.qualify || q.systemTime || q.limitBy || q.groupByAll ||
+        std::any_of(q.tables.begin(), q.tables.end(), [](const auto &table) { return table.finalRead || table.clickHouseSampling; }))
+      fail("target has no proven mapping for the source query modifier");
     active.push_back(id);
     if (q.selectInto && (q.kind != StatementKind::Select || q.setOperation || q.valuesQuery ||
         q.tableQuery != TableQuerySyntax::None || q.selectInto->targets.empty() ||
@@ -2996,6 +2999,8 @@ void Printer::ddl(const ModelStatement &q) {
     fail("DDL statement has no typed definition",
          DiagnosticCode::InvalidQueryShape);
   const auto &d = *q.ddl;
+  if (d.olap || d.tabletCount)
+    fail("target has no proven mapping for the distributed table layout");
   if (mssql() && d.object==ObjectKind::Sequence) {
     if (d.name.size()>2) fail("SQL Server sequence names permit only a schema qualifier");
     for (const auto &target:d.names)

@@ -21,6 +21,7 @@ struct ConnectionProfile {
     HttpConnectionOptions http;
     OracleConnectionOptions oracle;
     QString jdbcDriverJar;
+    QString mongoAuthDatabase;
     bool h2File = false;
     QString credentialStorePath; // Runtime workspace binding; never serialized.
     bool secretsLoaded=false;
@@ -38,7 +39,7 @@ struct ConnectionProfile {
     bool readOnly = false;
     bool tls = true;
     bool operator==(const ConnectionProfile& p)const {
-        return std::tie(advanced,ssl,ssh,http,oracle,jdbcDriverJar,h2File,savePassword,notes,groupId,id,name,host,database,user,password,driver,version,detectedVersion,serverVersion,credentialSource,credentialContainer,credentialVariable,port,readOnly,tls)==std::tie(p.advanced,p.ssl,p.ssh,p.http,p.oracle,p.jdbcDriverJar,p.h2File,p.savePassword,p.notes,p.groupId,p.id,p.name,p.host,p.database,p.user,p.password,p.driver,p.version,p.detectedVersion,p.serverVersion,p.credentialSource,p.credentialContainer,p.credentialVariable,p.port,p.readOnly,p.tls);
+        return std::tie(advanced,ssl,ssh,http,oracle,jdbcDriverJar,mongoAuthDatabase,h2File,savePassword,notes,groupId,id,name,host,database,user,password,driver,version,detectedVersion,serverVersion,credentialSource,credentialContainer,credentialVariable,port,readOnly,tls)==std::tie(p.advanced,p.ssl,p.ssh,p.http,p.oracle,p.jdbcDriverJar,p.mongoAuthDatabase,p.h2File,p.savePassword,p.notes,p.groupId,p.id,p.name,p.host,p.database,p.user,p.password,p.driver,p.version,p.detectedVersion,p.serverVersion,p.credentialSource,p.credentialContainer,p.credentialVariable,p.port,p.readOnly,p.tls);
     }
     bool operator!=(const ConnectionProfile& p)const{return !(*this==p);}
 };
@@ -46,7 +47,19 @@ struct ConnectionGroup { QString id, name; };
 struct WorkspaceProfiles { QVector<ConnectionProfile> connections; QVector<ConnectionGroup> groups; };
 enum class TransactionState { Idle, Active, Failed, Unknown, Unavailable };
 enum class TransactionAction { None, Begin, Commit, Rollback };
-struct QueryExecutionOptions { QString sessionId; bool autoCommit=true,explain=false,analyzeOnly=false; TransactionAction transaction=TransactionAction::None; QString schema; std::optional<QByteArray> redisKey; };
+struct BoundQueryStatement {
+    int index = 0;
+    QString original, sql;
+    QVector<QVariant> values;
+};
+struct QueryExecutionOptions {
+    QString sessionId;
+    bool autoCommit=true,explain=false,analyzeOnly=false;
+    TransactionAction transaction=TransactionAction::None;
+    QString schema;
+    std::optional<QByteArray> redisKey;
+    QVector<BoundQueryStatement> bindings;
+};
 struct QueryLimits {
     int maxRows = 1000;
     qint64 maxBytes = 16 * 1024 * 1024;

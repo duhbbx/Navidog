@@ -1,0 +1,43 @@
+catalog shop <<SQL
+CREATE TABLE sales (id INTEGER, amount INTEGER);
+SQL
+
+case explicit-select valid catalog=shop <<SQL
+FROM sales s SELECT s.id, s.amount * 2 AS total WHERE s.amount > 0 ORDER BY s.id;
+SQL
+
+case implicit-wildcard valid catalog=shop <<SQL
+FROM sales WHERE amount > 0 LIMIT 2;
+SQL
+
+case nested-from-first valid catalog=shop <<SQL
+SELECT t.id FROM (FROM sales SELECT id) t;
+SQL
+
+case unknown-projection semantic-error UnknownColumn catalog=shop <<SQL
+FROM sales SELECT missing_column;
+SQL
+
+case second-from syntax-error <<SQL
+FROM sales SELECT id FROM sales;
+SQL
+
+case grouped-projection valid catalog=shop <<SQL
+FROM sales SELECT id, sum(amount) AS total GROUP BY ALL ORDER BY id;
+SQL
+
+case mixed-group-keys syntax-error <<SQL
+SELECT id FROM sales GROUP BY ALL, id;
+SQL
+
+case mixed-aggregate-projection semantic-error InvalidQueryShape catalog=shop <<SQL
+FROM sales SELECT id + sum(amount) GROUP BY ALL;
+SQL
+
+case ungrouped-order-column semantic-error InvalidQueryShape catalog=shop <<SQL
+FROM sales SELECT id + 1, sum(amount) GROUP BY ALL ORDER BY id;
+SQL
+
+case wildcard-group-keys valid catalog=shop <<SQL
+FROM sales SELECT *, sum(amount) GROUP BY ALL ORDER BY amount;
+SQL

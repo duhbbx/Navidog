@@ -3,6 +3,7 @@
 #include "components.hpp"
 #include "editor.hpp"
 #include "report_export.hpp"
+#include "task_center.hpp"
 #include "table_pane.hpp"
 #include "navidog/source_design.hpp"
 #include <QAbstractListModel>
@@ -843,6 +844,26 @@ void ErPane::exportDocuments() {
     const auto destination = QFileDialog::getExistingDirectory(
         this,"选择文档和分组 PNG 保存目录",ui::exportDirectory(this));
     if (destination.isEmpty()) return;
+    if (auto* tasks = ui::backgroundTasksFor(this)) {
+        QString rejection;
+        const auto id = tasks->submit({"导出 ER 图与文档", project_.title + " / " + destination, {}, {}},
+            [value = project_, destination, formats, context = modelExportContext()](const navidog::TaskContext& task) {
+                const navidog::OperationTimer timing(navidog::TimedOperation::ErExport);
+                task.report({0, 0, navidog::TaskUnit::Items, "准备文档和分组图片"});
+                const auto path = ui::er::exportReport(value, destination, formats, task.cancel, [&](int done, int total) {
+                    task.report({done, total, navidog::TaskUnit::Items, "正在导出文档与图片"});
+                }, context);
+                navidog::TaskResult result;
+                result.detail = "ER 图与文档已导出";
+                const QDir folder(path);
+                for (const auto& file : folder.entryList({"*.pdf", "*.docx", "*.md"}, QDir::Files))
+                    result.artifacts << folder.absoluteFilePath(file);
+                if (result.artifacts.isEmpty()) result.artifacts << path;
+                return result;
+            }, &rejection);
+        status_->setText(id.isEmpty() ? rejection : "已提交导出任务，可在右下角查看。");
+        return;
+    }
     start("正在生成分组 ER 图和说明…",[value=project_,destination,formats,context=modelExportContext()](const auto& cancel,const Progress& report) {
         const navidog::OperationTimer timing(navidog::TimedOperation::ErExport);
         return ui::er::exportReport(value,destination,formats,cancel,[&](int done,int total) {

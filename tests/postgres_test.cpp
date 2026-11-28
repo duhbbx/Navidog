@@ -17,6 +17,9 @@
 #include "navidog/catalog.hpp"
 #include "navidog/query_service.hpp"
 #include "navidog/query_plan.hpp"
+#include "navidog/query_parameters.hpp"
+#include "navidog/object_management.hpp"
+#include "navidog/namespace_design.hpp"
 #include "navidog/sql.hpp"
 #include "navidog/sql/compiler/compiler.hpp"
 #include "navidog/sql/compiler/conversion.hpp"
@@ -56,6 +59,142 @@ private slots:
         QVERIFY(command(pgCtl_,{"-D",dir_.filePath("data"),"-l",dir_.filePath("server.log"),"-o","-c listen_addresses='' -c unix_socket_directories='"+dir_.path()+"' -p 55438","-w","start"}));
         started_=true; profile_.id="owned-pg-test"; profile_.name="Owned temporary PG"; profile_.driver=navidog::DatabaseKind::PostgreSQL;
         profile_.host=dir_.path(); profile_.port=55438; profile_.database="postgres"; profile_.user="navidog_test"; profile_.tls=false;
+    }
+    void navigationObjectActionsUseExactRoutineSignatureAndCascade() {
+        using namespace navidog;
+        auto db = connectDatabase(profile_);
+        auto token = cancellation();
+        const auto execute = [&](const QString& sql) { return db->execute(sql, {}, token); };
+        QVERIFY(execute("CREATE SCHEMA object_actions_owned").error.isEmpty());
+        QVERIFY(execute("CREATE FUNCTION object_actions_owned.choose(v integer) RETURNS integer "
+                        "LANGUAGE sql AS 'SELECT v'").error.isEmpty());
+        QVERIFY(execute("CREATE FUNCTION object_actions_owned.choose(v text) RETURNS text "
+                        "LANGUAGE sql AS 'SELECT v'").error.isEmpty());
+        QVERIFY(execute("CREATE VIEW object_actions_owned.use_choose AS "
+                        "SELECT object_actions_owned.choose(1) AS n").error.isEmpty());
+        CatalogNode materialized{"materializedView", "stored", profile_.database, "object_actions_owned", "stored"};
+        const auto created = applySourceChanges(profile_, {}, materialized,
+            "CREATE MATERIALIZED VIEW object_actions_owned.stored AS SELECT n FROM object_actions_owned.use_choose",
+            false, token);
+        QVERIFY2(created.applied && created.refreshError.isEmpty(), qPrintable(created.error + created.refreshError));
+        QCOMPARE(created.definition.node.kind, QString("materializedView"));
+        QVERIFY(created.definition.sql.startsWith("CREATE MATERIALIZED VIEW"));
+        auto matFolder = materialized;
+        matFolder.kind = "materializedViews";
+        const auto matList = loadCatalog(*db, profile_, matFolder, token);
+        QCOMPARE(matList.nodes.size(), 1);
+        QCOMPARE(matList.nodes.front().object, QString("stored"));
+
+        CatalogNode functions{"functions", {}, profile_.database, "object_actions_owned"};
+        const auto overloads = loadCatalog(*db, profile_, functions, token);
+        QCOMPARE(overloads.nodes.size(), 2);
+        const auto text = std::find_if(overloads.nodes.cbegin(), overloads.nodes.cend(),
+                                       [](const auto& node) { return node.detail == "v text"; });
+        QVERIFY(text != overloads.nodes.cend());
+        const auto renamed = changeCatalogObject(profile_, *text, CatalogObjectChange::Rename, token, "renamed_choose");
+        QVERIFY2(renamed.applied, qPrintable(renamed.error));
+        const auto integer = std::find_if(overloads.nodes.cbegin(), overloads.nodes.cend(),
+                                          [](const auto& node) { return node.detail == "v integer"; });
+        QVERIFY(integer != overloads.nodes.cend());
+        auto stale = *integer;
+        stale.detail = "v text";
+        const auto wrong = changeCatalogObject(profile_, stale, CatalogObjectChange::DropCascade, token);
+        QVERIFY(!wrong.applied);
+        QVERIFY(wrong.error.contains("签名"));
+        const auto inspected = readCatalogObjectDetails(*db, profile_, *integer, token);
+        QVERIFY2(inspected.warning.isEmpty(), qPrintable(inspected.warning));
+        QVERIFY(inspected.sql.contains("CREATE OR REPLACE FUNCTION"));
+        QVERIFY(inspected.properties.contains(qMakePair(QString("参数签名"), QString("(v integer)"))));
+
+        const auto plain = changeCatalogObject(profile_, *integer, CatalogObjectChange::Drop, token);
+        QVERIFY(!plain.applied);
+        const auto cascaded = changeCatalogObject(profile_, *integer, CatalogObjectChange::DropCascade, token);
+        QVERIFY2(cascaded.applied, qPrintable(cascaded.error));
+        const auto remaining = loadCatalog(*db, profile_, functions, token);
+        QCOMPARE(remaining.nodes.size(), 1);
+        QCOMPARE(remaining.nodes.front().detail, QString("v text"));
+        QCOMPARE(remaining.nodes.front().object, QString("renamed_choose"));
+        QVERIFY(loadCatalog(*db, profile_, matFolder, token).nodes.isEmpty());
+
+        CatalogNode procedure{"procedure", "touch", profile_.database, "object_actions_owned", "touch"};
+        const auto stored = applySourceChanges(profile_, {}, procedure, sourceTemplate(profile_, procedure), false, token);
+        QVERIFY2(stored.applied && stored.refreshError.isEmpty(), qPrintable(stored.error + stored.refreshError));
+        QCOMPARE(stored.definition.parameters.size(), 1);
+        QVERIFY(execute("CREATE TABLE object_actions_owned.parent_batch(id int PRIMARY KEY)").error.isEmpty());
+        QVERIFY(execute("CREATE TABLE object_actions_owned.child_batch(id int REFERENCES object_actions_owned.parent_batch)").error.isEmpty());
+        const CatalogNode parent{"table","parent_batch",profile_.database,"object_actions_owned","parent_batch"};
+        const CatalogNode child{"table","child_batch",profile_.database,"object_actions_owned","child_batch"};
+        const auto droppedTogether=dropCatalogBatch(profile_,{parent,child},false,{token,{}});
+        QVERIFY2(droppedTogether.error.isEmpty(),qPrintable(droppedTogether.error));
+        QCOMPARE(droppedTogether.removed.size(),2);
+        const auto removedSchema = dropNamespace(profile_, NamespaceKind::Schema, "object_actions_owned", token, true);
+        QVERIFY2(removedSchema.applied, qPrintable(removedSchema.error));
+    }
+    void editorParametersPreservePostgresOperatorsAndRepeatedSlots() {
+        using namespace navidog;
+        const QString sql = R"(SELECT $8::integer, $8, '{"category":1}'::jsonb ? $3, $9::text)";
+        const auto plan = inspectQueryParameters(profile_.driver, sql, profile_.database, "public");
+        QCOMPARE(plan.parameters.size(), 3);
+        QCOMPARE(plan.parameters.front().locations.size(), 2);
+        QueryExecutionOptions options;
+        options.sessionId = "owned-pg-parameters";
+        options.bindings = bindQueryParameters(plan, {qlonglong(71), QString("category"), QVariant{}});
+        QueryService service;
+        QSignalSpy completed(&service, &QueryService::completed);
+        QVERIFY(service.run(profile_, sql, {}, options));
+        QVERIFY(completed.wait(5000));
+        const auto outcome = qvariant_cast<QueryOutcome>(completed.takeFirst()[0]);
+        QVERIFY2(outcome.result.error.isEmpty(), qPrintable(outcome.result.error));
+        QCOMPARE(outcome.result.rows.size(), 1);
+        const auto& row = outcome.result.rows.front();
+        QCOMPARE(row[0].toInt(), 71);
+        QCOMPARE(row[1].toInt(), 71);
+        QCOMPARE(row[2].toString(), QString("t"));
+        QVERIFY(row[3].isNull());
+        auto token = cancellation();
+        PlanRequestTrace trace;
+        const auto explained = readQueryPlan(profile_, sql, {}, token, {}, "public", &trace, &options.bindings.front());
+        QVERIFY2(explained.error.isEmpty(), qPrintable(explained.error));
+        QVERIFY(!explained.rows.isEmpty());
+        QCOMPARE(trace.commands.size(), 1);
+    }
+
+    void generationWritesCompositeKeysAcrossSchemas() {
+        using namespace navidog;
+        auto db = connectDatabase(profile_);
+        const auto cancel = cancellation();
+        const auto query = [&](const QString& text) { return db->execute(text, {}, cancel); };
+        QVERIFY(query("CREATE SCHEMA generation_parent").error.isEmpty());
+        QVERIFY(query("CREATE SCHEMA generation_target").error.isEmpty());
+        QVERIFY(query("CREATE TABLE generation_parent.keys (a int, b text, PRIMARY KEY (a,b))").error.isEmpty());
+        QVERIFY(query("INSERT INTO generation_parent.keys VALUES (1,'甲'), (2,'乙')").error.isEmpty());
+        QVERIFY(query("CREATE TABLE generation_target.child (id integer PRIMARY KEY, a int NOT NULL, b text NOT NULL, "
+                      "age int CHECK(age BETWEEN 18 AND 60), code varchar(16) UNIQUE, created_at timestamptz, "
+                      "FOREIGN KEY(a,b) REFERENCES generation_parent.keys)").error.isEmpty());
+        TableTask task;
+        task.node.kind = "table";
+        task.node.schema = "generation_target";
+        task.node.object = "child";
+        task.action = TableAction::GenerateData;
+        task.generation.size = "275";
+        task.generationRules = suggestedGenerationRules(readTableDefinition(*db, profile_, task.node, cancel), profile_.driver);
+        task.generationRules["code"] = QJsonObject{{"kind", "regex"}, {"value", "[A-Z]{3}-[0-9]{7}"}};
+        task.generationRules["created_at"] = QJsonObject{{"kind", "temporal"},
+            {"value", "2026-01-01..2026-01-02"}, {"distribution", "0..5@50;20..23@50"}};
+        const auto inserted = runTableTask(profile_, task, cancel);
+        QVERIFY2(inserted.applied, qPrintable(inserted.error));
+        QCOMPARE(inserted.rows, qint64(275));
+        const auto count = query("SELECT count(*), min(id), max(id) FROM generation_target.child "
+                                 "JOIN generation_parent.keys USING (a,b)");
+        QVERIFY2(count.error.isEmpty(), qPrintable(count.error));
+        QCOMPARE(count.rows.front()[0].toInt(), 275);
+        QCOMPARE(count.rows.front()[1].toInt(), 1);
+        QCOMPARE(count.rows.front()[2].toInt(), 275);
+        task.generation.size = "10";
+        task.generation.seed = 2;
+        const auto added = runTableTask(profile_, task, cancel);
+        QVERIFY2(added.applied, qPrintable(added.error));
+        QCOMPARE(query("SELECT max(id) FROM generation_target.child").rows.front().front().toInt(), 285);
     }
     void erReverseAndDiffUseNativeCatalog() { try {
         using namespace navidog;
@@ -7802,7 +7941,7 @@ private slots:
         auto next=db->execute("SELECT 'after cap' AS status",{},token); QCOMPARE(next.rows[0][0].toString(),QString("after cap"));
         navidog::CatalogNode root; auto databases=navidog::loadCatalog(*db,profile_,root,token); QVERIFY(!databases.nodes.isEmpty());
         navidog::CatalogNode n; n.kind="schema"; n.schema=schema; n.database="postgres";
-        auto folders=navidog::loadCatalog(*db,profile_,n,token); QCOMPARE(folders.nodes.size(),4);
+        auto folders=navidog::loadCatalog(*db,profile_,n,token); QCOMPARE(folders.nodes.size(),5); QCOMPARE(folders.nodes[4].kind,QString("materializedViews"));
         auto tables=navidog::loadCatalog(*db,profile_,folders.nodes[0],token); QCOMPARE(tables.nodes.size(),1); QCOMPARE(tables.nodes[0].name,QString("odd.table"));
         auto children=navidog::loadCatalog(*db,profile_,tables.nodes[0],token);
         auto columns=navidog::loadCatalog(*db,profile_,children.nodes[0],token); QCOMPARE(columns.nodes.size(),2);

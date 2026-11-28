@@ -11,4 +11,5 @@ void showSqlConversion(QWidget *, navidog::sql::compiler::Dialect,
                        navidog::sql::compiler::NameResolutionContext = {},
                        navidog::MetadataSnapshotPtr = {},
                        navidog::sql::compiler::FormatStyle = {},
-                       navidog::ui::ExportContext = {});
+                       navidog::ui::ExportContext = {},
+                       navidog::DatabaseKind sourceKind = navidog::DatabaseKind::Unknown);

@@ -330,7 +330,7 @@ void DataPane::exportData() {
         const auto path = navidog::ui::exportCachedResult(
             this, result, exportContext_, "表数据-" + node.object, driver_, node.object);
         if (!path.isEmpty())
-            emit statusChanged("当前缓存结果已导出：" + path);
+            emit statusChanged("已提交导出任务：" + path);
     } catch (const std::exception &error) {
         emit errorOccurred("导出失败", QString::fromUtf8(error.what()));
     }

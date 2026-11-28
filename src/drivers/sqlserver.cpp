@@ -9,6 +9,7 @@
 #include <QElapsedTimer>
 #include <algorithm>
 #include <array>
+#include <vector>
 namespace navidog {
 QString microsoftOdbcDriver();
 namespace {
@@ -58,6 +59,10 @@ public:
         return QString::fromUtf16(reinterpret_cast<char16_t*>(buffer),std::min<int>(bytes/sizeof(SQLWCHAR),255));
     }
     QueryResult execute(const QString& sql, QueryLimits limits, const Cancellation& cancel) override {
+        return executeBound(sql, {}, limits, cancel);
+    }
+    QueryResult executeBound(const QString& sql, const QVector<QVariant>& parameters, QueryLimits limits,
+                             const Cancellation& cancel) override {
         native::validate(sql, sql::Dialect::SQLServer,definitionMode_); native::Collector c(limits);
         SQLHSTMT stmt = SQL_NULL_HSTMT;
         if (!SQL_SUCCEEDED(SQLAllocHandle(SQL_HANDLE_STMT,handles_.dbc,&stmt))) native::fail("无法创建 ODBC 语句");
@@ -65,9 +70,81 @@ public:
         // Bounded network calls; cooperative cancellation between calls.
         SQLSetStmtAttr(stmt,SQL_ATTR_QUERY_TIMEOUT,reinterpret_cast<SQLPOINTER>(qintptr(queryTimeout_)),0);
         if (cancel->load()) { c.result.cancelled=true; return c.result; }
+        struct Parameter {
+            QString text;
+            QByteArray bytes;
+            SQLBIGINT integer = 0;
+            double real = 0;
+            unsigned char boolean = 0;
+            SQLLEN indicator = 0;
+        };
+        std::vector<Parameter> storage(static_cast<std::size_t>(parameters.size()));
         native::CancelWatch stop(cancel,[stmt]{SQLCancel(stmt);});
         QString text=sql;
-        if (!SQL_SUCCEEDED(SQLExecDirectW(stmt,wide(text),SQL_NTS))) native::fail(diagnostic(SQL_HANDLE_STMT,stmt));
+        const auto check = [stmt](SQLRETURN status) {
+            if (!SQL_SUCCEEDED(status)) native::fail(diagnostic(SQL_HANDLE_STMT,stmt));
+        };
+        if (parameters.isEmpty()) check(SQLExecDirectW(stmt,wide(text),SQL_NTS));
+        else {
+            if (parameters.size() > 2100) native::fail("SQL Server 单条语句最多支持 2100 个参数");
+            check(SQLPrepareW(stmt, wide(text), SQL_NTS));
+            SQLSMALLINT count = 0;
+            check(SQLNumParams(stmt, &count));
+            if (count != parameters.size()) native::fail("SQL Server 参数数量不匹配");
+            for (int i = 0; i < count; ++i) {
+                auto& saved = storage[i];
+                const auto& value = parameters[i];
+                const auto position = SQLUSMALLINT(i + 1);
+                SQLSMALLINT cType = SQL_C_WCHAR, sqlType = SQL_WVARCHAR, scale = 0;
+                SQLULEN size = 1;
+                SQLLEN bufferLength = 0;
+                SQLPOINTER data = nullptr;
+                if (!value.isValid() || value.isNull()) {
+                    saved.indicator = SQL_NULL_DATA;
+                    SQLSMALLINT nullable = 0;
+                    if (!SQL_SUCCEEDED(SQLDescribeParam(stmt, position, &sqlType, &size, &scale, &nullable))) {
+                        sqlType = SQL_WVARCHAR;
+                        size = 1;
+                        scale = 0;
+                    }
+                } else if (value.userType() == QMetaType::Bool) {
+                    cType = SQL_C_BIT;
+                    sqlType = SQL_BIT;
+                    saved.boolean = value.toBool();
+                    data = &saved.boolean;
+                } else if (value.userType() == QMetaType::Int || value.userType() == QMetaType::LongLong) {
+                    cType = SQL_C_SBIGINT;
+                    sqlType = SQL_BIGINT;
+                    size = 19;
+                    saved.integer = value.toLongLong();
+                    data = &saved.integer;
+                } else if (value.userType() == QMetaType::Double) {
+                    cType = SQL_C_DOUBLE;
+                    sqlType = SQL_DOUBLE;
+                    size = 15;
+                    saved.real = value.toDouble();
+                    data = &saved.real;
+                } else if (value.userType() == QMetaType::QByteArray) {
+                    cType = SQL_C_BINARY;
+                    saved.bytes = value.toByteArray();
+                    size = SQLULEN(qMax<qsizetype>(1, saved.bytes.size()));
+                    sqlType = size > 8000 ? SQL_LONGVARBINARY : SQL_VARBINARY;
+                    bufferLength = saved.indicator = SQLLEN(saved.bytes.size());
+                    data = saved.bytes.data();
+                } else {
+                    saved.text = value.toString();
+                    size = SQLULEN(qMax<qsizetype>(1, saved.text.size()));
+                    sqlType = size > 4000 ? SQL_WLONGVARCHAR : SQL_WVARCHAR;
+                    saved.indicator = SQLLEN(saved.text.size() * sizeof(SQLWCHAR));
+                    bufferLength = saved.indicator + sizeof(SQLWCHAR);
+                    data = wide(saved.text);
+                }
+                check(SQLBindParameter(stmt, position, SQL_PARAM_INPUT, cType, sqlType, size,
+                                       scale, data, bufferLength, &saved.indicator));
+            }
+            if (cancel->load()) { c.result.cancelled = true; return c.result; }
+            check(SQLExecute(stmt));
+        }
         SQLSMALLINT count=0; SQLNumResultCols(stmt,&count);
         QVector<SQLSMALLINT> types;
         for (SQLUSMALLINT col=1; col<=count; ++col) {

@@ -1,0 +1,48 @@
+catalog shop <<SQL
+CREATE TABLE events (id BIGINT, tenant_id INT);
+SQL
+
+case ratio-and-offset valid catalog=shop <<SQL
+SELECT e.id FROM events AS e FINAL SAMPLE 1/4 OFFSET 1/2 PREWHERE e.tenant_id = 2;
+SQL
+
+case row-count valid catalog=shop <<SQL
+SELECT id FROM events SAMPLE 1000;
+SQL
+
+case exponent valid catalog=shop <<SQL
+SELECT id FROM events SAMPLE 1e-1;
+SQL
+
+case denominator-zero semantic-error InvalidQueryShape catalog=shop <<SQL
+SELECT id FROM events SAMPLE 1/0.000e-1;
+SQL
+
+case offset-denominator-zero semantic-error InvalidQueryShape catalog=shop <<SQL
+SELECT id FROM events SAMPLE 1/2 OFFSET 1/0;
+SQL
+
+case offset-without-sampling semantic-error InvalidQueryShape catalog=shop <<SQL
+SELECT id FROM events SAMPLE 0 OFFSET 1/2;
+SQL
+
+case negative-ratio syntax-error <<SQL
+SELECT id FROM events SAMPLE -0.5;
+SQL
+
+case missing-offset syntax-error <<SQL
+SELECT id FROM events SAMPLE 1/2 OFFSET;
+SQL
+
+case ratio-is-not-arithmetic syntax-error <<SQL
+SELECT id FROM events SAMPLE 1 + 1;
+SQL
+
+case cte-cannot-be-sampled semantic-error InvalidQueryShape catalog=shop <<SQL
+WITH source_events AS (SELECT id FROM events)
+SELECT id FROM source_events SAMPLE 1/4;
+SQL
+
+case offset-with-full-sample semantic-error InvalidQueryShape catalog=shop <<SQL
+SELECT id FROM events SAMPLE 2/2.0e+0 OFFSET 1/4;
+SQL

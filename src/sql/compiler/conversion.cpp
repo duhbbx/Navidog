@@ -1573,6 +1573,8 @@ ConversionResult convertSql(Dialect source, Dialect target, std::string text,
   ConversionResult result;
   result.source = source;
   result.target = target;
+  auto targetLanguage = options.language;
+  targetLanguage.extension = SqlExtension::None;
   try {
     auto normalized = normalizeConversionScript(source, text, options.language,
                                                 result.diagnostics);
@@ -1635,7 +1637,7 @@ ConversionResult convertSql(Dialect source, Dialect target, std::string text,
           break;
         }
         sql = emitted.sql;
-        auto validated = compileRoutine(target, sql, options.language);
+        auto validated = compileRoutine(target, sql, targetLanguage);
         if (!validated.ok()) {
           result.diagnostics = validated.diagnostics;
           for (auto &d : result.diagnostics) {
@@ -1698,7 +1700,7 @@ ConversionResult convertSql(Dialect source, Dialect target, std::string text,
           shift(result.diagnostics, begin);
           break;
         }
-        auto verified = compile(target, emitted.sql, options.language);
+        auto verified = compile(target, emitted.sql, targetLanguage);
         if (!verified->ok()) {
           result.diagnostics = verified->diagnostics;
           for (auto &d : result.diagnostics) {

@@ -278,6 +278,18 @@ std::optional<Dialect> parseDialect(std::string_view name) {
       return d;
   return {};
 }
+std::optional<DialectProfile> parseDialectProfile(std::string_view name) {
+  const auto key = asciiUpper(name);
+  if (key == "DUCKDB") return DialectProfile{Dialect::PostgreSQL, SqlExtension::DuckDb};
+  if (key == "CLICKHOUSE") return DialectProfile{Dialect::MySQL, SqlExtension::ClickHouse};
+  if (key == "COCKROACHDB") return DialectProfile{Dialect::PostgreSQL, SqlExtension::CockroachDb};
+  if (key == "DORIS") return DialectProfile{Dialect::MySQL, SqlExtension::Doris};
+  if (key == "STARROCKS") return DialectProfile{Dialect::MySQL, SqlExtension::StarRocks};
+  if (key == "YUGABYTEDB") return DialectProfile{Dialect::PostgreSQL, SqlExtension::YugabyteDb};
+  if (key == "OPENGAUSS") return DialectProfile{Dialect::PostgreSQL};
+  if (const auto dialect = parseDialect(name)) return DialectProfile{*dialect};
+  return {};
+}
 std::unique_ptr<Compilation> compile(Dialect d, std::string sql,
                                      LanguageOptions options,
                                      const CatalogSnapshot *catalog,

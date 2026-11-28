@@ -59,7 +59,8 @@ NamespaceDialog::NamespaceDialog(const navidog::ConnectionProfile &p,
   charset_ = select("namespaceCharset");
   collation_ = select("namespaceCollation");
   const bool owner =
-      (schema && !oracle) || p.driver == navidog::DatabaseKind::PostgreSQL;
+      (schema && !oracle && p.driver != navidog::DatabaseKind::DuckDb) ||
+      (!schema && navidog::usesNativePostgres(p.driver));
   const bool mysql = navidog::isMySqlFamily(p.driver);
   if (owner)
     fields->addRow("所有者：", owner_);
@@ -352,14 +353,14 @@ void NamespaceDialog::reject() {
 NamespaceDropDialog::NamespaceDropDialog(navidog::DatabaseKind driver,
                                          navidog::NamespaceKind kind,
                                          const QString &name, const QString &sql,
-                                         QWidget *parent)
+                                         QWidget *parent, bool cascade)
     : Dialog(parent), name_(name), confirmation_(new navidog::ui::TextInput(this)) {
   const bool database = kind == navidog::NamespaceKind::Database;
   const auto object = database ? QString("数据库")
                       : driver == navidog::DatabaseKind::Oracle
                           ? QString("用户 / Schema") : QString("Schema");
   setObjectName("namespaceDropDialog");
-  setWindowTitle("删除 " + object);
+  setWindowTitle((cascade ? "级联删除 " : "删除 ") + object);
   resize(580, 290);
 
   auto *layout = new QVBoxLayout(this);
@@ -367,7 +368,8 @@ NamespaceDropDialog::NamespaceDropDialog(navidog::DatabaseKind driver,
       database
           ? QString("将永久删除数据库“%1”及其内容。此应用会关闭目标库会话并回滚未提交事务。"
                     "本地标签和草稿会保留。").arg(name)
-          : QString("将删除“%1”。数据库会拒绝删除仍有对象或被依赖的 %2。").arg(name, object));
+          : cascade ? QString("将删除“%1”及其中的对象。数据库也会按方言规则处理其他 Schema 中的依赖。").arg(name)
+                    : QString("将删除“%1”。数据库会拒绝删除仍有对象或被依赖的 %2。").arg(name, object));
   warning->setTextFormat(Qt::PlainText);
   warning->setWordWrap(true);
   layout->addWidget(warning);

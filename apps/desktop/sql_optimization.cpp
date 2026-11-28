@@ -1,4 +1,5 @@
 #include "navidog/operation_timing.hpp"
+#include "navidog/database_sql.hpp"
 #include "sql_optimization.hpp"
 #include "components.hpp"
 #include "editor.hpp"
@@ -97,6 +98,7 @@ struct Request {
   opt::MemoryStatistics manual;
   opt::PlannerOptions options;
   sc::FormatStyle formatting;
+  navidog::DatabaseKind kind = navidog::DatabaseKind::Unknown;
   bool load = false, save = false, calciteSyntax = false;
 };
 class Task final : public QObject, public QRunnable {
@@ -160,6 +162,7 @@ public:
       const auto deadline =
           std::chrono::steady_clock::now() + std::chrono::milliseconds(10000);
       sc::LanguageOptions language;
+      language.extension = navidog::compilerExtensionFor(request.kind);
       language.calciteExtensions=request.calciteSyntax;
       language.limits.sourceBytes = 512 * 1024;
       language.shouldStop = [flag = cancel, deadline] {
@@ -223,7 +226,7 @@ class Dialog final : public navidog::ui::Dialog {
   QByteArray reportBytes;
   std::vector<opt::TableStatistics> displayed;
   void configureEditor() {
-    const auto kind=base.metadata?base.metadata->driver:
+    const auto kind=base.kind != navidog::DatabaseKind::Unknown ? base.kind : base.metadata?base.metadata->driver:
         base.dialect==sc::Dialect::PostgreSQL?navidog::DatabaseKind::PostgreSQL:
         navidog::databaseKindFromKey(QString::fromLatin1(sc::dialectName(base.dialect)));
     source->setDiagnosticContext(kind,name(base.context.database),name(base.context.schema),
@@ -698,9 +701,11 @@ void showSqlOptimization(QWidget *parent, sc::Dialect dialect,
                          const sc::NameResolutionContext &context,
                          navidog::MetadataSnapshotPtr metadata,
                          const QString &path, const QString &key,
-                         const ApplicationSettings &settings, navidog::ui::ExportContext exportContext) {
+                         const ApplicationSettings &settings, navidog::ui::ExportContext exportContext,
+                         navidog::DatabaseKind kind) {
   Request r;
   r.dialect = dialect;
+  r.kind = kind;
   r.sql = sql;
   r.context = context;
   r.metadata = std::move(metadata);

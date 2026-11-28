@@ -202,7 +202,7 @@ class DriverManager final : public navidog::ui::Dialog {
             const std::pair<DatabaseKind, DriverPackage> jars[] = {
                 {DatabaseKind::H2, DriverPackage::H2}, {DatabaseKind::Dameng, DriverPackage::Dameng},
                 {DatabaseKind::Db2, DriverPackage::Db2}, {DatabaseKind::Kingbase, DriverPackage::Kingbase},
-                {DatabaseKind::GaussDb, DriverPackage::GaussDb}
+                {DatabaseKind::GaussDb, DriverPackage::GaussDb}, {DatabaseKind::OpenGauss, DriverPackage::OpenGauss}
             };
             for (const auto& entry : jars) {
                 const auto kind = entry.first;

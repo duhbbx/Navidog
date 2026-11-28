@@ -9,4 +9,5 @@ void showSqlOptimization(QWidget *, navidog::sql::compiler::Dialect,
                          navidog::MetadataSnapshotPtr, const QString &storePath,
                          const QString &cacheKey,
                          const ApplicationSettings &settings = {},
-                         navidog::ui::ExportContext = {});
+                         navidog::ui::ExportContext = {},
+                         navidog::DatabaseKind = navidog::DatabaseKind::Unknown);

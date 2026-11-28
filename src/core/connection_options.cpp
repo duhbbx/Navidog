@@ -8,15 +8,15 @@
 #include <stdexcept>
 namespace navidog {
 namespace {[[noreturn]] void fail(const QString& s){throw std::runtime_error(s.toStdString());}}
-QString connectionCharset(const ConnectionProfile& p){if(!p.advanced.charset.isEmpty())return p.advanced.charset;return navidog::isMySqlFamily(p.driver)?"utf8mb4":"UTF8";}
+QString connectionCharset(const ConnectionProfile& p){if(!p.advanced.charset.isEmpty())return p.advanced.charset;return (isMySqlFamily(p.driver) || isAnalyticalMySql(p.driver))?"utf8mb4":"UTF8";}
 QJsonObject connectionOptionsJson(const ConnectionProfile& p){const auto& a=p.advanced;const auto& s=p.ssl;const auto& t=p.ssh;const auto& h=p.http;const auto& o=p.oracle;
-    return {{"notes",p.notes},{"jdbcDriverJar",p.jdbcDriverJar},{"h2File",p.h2File},{"savePassword",p.savePassword},{"advanced",QJsonObject{{"connectTimeout",a.connectTimeout},{"readTimeout",a.readTimeout},{"writeTimeout",a.writeTimeout},{"keepAlive",a.keepAlive},{"keepAliveSeconds",a.keepAliveSeconds},{"maxSessions",a.maxSessions},{"compression",a.compression},{"autoConnect",a.autoConnect},{"charset",a.charset},{"socketFile",a.socketFile},{"initialSql",a.initialSql},{"applicationName",a.applicationName}}},
+    return {{"notes",p.notes},{"jdbcDriverJar",p.jdbcDriverJar},{"mongoAuthDatabase",p.mongoAuthDatabase},{"h2File",p.h2File},{"savePassword",p.savePassword},{"advanced",QJsonObject{{"connectTimeout",a.connectTimeout},{"readTimeout",a.readTimeout},{"writeTimeout",a.writeTimeout},{"keepAlive",a.keepAlive},{"keepAliveSeconds",a.keepAliveSeconds},{"maxSessions",a.maxSessions},{"compression",a.compression},{"autoConnect",a.autoConnect},{"charset",a.charset},{"socketFile",a.socketFile},{"initialSql",a.initialSql},{"applicationName",a.applicationName}}},
     {"ssl",QJsonObject{{"verification",int(s.verification)},{"caFile",s.caFile},{"certificateFile",s.certificateFile},{"keyFile",s.keyFile},{"ciphers",s.ciphers},{"tlsVersions",s.tlsVersions},{"serverName",s.serverName},{"walletDirectory",s.walletDirectory},{"serverDN",s.serverDN},{"damengKeystoreDirectory",s.damengKeystoreDirectory},{"saveDamengKeystorePassword",s.saveDamengKeystorePassword}}},
     {"ssh",QJsonObject{{"enabled",t.enabled},{"host",t.host},{"port",t.port},{"user",t.user},{"authentication",int(t.authentication)},{"keyFile",t.keyFile},{"knownHostsFile",t.knownHostsFile},{"hostKey",t.hostKey},{"savePassword",t.savePassword},{"savePassphrase",t.savePassphrase}}},
     {"http",QJsonObject{{"enabled",h.enabled},{"url",h.url},{"authentication",h.authentication},{"user",h.user},{"savePassword",h.savePassword},{"base64",h.base64},{"proxyEnabled",h.proxyEnabled},{"proxyHost",h.proxyHost},{"proxyPort",h.proxyPort},{"proxyUser",h.proxyUser}}},
     {"oracle",QJsonObject{{"addressKind",int(o.addressKind)},{"role",int(o.role)},{"clientDirectory",o.clientDirectory},{"configDirectory",o.configDirectory},{"externalAuthentication",o.externalAuthentication}}}};
 }
-void readConnectionOptions(ConnectionProfile& p,const QJsonObject& value){auto a=value["advanced"].toObject(),s=value["ssl"].toObject(),t=value["ssh"].toObject(),h=value["http"].toObject(),o=value["oracle"].toObject();p.notes=value["notes"].toString();p.jdbcDriverJar=value["jdbcDriverJar"].toString();p.h2File=value["h2File"].toBool();p.savePassword=value["savePassword"].toBool();
+void readConnectionOptions(ConnectionProfile& p,const QJsonObject& value){auto a=value["advanced"].toObject(),s=value["ssl"].toObject(),t=value["ssh"].toObject(),h=value["http"].toObject(),o=value["oracle"].toObject();p.notes=value["notes"].toString();p.jdbcDriverJar=value["jdbcDriverJar"].toString();p.mongoAuthDatabase=value["mongoAuthDatabase"].toString();p.h2File=value["h2File"].toBool();p.savePassword=value["savePassword"].toBool();
     p.advanced.connectTimeout=qBound(1,a["connectTimeout"].toInt(5),600);p.advanced.readTimeout=qBound(0,a["readTimeout"].toInt(0),86400);p.advanced.writeTimeout=qBound(0,a["writeTimeout"].toInt(30),86400);p.advanced.keepAlive=a["keepAlive"].toBool();p.advanced.keepAliveSeconds=qBound(1,a["keepAliveSeconds"].toInt(240),86400);p.advanced.maxSessions=qBound(0,a["maxSessions"].toInt(),16);p.advanced.compression=a["compression"].toBool();p.advanced.autoConnect=a["autoConnect"].toBool();p.advanced.charset=a["charset"].toString();p.advanced.socketFile=a["socketFile"].toString();p.advanced.initialSql=a["initialSql"].toString();p.advanced.applicationName=a["applicationName"].toString("Navidog");
     const int fallback=p.driver==DatabaseKind::SQLServer || p.driver==DatabaseKind::Oracle?int(SslVerification::Identity):0;p.ssl.verification=SslVerification(qBound(0,s["verification"].toInt(fallback),2));p.ssl.caFile=s["caFile"].toString();p.ssl.certificateFile=s["certificateFile"].toString();p.ssl.keyFile=s["keyFile"].toString();p.ssl.ciphers=s["ciphers"].toString();p.ssl.tlsVersions=s["tlsVersions"].toString();p.ssl.serverName=s["serverName"].toString();p.ssl.walletDirectory=s["walletDirectory"].toString();p.ssl.serverDN=s["serverDN"].toString();p.ssl.damengKeystoreDirectory=s["damengKeystoreDirectory"].toString();p.ssl.saveDamengKeystorePassword=s["saveDamengKeystorePassword"].toBool();
     p.ssh.enabled=t["enabled"].toBool();p.ssh.host=t["host"].toString();p.ssh.port=qBound(1,t["port"].toInt(22),65535);p.ssh.user=t["user"].toString();p.ssh.authentication=SshAuthentication(qBound(0,t["authentication"].toInt(),3));p.ssh.keyFile=t["keyFile"].toString();p.ssh.knownHostsFile=t["knownHostsFile"].toString();p.ssh.hostKey=t["hostKey"].toString();p.ssh.savePassword=t["savePassword"].toBool();p.ssh.savePassphrase=t["savePassphrase"].toBool();
@@ -35,6 +35,17 @@ void validateConnectionOptions(const ConnectionProfile& p){
             fail("校验证书时需要提供 CA 证书文件");
         if(p.tls && (!p.ssl.serverName.isEmpty() || (p.ssh.enabled && p.ssl.verification==SslVerification::Identity)))
             fail("OceanBase Connector/C 当前仅支持对直连主机验证证书身份");
+    }
+    if (p.driver==DatabaseKind::DuckDb) {
+        if (!QFileInfo(p.database).isFile()) fail("请选择已存在的 DuckDB 文件");
+        if (p.ssh.enabled || p.tls) fail("DuckDB 本地文件不使用 SSH 或 TLS");
+    }
+    if (p.driver==DatabaseKind::ClickHouse || p.driver==DatabaseKind::MongoDb) {
+        if (p.host.isEmpty() || p.port<1 || p.port>65535) fail("请填写有效的主机和端口");
+        if (p.readOnly) fail("请使用服务端授权的只读账号");
+        if (p.tls && (p.ssh.enabled || !p.ssl.serverName.isEmpty() || !p.ssl.certificateFile.isEmpty() ||
+                      !p.ssl.keyFile.isEmpty() || !p.ssl.ciphers.isEmpty() || !p.ssl.tlsVersions.isEmpty()))
+            fail("此驱动的 TLS 使用直连主机和系统或自选 CA，暂不支持以上自定义参数");
     }
     if(p.driver==DatabaseKind::Redis) {
         bool numeric=false;

@@ -4,6 +4,7 @@
 class QLabel;
 class SqlReadOnlyView;
 class QTableView;
+class QProgressBar;
 class ResultModel;
 class GenerationRuleModel;
 class TableTaskDialog final : public navidog::ui::Dialog {
@@ -15,19 +16,30 @@ public:
     const navidog::TableTaskResult& outcome() const{return outcome_;}
     void accept() override;
     void reject() override;
+signals:
+    void backgroundStarted(const QString& id);
+    void backgroundCompleted(const navidog::TableTask& request, const navidog::TableTaskResult& outcome);
 private:
     navidog::ConnectionProfile profile_;
     navidog::TableTask original_;
     navidog::QueryService& service_;
+    navidog::BackgroundTasks* tasks_ = nullptr;
+    std::optional<navidog::TableTask> backgroundRequest_;
+    navidog::ui::PushButton* stop_ = nullptr;
+    QProgressBar* taskProgress_ = nullptr;
     navidog::TableTaskResult outcome_;
     QString requestId_,catalogId_,metadataId_,metadataTable_;
-    bool running_=false,loading_=false,succeeded_=false,metadataReady_=true;
+    bool running_=false,loading_=false,succeeded_=false,metadataReady_=true,estimating_=false;
     QWidget* fields_;
     navidog::ui::Select *table_,*dimension_;
     navidog::ui::TextInput *grantee_,*granteeHost_;
     navidog::ui::CheckBox* revoke_;
     QVector<navidog::ui::CheckBox*> privileges_;
     GenerationRuleModel* rules_=nullptr;
+    navidog::ui::Select* generationMode_=nullptr;
+    navidog::ui::TextInput *generationSize_=nullptr, *generationSeed_=nullptr;
+    navidog::ui::PushButton* estimate_=nullptr;
+    QLabel* ruleHelp_=nullptr;
     navidog::ui::TextInput *target_,*file_,*confirmation_;
     navidog::ui::NumberInput* rowLimit_;
     navidog::ui::CheckBox* data_;
@@ -38,4 +50,8 @@ private:
     ResultModel* model_;
     void updatePreview();
     void loadTableMetadata();
+    void startTask(bool preview);
+    void updateRuleHelp();
+    void finishRequest(const navidog::TableTaskResult&);
+    void showProgress(const navidog::TaskInfo&);
 };

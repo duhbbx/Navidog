@@ -1629,7 +1629,9 @@ class Inference {
               }
           }
         }
+        here(q.prewhere, boolean);
         here(q.where, boolean);
+        here(q.qualify, boolean);
         here(q.having, boolean);
         here(q.conflict.targetWhere, boolean);
         here(q.conflict.where, boolean);

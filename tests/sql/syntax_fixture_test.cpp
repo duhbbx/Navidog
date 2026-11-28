@@ -132,8 +132,8 @@ struct SqlBlock {
   std::size_t firstLine;
 };
 
-void loadCatalog(sql::Dialect dialect, const SqlBlock &block, sql::ScriptContext &context) {
-  auto schema = sql::compile(dialect, block.text);
+void loadCatalog(sql::Dialect dialect, const sql::LanguageOptions &options, const SqlBlock &block, sql::ScriptContext &context) {
+  auto schema = sql::compile(dialect, block.text, options);
   if (!schema->ok()) {
     std::ostringstream error;
     error << "invalid catalog fixture";
@@ -151,18 +151,21 @@ void loadCatalog(sql::Dialect dialect, const SqlBlock &block, sql::ScriptContext
   }
 }
 
-void checkFixture(sql::Dialect dialect, SqlBlock block, const Expectation &expected,
+void checkFixture(sql::DialectProfile profile, SqlBlock block, const Expectation &expected,
                   const std::string &outcome, const SqlBlock *catalogFixture) {
+  const auto dialect = profile.dialect;
+  sql::LanguageOptions options;
+  options.extension = profile.extension;
   sql::MemoryCatalog emptyCatalog;
   sql::ScriptContext context(dialect, &emptyCatalog);
   const sql::CatalogSnapshot *catalog = nullptr;
   if (catalogFixture) {
-    loadCatalog(dialect, *catalogFixture, context);
+    loadCatalog(dialect, options, *catalogFixture, context);
     catalog = &context;
   }
   if (expected.outcome == Outcome::RoutineValid || expected.outcome == Outcome::RoutineError ||
       expected.outcome == Outcome::RoutineRuntime) {
-    const auto routine = sql::compileRoutine(dialect, block.text, {}, catalog);
+    const auto routine = sql::compileRoutine(dialect, block.text, options, catalog);
     const sql::SourceBuffer original(std::move(block.text));
     if (expected.outcome == Outcome::RoutineRuntime) {
       requireMatch({Outcome::RoutineValid, {}}, original, routine.ok(), false,
@@ -172,7 +175,7 @@ void checkFixture(sql::Dialect dialect, SqlBlock block, const Expectation &expec
     } else
       requireMatch(expected, original, routine.ok(), false, routine.diagnostics, outcome, block.firstLine);
   } else {
-    const auto statement = sql::compile(dialect, std::move(block.text), {}, catalog);
+    const auto statement = sql::compile(dialect, std::move(block.text), options, catalog);
     if (expected.outcome==Outcome::Valid && !statement->ok()) {
       std::vector<sql::Token> significant;
       for (const auto &token:statement->tokens)
@@ -185,7 +188,7 @@ void checkFixture(sql::Dialect dialect, SqlBlock block, const Expectation &expec
                      delimiter.begin(), delimiter.end(),
                      [](unsigned char input, char expected) { return std::toupper(input) == expected; });
       if (clientRoutine || sql::isRoutineStart(dialect,significant)) {
-        const auto routine=sql::compileRoutine(dialect,std::string(statement->source.text()),{},catalog);
+        const auto routine=sql::compileRoutine(dialect,std::string(statement->source.text()),options,catalog);
         requireMatch(expected,statement->source,routine.ok(),false,routine.diagnostics,outcome,block.firstLine);
         return;
       }
@@ -199,7 +202,7 @@ struct Counts { std::size_t passed = 0, failed = 0; };
 
 void runSuite(const fs::path &path, Counts &counts) {
   const auto directory = path.parent_path();
-  const auto dialect = sql::parseDialect(directory.filename().string());
+  const auto dialect = sql::parseDialectProfile(directory.filename().string());
   if (!dialect) throw std::runtime_error("unknown dialect directory: " + directory.string());
   std::ifstream file(path, std::ios::binary);
   if (!file) throw std::runtime_error("cannot open " + path.string());

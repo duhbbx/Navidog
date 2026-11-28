@@ -41,9 +41,10 @@ QString microsoftOdbcDriver();
 std::unique_ptr<Database> connectOracle(const ConnectionProfile&);
 #endif
 QueryResult Database::transaction(TransactionAction action,const Cancellation& cancel){return execute(action==TransactionAction::Begin?"BEGIN":action==TransactionAction::Commit?"COMMIT":"ROLLBACK",{},cancel);}
-QueryResult Database::executeDefinition(const QString& query,QueryLimits limits,const Cancellation& cancel) {
+QueryResult Database::executeDefinition(const QString& query,QueryLimits limits,const Cancellation& cancel,
+                                        const QVector<QVariant>& values) {
     const bool previous=definitionMode_;definitionMode_=true;
-    try{auto result=execute(query,limits,cancel);definitionMode_=previous;return result;}catch(...){definitionMode_=previous;throw;}
+    try{auto result=values.isEmpty()?execute(query,limits,cancel):executeBound(query,values,limits,cancel);definitionMode_=previous;return result;}catch(...){definitionMode_=previous;throw;}
 }
 namespace {
 [[noreturn]] void fail(const QString& message) { throw std::runtime_error(message.toUtf8().constData()); }
@@ -175,6 +176,7 @@ QString postgresResultType(Oid oid,int modifier) {
 class PostgresDatabase final : public Database {
     PGconn* db_ = nullptr;
     ClientCodec codec_;
+    QString version_;
     int readTimeout_=0,writeTimeout_=0;
     void requestCancel() {
         if (auto* request = PQgetCancel(db_)) { char error[256]; PQcancel(request, error, sizeof error); PQfreeCancel(request); }
@@ -201,11 +203,19 @@ public:
             if (r) PQclear(r);
             if (!ok) { PQfinish(db_); db_ = nullptr; fail("无法设置只读会话"); }
         }
+        version_ = QString::fromUtf8(PQparameterStatus(db_, "server_version"));
+        if (isDistributedPostgres(p.driver)) {
+            if (auto* raw = PQexec(db_, "SELECT version()")) {
+                if (PQresultStatus(raw) == PGRES_TUPLES_OK && PQntuples(raw) == 1)
+                    version_ = QString::fromUtf8(PQgetvalue(raw, 0, 0));
+                PQclear(raw);
+            }
+        }
         PQsetnonblocking(db_, 1);
     }
     bool healthy()const override{auto state=PQtransactionStatus(db_);return PQstatus(db_)==CONNECTION_OK && (state==PQTRANS_IDLE || state==PQTRANS_INTRANS || state==PQTRANS_INERROR);}
     TransactionState transactionState()const override{switch(PQtransactionStatus(db_)){case PQTRANS_IDLE:return TransactionState::Idle;case PQTRANS_INTRANS:return TransactionState::Active;case PQTRANS_INERROR:return TransactionState::Failed;default:return TransactionState::Unknown;}}
-    QString serverVersion() override { return QString::fromUtf8(PQparameterStatus(db_, "server_version")); }
+    QString serverVersion() override { return version_; }
     ~PostgresDatabase() override { if (db_) PQfinish(db_); }
     QueryResult execute(const QString& query, QueryLimits limits, const Cancellation& cancel) override { return executeBound(query,{},limits,cancel); }
     QueryResult executeBound(const QString& query,const QVector<QVariant>& parameters,QueryLimits limits,const Cancellation& cancel) override {
@@ -286,12 +296,13 @@ QString mysqlResultType(const MYSQL_FIELD& field) {
 class MySqlDatabase final : public Database {
     MYSQL* db_ = nullptr;
     ClientCodec codec_;
+    DatabaseKind kind_;
     QString version_;
     bool broken_=false;
     int readTimeout_=0;
     void interrupted(){broken_=true;abortSocket(db_->net.fd);}
 public:
-    explicit MySqlDatabase(const ConnectionProfile& p):codec_(connectionCharset(p)),readTimeout_(p.advanced.readTimeout) {
+    explicit MySqlDatabase(const ConnectionProfile& p):codec_(connectionCharset(p)),kind_(p.driver),readTimeout_(p.advanced.readTimeout) {
         static std::once_flag init;
         std::call_once(init, [] { if (mysql_library_init(0, nullptr, nullptr)) fail("MySQL 客户端初始化失败"); });
         struct ThreadRuntime {ThreadRuntime(){if(mysql_thread_init())fail("MySQL 线程初始化失败");}~ThreadRuntime(){mysql_thread_end();}};
@@ -335,7 +346,18 @@ public:
         }
     }
     QString serverVersion() override {
-        if(version_.isEmpty()) version_=QString::fromUtf8(mysql_get_server_info(db_));
+        if (!version_.isEmpty()) return version_;
+        version_ = QString::fromUtf8(mysql_get_server_info(db_));
+        if (isAnalyticalMySql(kind_)) {
+            try {
+                const auto product = execute("SELECT @@version_comment", {1, 1024}, cancellation());
+                const auto reported = product.rows.value(0).value(0).toString();
+                if (!reported.isEmpty() && detectVersion(kind_, reported) != DatabaseVersion::Unknown)
+                    version_ = reported;
+            } catch (const std::exception&) {
+                // A compatible server can restrict or omit this optional variable.
+            }
+        }
         return version_;
     }
     bool healthy()const override{auto code=mysql_errno(db_);return !broken_ && code!=2006 && code!=2013 && code!=2014 && code!=2055;}
@@ -400,16 +422,34 @@ bool oceanBaseOracleClientAvailable();
 std::unique_ptr<Database> connectRedis(const ConnectionProfile&);
 bool redisDriverAvailable();
 #endif
+#ifdef NAVIDOG_HAS_DUCKDB
+std::unique_ptr<Database> connectDuckDb(const ConnectionProfile&);
+#endif
+#ifdef NAVIDOG_HAS_CLICKHOUSE
+std::unique_ptr<Database> connectClickHouse(const ConnectionProfile&);
+#endif
+#ifdef NAVIDOG_HAS_MONGODB
+std::unique_ptr<Database> connectMongoDb(const ConnectionProfile&);
+#endif
 QVector<DatabaseKind> availableDrivers() {
     QVector<DatabaseKind> out{DatabaseKind::SQLite};
+#ifdef NAVIDOG_HAS_DUCKDB
+    out << DatabaseKind::DuckDb;
+#endif
+#ifdef NAVIDOG_HAS_CLICKHOUSE
+    out << DatabaseKind::ClickHouse;
+#endif
+#ifdef NAVIDOG_HAS_MONGODB
+    out << DatabaseKind::MongoDb;
+#endif
 #ifdef NAVIDOG_HAS_REDIS
     if (redisDriverAvailable()) out << DatabaseKind::Redis;
 #endif
 #ifdef NAVIDOG_HAS_POSTGRES
-    out << DatabaseKind::PostgreSQL << DatabaseKind::PolarDbPostgres;
+    out << DatabaseKind::PostgreSQL << DatabaseKind::PolarDbPostgres << DatabaseKind::CockroachDb << DatabaseKind::YugabyteDb;
 #endif
 #ifdef NAVIDOG_HAS_MYSQL
-    out << DatabaseKind::MySQL << DatabaseKind::OceanBase << DatabaseKind::MariaDB << DatabaseKind::TiDB << DatabaseKind::PolarDbMySql;
+    out << DatabaseKind::MySQL << DatabaseKind::OceanBase << DatabaseKind::MariaDB << DatabaseKind::TiDB << DatabaseKind::PolarDbMySql << DatabaseKind::Doris << DatabaseKind::StarRocks;
 #endif
 #ifdef NAVIDOG_HAS_SQLSERVER
     out << DatabaseKind::SQLServer;
@@ -423,13 +463,21 @@ QVector<DatabaseKind> availableDrivers() {
 #ifdef NAVIDOG_HAS_JDBC
     if (bundledJdbcAvailable())
         out << DatabaseKind::Dameng << DatabaseKind::H2 << DatabaseKind::Kingbase
-            << DatabaseKind::UxDb << DatabaseKind::GaussDb << DatabaseKind::Db2;
+            << DatabaseKind::UxDb << DatabaseKind::GaussDb << DatabaseKind::Db2 << DatabaseKind::OpenGauss;
 #endif
     return out;
 }
 QVector<DriverInfo> driverRegistry() {
     auto compiled = availableDrivers();
     QVector<DriverInfo> drivers{
+        {DatabaseKind::DuckDb, "DuckDB", "DuckDB 官方 C API", {}, false, 0},
+        {DatabaseKind::ClickHouse, "ClickHouse", "ClickHouse 官方 C++", {}, false, 9000},
+        {DatabaseKind::OpenGauss, "openGauss", "openGauss 官方 JDBC", {}, false, 5432},
+        {DatabaseKind::MongoDb, "MongoDB", "MongoDB 官方 libmongoc", {}, false, 27017},
+        {DatabaseKind::Doris, "Apache Doris", "MySQL 官方 C API · Doris MySQL 协议", {}, false, 9030},
+        {DatabaseKind::StarRocks, "StarRocks", "MySQL 官方 C API · StarRocks MySQL 协议", {}, false, 9030},
+        {DatabaseKind::CockroachDb, "CockroachDB", "PostgreSQL 官方 libpq · CockroachDB pgwire", {}, false, 26257},
+        {DatabaseKind::YugabyteDb, "YugabyteDB YSQL", "PostgreSQL 官方 libpq · YugabyteDB YSQL", {}, false, 5433},
         {DatabaseKind::SQLite, "SQLite", "SQLite 官方 C API", {}, false, 0},
         {DatabaseKind::MySQL, "MySQL", "Oracle MySQL 官方 libmysqlclient", {}, false, 3306},
         {DatabaseKind::MariaDB, "MariaDB", "原生 libmysqlclient · MariaDB 兼容协议", {}, false, 3306},
@@ -469,12 +517,21 @@ QVector<DriverInfo> driverRegistry() {
 }
 namespace {
 std::unique_ptr<Database> connectDirect(const ConnectionProfile& p) {
-    if (p.driver == navidog::DatabaseKind::SQLite) return std::make_unique<SQLiteDatabase>(p);
+    if (p.driver == DatabaseKind::SQLite) return std::make_unique<SQLiteDatabase>(p);
+#ifdef NAVIDOG_HAS_DUCKDB
+    if (p.driver == DatabaseKind::DuckDb) return connectDuckDb(p);
+#endif
+#ifdef NAVIDOG_HAS_CLICKHOUSE
+    if (p.driver == DatabaseKind::ClickHouse) return connectClickHouse(p);
+#endif
+#ifdef NAVIDOG_HAS_MONGODB
+    if (p.driver == DatabaseKind::MongoDb) return connectMongoDb(p);
+#endif
 #ifdef NAVIDOG_HAS_POSTGRES
     if (usesNativePostgres(p.driver)) return std::make_unique<PostgresDatabase>(p);
 #endif
 #ifdef NAVIDOG_HAS_MYSQL
-    if (navidog::isMySqlFamily(p.driver)) return std::make_unique<MySqlDatabase>(p);
+    if (navidog::isMySqlFamily(p.driver) || isAnalyticalMySql(p.driver)) return std::make_unique<MySqlDatabase>(p);
 #endif
 #ifdef NAVIDOG_HAS_SQLSERVER
     if (p.driver == navidog::DatabaseKind::SQLServer) return connectSqlServer(p);
@@ -524,7 +581,7 @@ class LeasedDatabase final:public Database {
 public:
     LeasedDatabase(std::unique_ptr<SessionLease> lease,std::unique_ptr<Database> db):lease_(std::move(lease)),database_(std::move(db)){}
     QueryResult execute(const QString& sql,QueryLimits limits,const Cancellation& cancel)override{return definitionMode_?database_->executeDefinition(sql,limits,cancel):database_->execute(sql,limits,cancel);}
-    QueryResult executeBound(const QString& sql,const QVector<QVariant>& values,QueryLimits limits,const Cancellation& cancel)override{return database_->executeBound(sql,values,limits,cancel);}
+    QueryResult executeBound(const QString& sql,const QVector<QVariant>& values,QueryLimits limits,const Cancellation& cancel)override{return definitionMode_?database_->executeDefinition(sql,limits,cancel,values):database_->executeBound(sql,values,limits,cancel);}
     TransactionState transactionState()const override{return database_->transactionState();}
     bool healthy()const override{return database_->healthy();}
     void setAutoCommit(bool value)override{database_->setAutoCommit(value);}
@@ -547,7 +604,7 @@ class TunnelDatabase final:public Database {
 public:
     TunnelDatabase(std::unique_ptr<SshTunnel> tunnel,std::unique_ptr<Database> database):tunnel_(std::move(tunnel)),database_(std::move(database)){}
     QueryResult execute(const QString& sql,QueryLimits limits,const Cancellation& cancel)override{return definitionMode_?database_->executeDefinition(sql,limits,cancel):database_->execute(sql,limits,cancel);}
-    QueryResult executeBound(const QString& sql,const QVector<QVariant>& values,QueryLimits limits,const Cancellation& cancel)override{return database_->executeBound(sql,values,limits,cancel);}
+    QueryResult executeBound(const QString& sql,const QVector<QVariant>& values,QueryLimits limits,const Cancellation& cancel)override{return definitionMode_?database_->executeDefinition(sql,limits,cancel,values):database_->executeBound(sql,values,limits,cancel);}
     TransactionState transactionState()const override{return database_->transactionState();}
     bool healthy()const override{return database_->healthy();}
     void setAutoCommit(bool value)override{database_->setAutoCommit(value);}
@@ -571,7 +628,10 @@ std::unique_ptr<Database> connectDatabase(const ConnectionProfile& original){
     if(p.http.enabled){if(!p.advanced.initialSql.trimmed().isEmpty())fail("HTTP 隧道不支持跨请求保存初始会话设置");return std::make_unique<LeasedDatabase>(std::move(lease),connectHttpTunnel(p)); }
     std::unique_ptr<SshTunnel> tunnel;if(p.ssh.enabled){tunnel=openSshTunnel(p);p.transportHost="127.0.0.1";p.transportPort=tunnel->port();}
     auto database=connectDirect(p);
-    if(p.driver==DatabaseKind::Redis){
+    if(p.driver==DatabaseKind::MongoDb && !p.advanced.initialSql.trimmed().isEmpty()){
+        const auto result=database->execute(p.advanced.initialSql,{},cancellation());
+        if(!result.error.isEmpty())fail("MongoDB 初始命令失败："+result.error);
+    }else if(p.driver==DatabaseKind::Redis){
         for(const auto& line:p.advanced.initialSql.split('\n')){
             const auto result=database->execute(line,{},cancellation());
             if(!result.error.isEmpty())fail("Redis 初始命令失败："+result.error);

@@ -185,6 +185,7 @@ private:
   void sequenceOptions(DdlSyntax &, bool alter = false);
   void mysqlPartition(DdlSyntax &);
   void tableOptions(DdlSyntax &);
+  bool vendorTableOption(DdlSyntax &);
   bool distributionOption(DdlSyntax &, bool alter = false);
   void tableGroupSharding(DdlSyntax &);
   void ifExists(DdlSyntax &);
@@ -215,6 +216,7 @@ private:
   void rowMatchClause(TableSource &);
   PostgresRowFunction postgresRowFunctionAhead() const;
   TableSource postgresFunctionSource(PostgresRowFunction);
+  ClickHouseSampleRatio clickHouseSampleRatio();
   std::optional<NamePart> alias(bool table);
 };
 std::unique_ptr<Parser> createParser(Compilation &compilation);

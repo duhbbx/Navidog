@@ -82,7 +82,17 @@ struct Limits {
   std::size_t queries = 1000, columnsPerQuery = 4096, inferredColumns = 32768;
   std::size_t groupingSets=256,groupingReferences=8192,types=8192;
 };
+enum class SqlExtension { None, DuckDb, ClickHouse, CockroachDb, Doris, StarRocks, YugabyteDb };
+struct DialectProfile { Dialect dialect; SqlExtension extension = SqlExtension::None; };
+std::optional<DialectProfile> parseDialectProfile(std::string_view name);
+constexpr bool supportsQualify(SqlExtension extension) {
+  return extension == SqlExtension::DuckDb || extension == SqlExtension::ClickHouse;
+}
+constexpr bool isOlapExtension(SqlExtension extension) {
+  return extension == SqlExtension::Doris || extension == SqlExtension::StarRocks;
+}
 struct LanguageOptions {
+  SqlExtension extension = SqlExtension::None;
   Limits limits;
   bool mysqlAnsiQuotes = false;
   bool mysqlNoBackslashEscapes = false;
@@ -292,10 +302,23 @@ struct ModelUnpivot : BasicUnpivot<std::string> {
   std::vector<std::vector<std::size_t>> inputOrdinals;
 };
 std::string unpivotDefaultLabel(const std::vector<std::string> &columns);
+enum class TableSamplingMethod { Bernoulli, System };
 struct TableSampling {
   static constexpr std::uint32_t full=100000;
   std::uint32_t milliPercent=0;
   std::optional<std::int64_t> repeatable;
+  TableSamplingMethod method = TableSamplingMethod::Bernoulli;
+};
+constexpr const char *tableSamplingMethodName(TableSamplingMethod method) {
+  return method == TableSamplingMethod::System ? "system" : "bernoulli";
+}
+struct ClickHouseSampleRatio {
+  std::string numerator, denominator;
+  SourceRange origin;
+};
+struct ClickHouseSampling {
+  ClickHouseSampleRatio size;
+  std::optional<ClickHouseSampleRatio> offset;
 };
 std::string tableSamplePercent(std::uint32_t milliPercent);
 template<class Name>
@@ -320,6 +343,8 @@ struct TableSource {
   RelationId lateralLeft = 0;
   TableInheritance inheritance = TableInheritance::Default;
   std::optional<TableSampling> sampling = {};
+  bool finalRead = false;
+  std::optional<ClickHouseSampling> clickHouseSampling = {};
   std::shared_ptr<const JsonTableSyntax> jsonTable;
   std::vector<NamePart> columnAliases = {};
   std::shared_ptr<const PivotSyntax> pivot;
@@ -335,6 +360,11 @@ struct OrderItem {
   bool descending = false;
   std::string nulls;
   bool explicitAscending = false;
+};
+struct GroupedRowLimit {
+  ExprId count = 0, offset = 0;
+  std::vector<ExprId> keys;
+  bool all = false;
 };
 enum class LimitSyntax { None, LimitOffset, CommaLimit, Fetch, Top };
 struct RowLimit {
@@ -795,6 +825,17 @@ struct MySqlLoadableFunction {
   bool aggregate=false;
 };
 const char *mysqlLoadableResultName(MySqlLoadableResult);
+enum class OlapKeyKind { Unspecified, Duplicate, Aggregate, Unique, Primary };
+enum class OlapDistribution { Unspecified, Hash, Random };
+template <class Name> struct BasicOlapLayout {
+  OlapKeyKind key = OlapKeyKind::Unspecified;
+  OlapDistribution distribution = OlapDistribution::Unspecified;
+  std::vector<Name> keyColumns, distributionColumns, sortColumns;
+  SourceRange keyOrigin, distributionOrigin, sortOrigin;
+  std::optional<std::uint32_t> buckets;
+  bool automaticBuckets = false;
+  std::vector<std::pair<std::string,std::string>> properties;
+};
 template <class Name, class Qualified> struct BasicDdl {
   ObjectKind object = ObjectKind::Table;
   Qualified name, indexedTable, likeTable, indexMethod;
@@ -818,6 +859,8 @@ template <class Name, class Qualified> struct BasicDdl {
   std::optional<MySqlViewOptions> mysqlViewOptions;
   std::optional<MySqlLoadableFunction> mysqlLoadableFunction;
   std::optional<std::string> tableComment;
+  std::optional<BasicOlapLayout<Name>> olap;
+  std::optional<std::uint32_t> tabletCount;
   std::vector<DistributionOption> distribution;
   IndexScope indexScope = IndexScope::Unspecified;
   std::optional<BasicTablePartition<Name>> partition;
@@ -878,7 +921,9 @@ struct Statement {
   bool fixedJoinOrder = false;
   std::vector<Projection> projections;
   std::vector<TableSource> tables;
-  ExprId where = 0, having = 0;
+  ExprId where = 0, having = 0, prewhere = 0, qualify = 0, systemTime = 0;
+  std::optional<GroupedRowLimit> limitBy;
+  bool groupByAll = false;
   std::vector<ExprId> groupBy;
   // Empty vector: ordinary GROUP BY / no explicit grouping. A member empty
   // vector is the explicit grand-total grouping set; duplicates are retained.
@@ -1104,6 +1149,8 @@ struct ModelTable {
   CteMaterialization cteMaterialization = CteMaterialization::Default;
   TableInheritance inheritance = TableInheritance::Default;
   std::optional<TableSampling> sampling = {};
+  bool finalRead = false;
+  std::optional<ClickHouseSampling> clickHouseSampling = {};
   std::shared_ptr<const ModelJsonTable> jsonTable;
   std::vector<std::string> columnAliases = {};
   std::shared_ptr<const ModelPivot> pivot;
@@ -1192,7 +1239,9 @@ struct ModelStatement {
   std::vector<ModelExpression> expressions; // ID 0 reserved.
   std::vector<ModelProjection> projections;
   std::vector<ModelTable> tables;
-  ExprId where = 0, having = 0;
+  ExprId where = 0, having = 0, prewhere = 0, qualify = 0, systemTime = 0;
+  std::optional<GroupedRowLimit> limitBy;
+  bool groupByAll = false;
   std::vector<ExprId> groupBy;
   // Empty vector: ordinary GROUP BY / no explicit grouping. A member empty
   // vector is the explicit grand-total grouping set; duplicates are retained.

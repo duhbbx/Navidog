@@ -4,6 +4,7 @@
 #include "dictionary_document.hpp"
 #include "report_export.hpp"
 #include "export_paths.hpp"
+#include "task_center.hpp"
 #include "navidog/local_store.hpp"
 
 #include <QButtonGroup>
@@ -247,6 +248,10 @@ public:
         showStep(Scope);
     }
     ~DictionaryWizard() override { if (cancel_) cancel_->store(true); }
+    void reject() override {
+        if (!exportJob_.isEmpty()) { hide(); return; }
+        Dialog::reject();
+    }
 
 private:
     struct ProfileInfo { QString name; K driver = K::Unknown; QString defaultDatabase; };
@@ -258,6 +263,7 @@ private:
     DictionaryConfiguration config_;
     QVector<LoadedScope> loaded_;
     DatabaseDictionary report_;
+    QString exportJob_;
     Cancellation cancel_;
     bool loadingControls_ = false;
     Step step_ = Scope;
@@ -1070,9 +1076,44 @@ private:
     }
 
     void exportFile(std::optional<ReportDocumentFormat> format,const QString& filter) {
-        if (cancel_) return;
+        if (cancel_ || !exportJob_.isEmpty()) return;
         const auto path = chooseExportFile(this,"导出数据字典",fileContext(),"数据字典",filter);
         if (path.isEmpty()) return;
+        if (auto* tasks = backgroundTasksFor(this)) {
+            const auto output = QFileInfo(path).absoluteFilePath();
+            QString rejection;
+            exportJob_ = tasks->submit({"导出数据字典", output, {}, output},
+                [report = report_, settings = config_.layout, output, format](const TaskContext& task) {
+                    task.report({0, 0, TaskUnit::Items, "正在排版数据字典"});
+                    if (format) exportDatabaseDictionary(report, settings, output, *format, task.cancel);
+                    else {
+                        const auto html = dictionaryHtml(report, settings, DictionaryPreviewSection::Full, task.cancel);
+                        if (task.cancel->load()) throw std::runtime_error("导出已停止");
+                        saveFile(output, html.toUtf8());
+                    }
+                    TaskResult done;
+                    done.detail = "数据字典已导出";
+                    done.artifacts << output;
+                    return done;
+                }, &rejection);
+            if (exportJob_.isEmpty()) { status_->setText(rejection); return; }
+            setAttribute(Qt::WA_DeleteOnClose, false);
+            rememberTaskDialog(exportJob_, *this);
+            status_->setText("已提交导出任务。关闭窗口后可从任务列表恢复。");
+            updateNavigation();
+            auto connection = std::make_shared<QMetaObject::Connection>();
+            *connection = connect(tasks, &BackgroundTasks::finished, this,
+                    [this, connection](const QString& id, const TaskResult& result) {
+                if (id != exportJob_) return;
+                QObject::disconnect(*connection);
+                exportJob_.clear();
+                if (!isVisible()) { deleteLater(); return; }
+                setAttribute(Qt::WA_DeleteOnClose);
+                status_->setText(result.error.isEmpty() ? result.detail : result.error);
+                updateNavigation();
+            });
+            return;
+        }
         beginWork("正在导出数据字典…");
         runDatabaseJob(this,[report = report_,settings = config_.layout,path,format,cancel = cancel_] {
             if (format) exportDatabaseDictionary(report,settings,path,*format,cancel);
@@ -1105,7 +1146,7 @@ private:
     void endWork() { cancel_.reset(); updateNavigation(); }
 
     void updateNavigation() {
-        const auto busy = bool(cancel_);
+        const auto busy = bool(cancel_) || !exportJob_.isEmpty();
         pages_->setEnabled(!busy);
         save_->setEnabled(!busy);
         load_->setEnabled(!busy);

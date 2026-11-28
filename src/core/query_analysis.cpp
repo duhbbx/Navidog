@@ -94,6 +94,7 @@ analyzeQueryScript(const ConnectionProfile &profile, const QString &schema,
     }
     try {
       sql::compiler::LanguageOptions options;
+      options.extension = compilerExtensionFor(profile.driver);
       options.limits.sourceBytes = statementBytes;
       options.limits.tokens = 40000;
       options.limits.nodes = 20000;
@@ -105,8 +106,7 @@ analyzeQueryScript(const ConnectionProfile &profile, const QString &schema,
       };
       const auto original = sql::statementSource(
           source, span,
-          profile.driver == DatabaseKind::SQLServer ? sql::Dialect::SQLServer
-                                                    : sql::Dialect::SQLite);
+          scriptDialect(profile.driver));
       const bool mysqlTrigger=span.compound && isMySqlFamily(profile.driver) &&
           sql::isCreateTrigger(original,sql::Dialect::MySQL);
       const bool oraclePackage=span.compound && usesOracleSql(profile.driver) &&

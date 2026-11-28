@@ -14,6 +14,7 @@ struct VendorDriver {
     const char* protocol;
 };
 constexpr VendorDriver vendors[] = {
+    {DatabaseKind::OpenGauss, "org.opengauss.Driver", "opengauss"},
     {DatabaseKind::H2, "org.h2.Driver", "h2:tcp"},
     {DatabaseKind::Kingbase, "com.kingbase8.Driver", "kingbase8"},
     {DatabaseKind::UxDb, "com.uxsino.uxdb.Driver", "uxdb"},

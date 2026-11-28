@@ -13,10 +13,14 @@
 #include <QVBoxLayout>
 namespace {
 QString kindTitle(const QString &kind) {
+  if (kind == "mongoCollection")
+    return "集合";
   if (kind == "redisKey")
     return "Redis 键";
   if (kind == "table")
     return "表";
+  if (kind == "materializedView")
+    return "物化视图";
   if (kind == "view")
     return "视图";
   if (kind == "function")
@@ -172,8 +176,8 @@ void ObjectsPane::setContext(const navidog::ConnectionProfile &p,
   profileId = p.id;
   database = node.database;
   folder = node;
-  definitionOnly_ = p.driver == navidog::DatabaseKind::Dameng;
-  writable_ = !p.readOnly && !definitionOnly_;
+  definitionOnly_ = p.driver == navidog::DatabaseKind::Dameng || navidog::usesExtendedCatalog(p.driver);
+  writable_ = !p.readOnly && !definitionOnly_ && !navidog::usesExtendedCatalog(p.driver) && !navidog::isCommandDatabase(p.driver);
   design_->setText(definitionOnly_ ? "定义" : "设计");
   if (changed)
     findChild<QLineEdit *>("objectListFilter")->clear();
@@ -185,6 +189,7 @@ void ObjectsPane::setContext(const navidog::ConnectionProfile &p,
       " / " + (node.name.isEmpty() ? node.kind : node.name));
   create_->setText(node.kind == "tables" || node.kind == "tableGroup" ? "新建表"
                    : node.kind == "views"     ? "新建视图"
+                   : node.kind == "materializedViews" ? "新建物化视图"
                    : node.kind == "functions" ? "新建函数"
                                               : "新建存储过程");
   updateSelection();
@@ -230,9 +235,10 @@ void ObjectsPane::setBusy(bool value) {
 void ObjectsPane::updateSelection() {
   const auto node = selectedNode();
   const bool selected =
-      QStringList{"table", "view", "function", "procedure"}.contains(node.kind);
+      QStringList{"table", "view", "materializedView", "function", "procedure", "mongoCollection", "redisKey"}.contains(node.kind);
   open_->setEnabled(!busy_ && selected);
-  design_->setEnabled(!busy_ && selected);
+  design_->setText(node.kind == "materializedView" ? "属性" : definitionOnly_ ? "定义" : "设计");
+  design_->setEnabled(!busy_ && selected && (writable_ || definitionOnly_ || node.kind == "materializedView"));
   remove_->setEnabled(!busy_ && writable_ && selected);
   create_->setEnabled(!busy_ && writable_ && !profileId.isEmpty());
   refresh_->setEnabled(!busy_ && !profileId.isEmpty());

@@ -103,6 +103,7 @@ int rewriteUsingDeclarations(const std::string &path, std::string query,
 
 int main(int argc, char **argv) {
   std::optional<Dialect> dialect;
+  SqlExtension extension = SqlExtension::None;
   bool ast = false, format = false, dumpStyle = false, optimize = false, evaluate = false;
   std::string stylePath, preset = "Readable";
   std::optional<Dialect> emitDialect, convertDialect;
@@ -117,7 +118,8 @@ int main(int argc, char **argv) {
   std::string path;
   auto usage = [] {
     std::cerr << "Usage: navidog-sql --dialect "
-                 "mysql|postgresql|oracle|sqlite|sqlserver|mariadb|oceanbase|tidb "
+                 "mysql|postgresql|oracle|sqlite|sqlserver|mariadb|oceanbase|tidb|"
+                 "duckdb|clickhouse|cockroachdb|doris|starrocks|yugabytedb|opengauss "
                  "[--ast|--model|--emit source-dialect|--convert "
                  "target-dialect|--optimize|--emit-plan|--evaluate [--bind number|true|false|null]...|--format] [--style file] "
                  "[--preset Readable|Compact|Expanded] [--dump-format-config] [--calcite-extensions] [--mysql-ignore-space] "
@@ -134,11 +136,13 @@ int main(int argc, char **argv) {
       return 0;
     }
     if (arg == "--dialect" && i + 1 < argc) {
-      dialect = parseDialect(argv[++i]);
-      if (!dialect) {
+      const auto profile = parseDialectProfile(argv[++i]);
+      if (!profile) {
         usage();
         return 2;
       }
+      dialect = profile->dialect;
+      extension = profile->extension;
     } else if (arg == "--emit" && i + 1 < argc) {
       emitDialect = parseDialect(argv[++i]);
       if (!emitDialect) {
@@ -273,6 +277,7 @@ int main(int argc, char **argv) {
     input = &file;
   }
   LanguageOptions options;
+  options.extension = extension;
   options.calciteExtensions=calciteExtensions;
   options.mysqlIgnoreSpace=mysqlIgnoreSpace;
   std::string source;
@@ -314,7 +319,9 @@ int main(int argc, char **argv) {
       std::cerr << "--format cannot be combined with --ast or --emit\n";
       return 2;
     }
-    auto formatted = formatSql(*dialect, source, style);
+    FormatOptions formatting;
+    formatting.language = options;
+    auto formatted = formatSql(*dialect, source, style, formatting);
     if (!formatted.ok()) {
       for (const auto &error : formatted.diagnostics)
         std::cerr << error.message << '\n';

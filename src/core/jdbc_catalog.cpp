@@ -58,7 +58,7 @@ Rows query(Database& db, JdbcMetadata kind, const QString& schema, const QString
 }
 }
 
-CatalogResult loadJdbcCatalog(Database& db, const ConnectionProfile&, const CatalogNode& parent, const Cancellation& cancel) {
+CatalogResult loadJdbcCatalog(Database& db, const ConnectionProfile& profile, const CatalogNode& parent, const Cancellation& cancel) {
     CatalogResult out;
     auto add = [&](const QString& kind, const QString& name, const QString& detail = {}, bool expandable = true) {
         if (name.isEmpty())
@@ -99,6 +99,10 @@ CatalogResult loadJdbcCatalog(Database& db, const ConnectionProfile&, const Cata
         }
     } else if (parent.kind == "table" || parent.kind == "view") {
         add("columns", "字段");
+        if (profile.driver == DatabaseKind::OpenGauss && parent.kind == "table") {
+            add("indexes", "索引");
+            add("constraints", "约束");
+        }
     } else if (parent.kind == "columns") {
         const auto rows = load(JdbcMetadata::Columns);
         for (const auto& row : rows.result.rows)

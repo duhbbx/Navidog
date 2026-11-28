@@ -422,6 +422,29 @@ public:
     }
     key("tableComment");
     value(d.tableComment);
+    if (d.tabletCount) {
+      key("tabletCount");
+      out << *d.tabletCount;
+    }
+    if (d.olap) {
+      const auto &layout = *d.olap;
+      key("olapLayout");
+      out << "{\"key\":" << int(layout.key);
+      key("keyColumns"); list(layout.keyColumns);
+      key("distribution"); out << int(layout.distribution);
+      key("distributionColumns"); list(layout.distributionColumns);
+      key("sortColumns"); list(layout.sortColumns);
+      if (layout.buckets) { key("buckets"); out << *layout.buckets; }
+      key("automaticBuckets"); value(layout.automaticBuckets);
+      key("properties"); out << '{';
+      bool comma = false;
+      for (const auto &[name, property] : layout.properties) {
+        if (comma) out << ',';
+        comma = true;
+        value(name); out << ':'; value(property);
+      }
+      out << "}}";
+    }
     if (d.indexScope != IndexScope::Unspecified) {
       key("indexScope");
       value(std::string(d.indexScope == IndexScope::Local ? "local" : "global"));

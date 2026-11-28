@@ -134,7 +134,9 @@ EstimatedPlanView::EstimatedPlanView(QWidget *parent):QWidget(parent) {
   connect(copy_,&QToolButton::clicked,this,[this]{try{QApplication::clipboard()->setText(QString::fromUtf8(navidog::estimatedPlanJson(plan_)));}catch(const std::exception &e){QMessageBox::warning(this,"复制失败",QString::fromUtf8(e.what()));}});
   auto exportData=[this](bool raw){try{
     auto bytes=raw?plan_.raw:navidog::estimatedPlanJson(plan_);const bool xml=raw && plan_.format.contains("xml");
-    auto path=navidog::ui::chooseExportFile(this,"导出数据库估计计划",exportContext_,raw?"原始执行计划":"执行计划",xml?"SQL Server 计划 (*.sqlplan);;XML (*.xml)":"JSON (*.json)");
+    const bool text = raw && (plan_.format == "cockroach-text" || plan_.format.endsWith("-fragments"));
+    auto path=navidog::ui::chooseExportFile(this,"导出数据库估计计划",exportContext_,raw?"原始执行计划":"执行计划",
+        xml?"SQL Server 计划 (*.sqlplan);;XML (*.xml)":text?"文本 (*.txt)":"JSON (*.json)");
     if(path.isEmpty())return;QSaveFile file(path);if(!file.open(QIODevice::WriteOnly) || file.write(bytes)!=bytes.size() || !file.commit())throw std::runtime_error(file.errorString().toStdString());
   }catch(const std::exception &e){QMessageBox::warning(this,"导出失败",QString::fromUtf8(e.what()));}};
   connect(save_,&QToolButton::clicked,this,[exportData]{exportData(false);});connect(raw_,&QToolButton::clicked,this,[exportData]{exportData(true);});setPlan({});

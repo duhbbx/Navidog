@@ -26,7 +26,7 @@ QString keyWhere(const TableDefinition& d,const QVector<QVariant>& original,QVec
 }
 bool equalValue(const QVariant& a,const QVariant& b){if(isNull(a) || isNull(b))return isNull(a)&&isNull(b);return a.userType()==b.userType() && a==b;}
 }
-bool supportsDataEditing(DatabaseKind kind){return kind==K::SQLite || navidog::usesNativePostgres(kind) || mysqlEditing(kind) || kind==K::Oracle;}
+bool supportsDataEditing(DatabaseKind kind){return kind==K::SQLite || usesNativePostgres(kind) || mysqlEditing(kind) || kind==K::Oracle;}
 QVector<int> primaryKeyColumns(const TableDefinition& d){QVector<int> out;for(int i=0;i<d.columns.size();++i)if(d.columns[i].primaryKey)out<<i;std::stable_sort(out.begin(),out.end(),[&](int a,int b){return d.columns[a].primaryKey<d.columns[b].primaryKey;});return out;}
 DataPageResult readDataPage(const ConnectionProfile& p,const DataPageRequest& request,const Cancellation& cancel) {
     DataPageResult out;out.request=request;
@@ -35,7 +35,7 @@ DataPageResult readDataPage(const ConnectionProfile& p,const DataPageRequest& re
         if(request.node.kind!="table" && request.node.kind!="view")fail("请选择表或视图");
         if(request.pageSize<1 || request.pageSize>1000 || request.offset<0 || request.offset>1000000000)fail("分页范围无效");
         auto db=connectDatabase(p);out.schema=readTableDefinition(*db,p,request.node,cancel,false);const auto k=p.driver;auto columns=names(out.schema,k);auto keys=primaryKeyColumns(out.schema);QVector<QVariant> args;QStringList predicates;
-        const bool versioned=navidog::usesNativePostgres(k) && request.node.kind=="table";
+        const bool versioned=usesNativePostgres(k) && !isDistributedPostgres(k) && request.node.kind=="table";
         auto select=columns;if(versioned)select<<"xmin::text";
         if(request.filter!=DataFilter::None) {
             if(request.filterColumn<0 || request.filterColumn>=columns.size())fail("筛选字段无效");auto col=columns[request.filterColumn];
@@ -87,10 +87,11 @@ DataCommitResult commitDataChanges(const ConnectionProfile& p,const TableDefinit
         if(p.http.enabled)fail("HTTP 隧道不支持跨请求事务，请使用直连或 SSH 提交编辑");
         if(p.readOnly || !supportsDataEditing(p.driver) || schema.node.kind!="table" || primaryKeyColumns(schema).isEmpty())fail("当前表不允许数据写入");
         if(changes.size()>1000)fail("每次最多提交 1000 行");if(changes.isEmpty())return out;
-        db=connectDatabase(p);if(mysqlEditing(p.driver)){check(*db,"SET SESSION innodb_lock_wait_timeout=5",{},cancel);check(*db,"SET TRANSACTION ISOLATION LEVEL READ COMMITTED",{},cancel);}if(p.driver==K::Oracle){db->setAutoCommit(false);check(*db,"SET TRANSACTION ISOLATION LEVEL READ COMMITTED",{},cancel);transaction=true;check(*db,"LOCK TABLE "+tableQualifiedName(p,schema.node)+" IN ROW EXCLUSIVE MODE NOWAIT",{},cancel);}else{check(*db,p.driver==K::SQLite?"BEGIN IMMEDIATE":mysqlEditing(p.driver)?"START TRANSACTION":"BEGIN ISOLATION LEVEL READ COMMITTED",{},cancel);transaction=true;}
+        db=connectDatabase(p);if(mysqlEditing(p.driver)){check(*db,"SET SESSION innodb_lock_wait_timeout=5",{},cancel);check(*db,"SET TRANSACTION ISOLATION LEVEL READ COMMITTED",{},cancel);}if(p.driver==K::Oracle){db->setAutoCommit(false);check(*db,"SET TRANSACTION ISOLATION LEVEL READ COMMITTED",{},cancel);transaction=true;check(*db,"LOCK TABLE "+tableQualifiedName(p,schema.node)+" IN ROW EXCLUSIVE MODE NOWAIT",{},cancel);}else{check(*db,p.driver==K::SQLite?"BEGIN IMMEDIATE":mysqlEditing(p.driver)?"START TRANSACTION":isDistributedPostgres(p.driver)?"BEGIN":"BEGIN ISOLATION LEVEL READ COMMITTED",{},cancel);transaction=true;}
         if(mysqlEditing(p.driver)){check(*db,"SELECT 1 FROM "+tableQualifiedName(p,schema.node)+" LIMIT 0",{},cancel);auto engine=check(*db,"SELECT engine FROM information_schema.tables WHERE table_schema=?1 AND table_name=?2",{schema.node.database.isEmpty()?p.database:schema.node.database,schema.node.object},cancel);if(engine.rows.size()!=1 || engine.rows[0][0].toString().compare("InnoDB",Qt::CaseInsensitive)!=0)fail("仅允许向 InnoDB 表提交事务编辑");}
         if(readTableDefinition(*db,p,schema.node,cancel,false).columns!=schema.columns)fail("表结构已改变，请重新加载后编辑");
         const auto cols=names(schema,p.driver);const auto table=tableQualifiedName(p,schema.node);qint64 bytes=0;
+        const bool versioned = usesNativePostgres(p.driver) && !isDistributedPostgres(p.driver);
         for(auto change:changes) {
             if(change.state==DataRowState::Clean)continue;
             if(change.values.size()!=schema.columns.size())fail("待提交行不完整");
@@ -98,10 +99,10 @@ DataCommitResult commitDataChanges(const ConnectionProfile& p,const TableDefinit
             auto touched=change.touched.values();std::sort(touched.begin(),touched.end());
             for(int index:touched)if(index<0 || index>=schema.columns.size() || (!schema.columns[index].protectedReason.isEmpty() || !schema.columns[index].generatedExpression.isEmpty()))fail("不能修改生成 / 标识字段或无效字段");
             if(change.state!=DataRowState::Inserted) {
-                QVector<QVariant> args;auto where=keyWhere(schema,change.original,args,p.driver);auto sql="SELECT "+(navidog::usesNativePostgres(p.driver)?QString("xmin::text"):cols.join(", "))+" FROM "+table+" WHERE "+where+(p.driver==K::Oracle?" FOR UPDATE NOWAIT":navidog::usesNativePostgres(p.driver) || mysqlEditing(p.driver)?" FOR UPDATE":"");
+                QVector<QVariant> args;auto where=keyWhere(schema,change.original,args,p.driver);auto sql="SELECT "+(versioned?QString("xmin::text"):cols.join(", "))+" FROM "+table+" WHERE "+where+(p.driver==K::Oracle?" FOR UPDATE NOWAIT":navidog::usesNativePostgres(p.driver) || mysqlEditing(p.driver)?" FOR UPDATE":"");
                 QueryLimits limit;limit.maxRows=2;auto current=check(*db,sql,args,cancel,limit);
                 if(current.truncated || current.cellTruncated || current.rows.size()!=1)fail("记录已被删除或无法唯一定位；本批修改未提交");
-                if(navidog::usesNativePostgres(p.driver)){if(change.version.isEmpty() || current.rows[0][0].toString()!=change.version)fail("记录已被其他会话修改；请重新加载后核对");}
+                if(versioned){if(change.version.isEmpty() || current.rows[0][0].toString()!=change.version)fail("记录已被其他会话修改；请重新加载后核对");}
                 else {if(current.rows[0].size()!=change.original.size())fail("原始行不完整");for(int i=0;i<change.original.size();++i)if(!equalValue(current.rows[0][i],change.original[i]))fail("记录已被其他会话修改；请重新加载后核对");}
             }
             QVector<QVariant> args;QString sql;

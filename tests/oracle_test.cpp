@@ -1,3 +1,6 @@
+#include "navidog/query_parameters.hpp"
+#include "navidog/object_management.hpp"
+#include "navidog/source_design.hpp"
 #include <algorithm>
 #include <QtTest>
 #include <QProcess>
@@ -42,7 +45,93 @@ private slots:
             if(elapsed.elapsed()/20000>announced){announced=elapsed.elapsed()/20000;qInfo()<<"Waiting for owned Oracle fixture:"<<elapsed.elapsed()/1000<<"s";}QTest::qWait(500);
         }
         if(!ready)qWarning().noquote()<<redactedLog();QVERIFY2(ready,"Owned Oracle container did not become ready");
-        QVERIFY2(sqlPlus("ALTER SESSION SET CONTAINER=FREEPDB1;\nCREATE TABLESPACE NAVIDOG_DATA DATAFILE '/opt/oracle/oradata/navidog-owned-data.dbf' SIZE 20M;\nCREATE USER NAVIDOG_OWNED IDENTIFIED BY \""+p_.password+"\";\nGRANT CREATE SESSION, CREATE TABLE, CREATE VIEW, CREATE PROCEDURE, CREATE TRIGGER, CREATE SEQUENCE, CREATE USER, UNLIMITED TABLESPACE TO NAVIDOG_OWNED;\nCREATE USER NAVIDOG_NAMESPACE_ADMIN IDENTIFIED BY \""+adminPassword_+"\";\nGRANT CREATE USER, CREATE SESSION TO NAVIDOG_NAMESPACE_ADMIN WITH ADMIN OPTION;\nGRANT SELECT ON SYS.DBA_USERS TO NAVIDOG_NAMESPACE_ADMIN;\nGRANT SELECT ON SYS.DBA_TS_QUOTAS TO NAVIDOG_NAMESPACE_ADMIN;\nGRANT SELECT ON SYS.DBA_TABLESPACES TO NAVIDOG_NAMESPACE_ADMIN;"),"Owned Oracle bootstrap failed");qInfo()<<"Owned Oracle fixture ready";
+        QVERIFY2(sqlPlus("ALTER SESSION SET CONTAINER=FREEPDB1;\nCREATE TABLESPACE NAVIDOG_DATA DATAFILE '/opt/oracle/oradata/navidog-owned-data.dbf' SIZE 20M;\nCREATE USER NAVIDOG_OWNED IDENTIFIED BY \""+p_.password+"\";\nGRANT CREATE SESSION, CREATE TABLE, CREATE VIEW, CREATE MATERIALIZED VIEW, CREATE PROCEDURE, CREATE TRIGGER, CREATE SEQUENCE, CREATE USER, UNLIMITED TABLESPACE TO NAVIDOG_OWNED;\nCREATE USER NAVIDOG_NAMESPACE_ADMIN IDENTIFIED BY \""+adminPassword_+"\";\nGRANT CREATE USER, CREATE SESSION TO NAVIDOG_NAMESPACE_ADMIN WITH ADMIN OPTION;\nGRANT SELECT ON SYS.DBA_USERS TO NAVIDOG_NAMESPACE_ADMIN;\nGRANT SELECT ON SYS.DBA_TS_QUOTAS TO NAVIDOG_NAMESPACE_ADMIN;\nGRANT SELECT ON SYS.DBA_TABLESPACES TO NAVIDOG_NAMESPACE_ADMIN;"),"Owned Oracle bootstrap failed");qInfo()<<"Owned Oracle fixture ready";
+    }
+    void navigationCompileReportsOracleStatusAndErrors() {
+        using namespace navidog;
+        auto db = connectDatabase(p_);
+        auto token = cancellation();
+        CatalogNode routine{"function", "COMPILATION_OWNED", p_.database, p_.user, "COMPILATION_OWNED"};
+        const auto good = applySourceChanges(p_, {}, routine, sourceTemplate(p_, routine), false, token);
+        QVERIFY2(good.applied && good.refreshError.isEmpty(), qPrintable(good.error + good.refreshError));
+        const auto compiled = changeCatalogObject(p_, routine, CatalogObjectChange::Compile, token);
+        QVERIFY2(compiled.applied && compiled.error.isEmpty(), qPrintable(compiled.error + compiled.diagnostics));
+        const auto details = readCatalogObjectDetails(*db, p_, routine, token);
+        QVERIFY2(details.warning.isEmpty(), qPrintable(details.warning));
+        QVERIFY(details.sql.contains("COMPILATION_OWNED"));
+        QVERIFY(details.properties.contains(qMakePair(QString("状态"), QString("VALID"))));
+
+        auto broken = routine;
+        broken.object = broken.name = "INVALID_ROUTINE_OWNED";
+        const auto bad = applySourceChanges(p_, {}, broken,
+            "CREATE FUNCTION " + tableQualifiedName(p_, broken) +
+            " RETURN NUMBER AS BEGIN RETURN missing_variable_owned; END;", false, token);
+        QVERIFY2(bad.applied, qPrintable(bad.error));
+        const auto diagnosed = changeCatalogObject(p_, broken, CatalogObjectChange::Compile, token);
+        QVERIFY(!diagnosed.error.isEmpty());
+        QVERIFY2(diagnosed.diagnostics.contains("PLS-"), qPrintable(diagnosed.error + diagnosed.diagnostics));
+        const auto removed = changeCatalogObject(p_, broken, CatalogObjectChange::Drop, token);
+        QVERIFY2(removed.applied, qPrintable(removed.error));
+    }
+    void navigationMaterializedViewAndCascadeConstraints() {
+        using namespace navidog;
+        auto db = connectDatabase(p_);
+        auto token = cancellation();
+        const auto execute = [&](const QString& text) { return db->execute(text, {}, token); };
+        QVERIFY(execute("CREATE TABLE NAVIGATION_PARENT_OWNED(id NUMBER PRIMARY KEY)").error.isEmpty());
+        QVERIFY(execute("CREATE TABLE NAVIGATION_CHILD_OWNED(id NUMBER REFERENCES NAVIGATION_PARENT_OWNED(id))").error.isEmpty());
+        CatalogNode mat{"materializedView", "NAVIGATION_MV_OWNED", p_.database, p_.user, "NAVIGATION_MV_OWNED"};
+        const auto created = applySourceChanges(p_, {}, mat, "CREATE MATERIALIZED VIEW " +
+            tableQualifiedName(p_, mat) + " AS SELECT id FROM NAVIGATION_PARENT_OWNED", false, token);
+        QVERIFY2(created.applied && created.refreshError.isEmpty(), qPrintable(created.error + created.refreshError));
+        const auto recompiled = changeCatalogObject(p_, mat, CatalogObjectChange::Compile, token);
+        QVERIFY2(recompiled.applied && recompiled.error.isEmpty(), qPrintable(recompiled.error));
+        const auto props = readCatalogObjectDetails(*db, p_, mat, token);
+        QVERIFY(props.sql.contains("CREATE MATERIALIZED VIEW"));
+        auto folder = mat;
+        folder.kind = "materializedViews";
+        const auto objects = loadCatalog(*db, p_, folder, token);
+        QVERIFY(std::any_of(objects.nodes.cbegin(), objects.nodes.cend(), [&](const auto& item) {
+            return item.object == mat.object;
+        }));
+        QVERIFY(changeCatalogObject(p_, mat, CatalogObjectChange::Drop, token).applied);
+
+        TableTask drop;
+        drop.node = {"table", "NAVIGATION_PARENT_OWNED", p_.database, p_.user, "NAVIGATION_PARENT_OWNED"};
+        drop.action = TableAction::Drop;
+        QVERIFY(!runTableTask(p_, drop, token).applied);
+        drop.cascade = true;
+        QVERIFY(tableTaskSql(p_, drop).endsWith("CASCADE CONSTRAINTS"));
+        const auto result = runTableTask(p_, drop, token);
+        QVERIFY2(result.applied, qPrintable(result.error));
+        QVERIFY(execute("INSERT INTO NAVIGATION_CHILD_OWNED VALUES(1)").error.isEmpty());
+        QVERIFY(execute("DROP TABLE NAVIGATION_CHILD_OWNED PURGE").error.isEmpty());
+    }
+    void editorParametersBindOracleNamesAndPlSqlInputs() {
+        using namespace navidog;
+        auto db = connectDatabase(p_);
+        auto token = cancellation();
+        const auto setup = db->execute("CREATE TABLE BINDING_FIXTURE(A NUMBER, B NUMBER)", {}, token);
+        QVERIFY2(setup.error.isEmpty(), qPrintable(setup.error));
+        const QString sql =
+            "BEGIN INSERT INTO BINDING_FIXTURE(A,B) VALUES(:qty,:QTY); END;\n/\n"
+            "SELECT A,B,q'[not :a parameter]' FROM BINDING_FIXTURE WHERE A=:qty";
+        const auto plan = inspectQueryParameters(p_.driver, sql, p_.database, p_.user);
+        QCOMPARE(plan.parameters.size(), 1);
+        QCOMPARE(plan.parameters.front().locations.size(), 3);
+        QueryExecutionOptions options;
+        options.sessionId = "owned-oracle-bindings";
+        options.bindings = bindQueryParameters(plan, {qlonglong(49)});
+        QueryService service;
+        QSignalSpy completed(&service, &QueryService::completed);
+        QVERIFY(service.run(p_, sql, {}, options));
+        QVERIFY(completed.wait(10000));
+        const auto result = qvariant_cast<QueryOutcome>(completed.takeFirst()[0]).result;
+        QVERIFY2(result.error.isEmpty(), qPrintable(result.error));
+        QCOMPARE(result.rows.size(), 1);
+        QCOMPARE(result.rows[0][0].toInt(), 49);
+        QCOMPARE(result.rows[0][1].toInt(), 49);
+        QCOMPARE(result.rows[0][2].toString(), QString("not :a parameter"));
     }
     void rowPatternMatchesPreserveNativeRowsAndTypes(){try{
         using namespace navidog;

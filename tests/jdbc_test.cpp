@@ -1,3 +1,4 @@
+#include "navidog/query_parameters.hpp"
 #include "jdbc_bridge.hpp"
 #include "navidog/catalog.hpp"
 #include "navidog/credentials.hpp"
@@ -243,6 +244,16 @@ private slots:
             profile.user = "sa";
             profile.credentialSource = CredentialSource::Passwordless;
             auto db = connectDatabase(profile);
+            const auto plan = inspectQueryParameters(profile.driver,
+                "SELECT CAST(? AS BIGINT), CAST(? AS VARCHAR), '?'", profile.database, "PUBLIC");
+            QCOMPARE(plan.parameters.size(), 2);
+            QCOMPARE(plan.parameters[0].type, QueryParameterType::Integer);
+            const auto bound = bindQueryParameters(plan, {qlonglong(51), QString("武汉's")}).front();
+            const auto tested = db->executeBound(bound.sql, bound.values, {}, token);
+            QVERIFY2(tested.error.isEmpty(), qPrintable(tested.error));
+            QCOMPARE(tested.rows[0][0].toInt(), 51);
+            QCOMPARE(tested.rows[0][1].toString(), QString("武汉's"));
+            QCOMPARE(tested.rows[0][2].toString(), QString("?"));
             const auto schemas = loadCatalog(*db, profile, {}, token);
             QVERIFY(std::any_of(schemas.nodes.begin(), schemas.nodes.end(),
                 [](const auto& node) { return node.kind == "schema" && node.name == "PUBLIC"; }));

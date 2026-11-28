@@ -1,0 +1,23 @@
+case primary-key-layout valid <<SQL
+CREATE TABLE sales (id INT NOT NULL, amount INT)
+ENGINE=OLAP PRIMARY KEY(id) DISTRIBUTED BY HASH(id) BUCKETS 4
+PROPERTIES ("replication_num" = "1");
+SQL
+
+case unknown-distribution-column semantic-error InvalidQueryShape <<SQL
+CREATE TABLE sales (id INT) DUPLICATE KEY(id) DISTRIBUTED BY HASH(missing_id);
+SQL
+
+case order-by-sort-key valid <<SQL
+CREATE TABLE sales (id BIGINT NOT NULL, amount INT) PRIMARY KEY(id)
+DISTRIBUTED BY HASH(id) ORDER BY(amount) PROPERTIES ("replication_num"="1");
+SQL
+
+case unknown-sort-key semantic-error InvalidQueryShape <<SQL
+CREATE TABLE sales (id BIGINT NOT NULL, amount INT) PRIMARY KEY(id)
+DISTRIBUTED BY HASH(id) ORDER BY(unknown_amount);
+SQL
+
+case random-primary-key semantic-error InvalidQueryShape <<SQL
+CREATE TABLE sales (id BIGINT NOT NULL, amount INT) PRIMARY KEY(id) DISTRIBUTED BY RANDOM;
+SQL

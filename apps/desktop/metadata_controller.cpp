@@ -10,7 +10,7 @@ namespace {
 QString databaseFor(const navidog::ConnectionProfile &profile,
                     const QString &selected) {
   // Match the database used by QueryService when reading or refreshing a snapshot.
-  if (selected.isEmpty() || profile.driver == navidog::DatabaseKind::SQLite ||
+  if (selected.isEmpty() || navidog::isFileDatabase(profile.driver) ||
       navidog::usesOracleSql(profile.driver))
     return profile.database;
   return selected;
@@ -97,7 +97,7 @@ MetadataController::Context MetadataController::contextFor(const WorkspacePane &
 
   const auto profile = std::find_if(profiles_.cbegin(), profiles_.cend(),
                                     [&](const auto &p) { return p.id == pane.profileId; });
-  if (profile != profiles_.cend() && profile->driver != navidog::DatabaseKind::Redis) {
+  if (profile != profiles_.cend() && !navidog::isCommandDatabase(profile->driver)) {
     context.profile = &*profile;
     context.database = databaseFor(*profile, pane.database);
     context.key = navidog::metadataKey(*profile, context.database, context.schema);

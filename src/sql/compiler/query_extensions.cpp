@@ -626,7 +626,8 @@ void Parser::resolveWindows(Statement &statement) {
 bool Parser::queryAhead(std::size_t ahead) const {
   while (at("(", ahead) && ahead < context_.options.limits.nesting)
     ++ahead;
-  return at("SELECT", ahead) || at("WITH", ahead) || tableQueryAhead(ahead) ||
+  return at("SELECT", ahead) || at("WITH", ahead) ||
+         (context_.options.extension == SqlExtension::DuckDb && at("FROM", ahead)) || tableQueryAhead(ahead) ||
          valuesQueryAhead(ahead);
 }
 bool Parser::tableQueryAhead(std::size_t ahead) const {

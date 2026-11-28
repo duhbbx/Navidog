@@ -433,7 +433,7 @@ class PlanRenderer {
     write(" AS ");
     identifier(alias);
     if (sampling) {
-      write(" TABLESAMPLE BERNOULLI (");
+      write(sampling->method == TableSamplingMethod::System ? " TABLESAMPLE SYSTEM (" : " TABLESAMPLE BERNOULLI (");
       write(tableSamplePercent(sampling->milliPercent));
       write(")");
       if (sampling->repeatable) {

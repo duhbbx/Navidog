@@ -5,7 +5,7 @@
 #include <QUrl>
 
 namespace navidog {
-enum class DriverPackage { Java, Redis, H2, Dameng, Db2, Kingbase, GaussDb };
+enum class DriverPackage { Java, Redis, H2, Dameng, Db2, Kingbase, GaussDb, OpenGauss };
 struct DriverDownload {
     QString asset;
     QUrl url;

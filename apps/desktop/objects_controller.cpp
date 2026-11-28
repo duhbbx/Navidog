@@ -49,7 +49,7 @@ MainWindow::createObjectsPane(const navidog::ConnectionProfile &profile,
               else
                 openSource(item, true);
             } else if (action == "open") {
-              if (table || node.kind == "view" || node.kind == "redisKey")
+              if (table || navidog::isSourceRelation(node.kind) || node.kind == "redisKey" || node.kind == "mongoCollection")
                 openObject(item, false);
               else if (node.kind == "tableGroup")
                 openObjects(item);
@@ -69,7 +69,7 @@ void MainWindow::openObjects(QTreeWidgetItem *item, bool activate) {
   if (!item)
     return;
   auto node = item->data(0, Qt::UserRole + 2).value<navidog::CatalogNode>();
-  if (!QStringList{"tables", "tableGroup", "views", "functions", "procedures"}
+  if (!QStringList{"tables", "tableGroup", "views", "materializedViews", "functions", "procedures"}
            .contains(node.kind))
     return;
   const auto id = item->data(0, Qt::UserRole).toString();

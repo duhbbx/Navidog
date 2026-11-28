@@ -1,9 +1,11 @@
 #pragma once
 
 #include "navidog/types.hpp"
+#include "navidog/metadata_cache.hpp"
 #include <QHash>
 #include <QObject>
 #include <QPointer>
+#include <QThreadPool>
 #include <functional>
 
 class ConnectionController;
@@ -18,6 +20,7 @@ public:
     struct WorkspaceAccess {
         std::function<bool()> closingTabs;
         std::function<bool(QueryPane &)> prepareContext;
+        std::function<navidog::MetadataSnapshotPtr(const navidog::ConnectionProfile&, const QueryPane&)> metadata;
     };
 
     QuerySessionController(navidog::QueryService &, ConnectionController &,
@@ -51,6 +54,8 @@ private:
     const navidog::ConnectionProfile *profileFor(const QString &id) const;
     void submit(QueryPane &, const QString &, Mode,
                 navidog::TransactionAction = navidog::TransactionAction::None);
+    void dispatch(QueryPane&, const QString&, Mode, navidog::TransactionAction,
+                  QVector<navidog::BoundQueryStatement> = {});
     void complete(const navidog::QueryOutcome &);
     void resetScope(const QString &id, const QString *database);
 
@@ -61,4 +66,5 @@ private:
     WorkspaceAccess workspace_;
     QWidget *owner_;
     QHash<QString, Request> pending_;
+    QThreadPool parameterChecks_;
 };

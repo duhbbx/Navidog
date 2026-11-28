@@ -12,6 +12,10 @@ void applyQuerySchema(Database& db,const ConnectionProfile& profile,const QStrin
         if(checked.cancelled || token->load())throw std::runtime_error("Schema 切换已停止");
         if(checked.rows.isEmpty())throw std::runtime_error("Schema 不存在或没有 USAGE 权限");
         sql="SET search_path TO "+quoteIdentifier(schema,profile.driver);
+    }else if(profile.driver==DatabaseKind::DuckDb) {
+        auto name=schema;
+        name.replace("'", "''");
+        sql="SET schema = '"+name+"'";
     }else if(usesPostgresCompatibleSql(profile.driver))sql="SET search_path TO "+quoteIdentifier(schema,profile.driver);
     else if(usesJdbcCatalog(profile.driver) || profile.driver==DatabaseKind::Dameng)sql="SET SCHEMA "+quoteIdentifier(schema,profile.driver);
     else if(usesOracleSql(profile.driver))sql="ALTER SESSION SET CURRENT_SCHEMA = "+quoteIdentifier(schema,profile.driver);

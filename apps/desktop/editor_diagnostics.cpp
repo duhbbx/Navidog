@@ -1,5 +1,6 @@
 #include "navidog/database_sql.hpp"
 #include "navidog/redis_commands.hpp"
+#include "navidog/document_commands.hpp"
 #include "editor_diagnostics.hpp"
 #include "navidog/sql.hpp"
 #include "navidog/sql/compiler/compiler.hpp"
@@ -110,6 +111,16 @@ SqlCheckResult checkEditorSql(const QString &text, navidog::DatabaseKind kind,
     out.status = "超出实时检查上限（1 MiB）";
     return out;
   }
+  if (kind == navidog::DatabaseKind::MongoDb) {
+    const auto document = navidog::parseDocumentCommand(text);
+    if (!document.error.isEmpty() && !text.isEmpty()) {
+      const auto start = qBound(0, document.position, int(text.size())-1);
+      out.diagnostics << SqlEditorDiagnostic{start, start+1, document.error};
+    }
+    out.status = text.trimmed().isEmpty() ? "等待 MongoDB 命令"
+        : out.diagnostics.isEmpty() ? "JSON 和常用命令结构已检查" : "MongoDB 命令有错误";
+    return out;
+  }
   if (kind == navidog::DatabaseKind::Redis) {
     int start = 0;
     for (const auto& line : text.split('\n')) {
@@ -146,6 +157,7 @@ SqlCheckResult checkEditorSql(const QString &text, navidog::DatabaseKind kind,
   try {
     LanguageOptions options;
     options.calciteExtensions=calciteExtensions;
+    options.extension=navidog::compilerExtensionFor(kind);
     options.limits.sourceBytes = maxBytes;
     options.limits.tokens = 40000;
     options.limits.nodes = 20000;

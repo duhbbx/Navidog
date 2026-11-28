@@ -3516,7 +3516,7 @@ class Interpreter {
     if (n.kind == RelKind::Sample) {
       if (!n.sampling || n.inputs.size()!=1 ||
           (n.sampling->milliPercent!=0 && n.sampling->milliPercent!=TableSampling::full))
-        fail(n.origin,"nontrivial BERNOULLI sampling requires the native PostgreSQL scan");
+        fail(n.origin,"nontrivial TABLESAMPLE requires the native PostgreSQL scan");
       if (n.sampling->milliPercent==0)
         fail(n.origin,"local sampling requires provider authorization even for an empty result");
       return execute(n.inputs.front(),depth+1);

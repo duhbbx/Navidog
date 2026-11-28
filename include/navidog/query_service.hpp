@@ -6,6 +6,7 @@
 #include "namespace_design.hpp"
 #include "table_actions.hpp"
 #include "source_design.hpp"
+#include "object_management.hpp"
 #include "metadata_cache.hpp"
 #include <QHash>
 #include <QObject>
@@ -30,13 +31,16 @@ public:
     bool saveTable(const ConnectionProfile&,const TableDefinition&,const TableDefinition&,QString requestId);
     bool dataPage(const ConnectionProfile&,const DataPageRequest&,QString requestId);
     bool commitData(const ConnectionProfile&,const TableDefinition&,const QVector<DataRowChange>&,QString requestId);
+    bool objectDetails(const ConnectionProfile&, const CatalogNode&, QString requestId);
+    bool changeObject(const ConnectionProfile&, const CatalogNode&, CatalogObjectChange, QString requestId, const QString& newName = {});
+    bool dropObjects(const ConnectionProfile&, const QVector<CatalogNode>&, bool cascade, QString requestId);
     bool sourceDefinition(const ConnectionProfile&,const CatalogNode&,QString requestId);
     bool saveSource(const ConnectionProfile&,const SourceDefinition&,const CatalogNode&,const QString&,bool remove,QString requestId);
     bool testConnection(const ConnectionProfile&, QString requestId);
     bool tableTask(const ConnectionProfile&,const TableTask&,QString requestId);
     bool namespaceOptions(const ConnectionProfile&,NamespaceKind,QString requestId);
     bool createNamespace(const ConnectionProfile&,const NamespaceDraft&,QString requestId);
-    bool dropNamespace(const ConnectionProfile&,NamespaceKind,const QString& name,QString requestId);
+    bool dropNamespace(const ConnectionProfile&,NamespaceKind,const QString& name,QString requestId,bool cascade=false);
     bool isConnected(const QString& id) const { return connectedProfiles_.contains(id); }
     void disconnectProfile(const QString& id);
     void disconnectDatabase(const QString& id,const QString& database);
@@ -58,8 +62,12 @@ signals:
     void connectionTestCompleted(QString requestId, navidog::QueryOutcome result);
     void namespaceOptionsCompleted(QString requestId,navidog::NamespaceOptions result);
     void tableTaskCompleted(QString requestId,navidog::TableTaskResult result);
+    void tableTaskProgress(QString requestId, qint64 done, qint64 total);
     void namespaceCompleted(QString requestId,navidog::NamespaceResult result);
     void tableDesignCompleted(QString requestId,navidog::TableDesignResult result);
+    void objectDetailsCompleted(QString requestId, navidog::CatalogObjectDetails);
+    void objectChangeCompleted(QString requestId, navidog::CatalogObjectChangeResult);
+    void objectBatchDropCompleted(QString requestId, navidog::CatalogBatchDropResult);
     void sourceDesignCompleted(QString requestId,navidog::SourceDesignResult result);
     void dataPageCompleted(QString requestId,navidog::DataPageResult result);
     void dataCommitCompleted(QString requestId,navidog::DataCommitResult result);

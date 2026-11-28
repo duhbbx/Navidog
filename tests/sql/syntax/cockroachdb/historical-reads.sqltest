@@ -1,0 +1,19 @@
+catalog stock <<SQL
+CREATE TABLE events (id INTEGER);
+SQL
+
+case historical-read valid catalog=stock <<SQL
+SELECT e.id FROM events AS e AS OF SYSTEM TIME '-10s' WHERE e.id = 1;
+SQL
+
+case timestamp-expression valid <<SQL
+SELECT id FROM events AS OF SYSTEM TIME follower_read_timestamp();
+SQL
+
+case alias-not-history valid catalog=stock <<SQL
+SELECT of.id FROM events AS of;
+SQL
+
+case incomplete-timestamp syntax-error <<SQL
+SELECT id FROM events AS OF SYSTEM TIME;
+SQL

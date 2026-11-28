@@ -53,13 +53,13 @@ void MainWindow::configureQueryContext(QueryPane *pane, bool preserveInput) {
                    [&](const auto &p) { return p.id == pane->profileId; });
   pane->setConnectionCapabilities(
       it == profiles_.end() ? navidog::DatabaseKind::Unknown : it->driver,
-      it == profiles_.end() || (!it->http.enabled && it->driver!=navidog::DatabaseKind::Redis));
+      it == profiles_.end() || (!it->http.enabled && !navidog::isCommandDatabase(it->driver) && it->driver!=navidog::DatabaseKind::ClickHouse));
   if (it == profiles_.end())
     return;
   pane->setProperty("configuringQueryContext", true);
   const auto &p = *it;
   if (p.http.enabled || (!navidog::usesNativePostgres(p.driver) &&
-                         !navidog::usesSchemaAtConnection(p.driver)))
+                         !navidog::usesSchemaAtConnection(p.driver) && p.driver!=navidog::DatabaseKind::DuckDb))
     pane->schema.clear();
   const auto database = pane->database.isEmpty() ? p.database : pane->database;
   pane->selectedExportContext = navidog::ui::exportContext(p, database, pane->schema);
@@ -81,13 +81,13 @@ void MainWindow::configureQueryContext(QueryPane *pane, bool preserveInput) {
       schemas << n.schema;
   }
   const bool query = pane->kind == navidog::WorkspaceTabKind::Query;
-  const bool dbSelectable = query && p.driver != navidog::DatabaseKind::SQLite && p.driver != navidog::DatabaseKind::Redis &&
+  const bool dbSelectable = query && !navidog::isFileDatabase(p.driver) && p.driver != navidog::DatabaseKind::Redis &&
                             !navidog::usesSchemaAtConnection(p.driver);
   const bool schemaSelectable = query && !p.http.enabled &&
                                 (navidog::usesNativePostgres(p.driver) ||
-                                 navidog::usesSchemaAtConnection(p.driver));
+                                 navidog::usesSchemaAtConnection(p.driver) || p.driver==navidog::DatabaseKind::DuckDb);
   pane->setContextEditable(dbSelectable, schemaSelectable);
-  if (p.driver == navidog::DatabaseKind::SQLite) {
+  if (navidog::isFileDatabase(p.driver)) {
     QSignalBlocker block(pane->databaseContext);
     pane->databaseContext->clear();
     pane->databaseContext->addItem(QFileInfo(p.database).fileName(),
@@ -95,7 +95,7 @@ void MainWindow::configureQueryContext(QueryPane *pane, bool preserveInput) {
   } else
     fill(pane->databaseContext, database, databases, "默认数据库");
   if (navidog::usesNativePostgres(p.driver) ||
-      navidog::usesSchemaAtConnection(p.driver))
+      navidog::usesSchemaAtConnection(p.driver) || p.driver==navidog::DatabaseKind::DuckDb)
     fill(pane->schemaContext, pane->schema, schemas, "默认 Schema");
   else {
     QSignalBlocker block(pane->schemaContext);

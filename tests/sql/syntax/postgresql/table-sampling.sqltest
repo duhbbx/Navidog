@@ -1,0 +1,19 @@
+catalog shop <<SQL
+CREATE TABLE sales (id INT);
+SQL
+
+case native-block-sample valid catalog=shop <<SQL
+SELECT s.id FROM sales AS s TABLESAMPLE SYSTEM (10.25) REPEATABLE (-42) WHERE s.id > 0;
+SQL
+
+case row-sample valid catalog=shop <<SQL
+SELECT id FROM sales TABLESAMPLE BERNOULLI (0);
+SQL
+
+case rate-out-of-range syntax-error <<SQL
+SELECT id FROM sales TABLESAMPLE SYSTEM (100.1);
+SQL
+
+case cte-is-not-sampleable semantic-error InvalidQueryShape catalog=shop <<SQL
+WITH scope AS (SELECT id FROM sales) SELECT id FROM scope TABLESAMPLE SYSTEM (10);
+SQL

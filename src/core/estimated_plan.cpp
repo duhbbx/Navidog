@@ -5,6 +5,7 @@
 #include <QJsonObject>
 #include <QJsonParseError>
 #include <QSet>
+#include <QRegularExpression>
 #include <QXmlStreamReader>
 #include <algorithm>
 #include <cmath>
@@ -109,6 +110,98 @@ struct Decoder {
       if (!child.isObject())
         throw std::runtime_error("PostgreSQL Plans 格式不正确");
       postgres(child.toObject(), id, depth + 1);
+    }
+  }
+  void duck(const QJsonObject &object, int parent, int depth) {
+    EstimatedPlanNode node;
+    node.operation = object.value("name").toString().trimmed();
+    if (node.operation.isEmpty()) throw std::runtime_error("DuckDB 计划缺少算子名称");
+    const auto properties = object.value("extra_info").toObject();
+    node.object = properties.value("Table").toString();
+    node.rows = number(properties.value("Estimated Cardinality"));
+    for (auto it = properties.begin(); it != properties.end(); ++it)
+      node.properties.insert(it.key(), shortValue(it.value()));
+    const int id = add(std::move(node), parent, depth);
+    for (const auto &child : object.value("children").toArray())
+      duck(child.toObject(), id, depth + 1);
+  }
+  void mongoStage(const QJsonObject &object, int parent, int depth) {
+    if (depth > limits.maxDepth) throw std::runtime_error("MongoDB 计划层级超过限额");
+    const auto nested = object.value("queryPlan").toObject();
+    if (!nested.isEmpty()) {
+      mongoStage(nested, parent, depth + 1);
+      return;
+    }
+    EstimatedPlanNode node;
+    node.operation = object.value("stage").toString();
+    if (node.operation.isEmpty()) return;
+    node.index = object.value("indexName").toString();
+    const auto childKeys = QStringList{"inputStage", "inputStages", "outerStage", "innerStage",
+                                       "thenStage", "elseStage", "child", "children", "shards"};
+    for (auto it = object.begin(); it != object.end(); ++it)
+      if (!childKeys.contains(it.key())) node.properties.insert(it.key(), shortValue(it.value()));
+    const int id = add(std::move(node), parent, depth);
+    for (const auto &key : childKeys) {
+      const auto child = object.value(key);
+      if (child.isObject()) mongoStage(child.toObject(), id, depth + 1);
+      for (const auto &entry : child.toArray()) {
+        const auto shard = entry.toObject();
+        const auto query = shard.value("winningPlan");
+        mongoStage(query.isObject() ? query.toObject() : shard, id, depth + 1);
+      }
+    }
+  }
+  void mongo(const QJsonObject &document) {
+    auto winningPlan = [](const QJsonObject &object) {
+      return object.value("queryPlanner").toObject().value("winningPlan").toObject();
+    };
+    mongoStage(winningPlan(document), -1, 0);
+    for (const auto &item : document.value("stages").toArray()) {
+      const auto entry = item.toObject();
+      for (auto it = entry.begin(); it != entry.end(); ++it) {
+        if (!it.key().startsWith('$')) continue;
+        EstimatedPlanNode node;
+        node.operation = it.key();
+        node.properties.insert("stage", shortValue(it.value()));
+        const int id = add(std::move(node), -1, 0);
+        mongoStage(winningPlan(it.value().toObject()), id, 1);
+      }
+    }
+  }
+  void textPlan(const QueryResult &result, bool cockroach) {
+    static const QRegularExpression fragment(QStringLiteral("^PLAN FRAGMENT\\b.*"), QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression operation(QStringLiteral("^\\s*[+| -]*(\\d+:\\s*\\S.*)$"));
+    QVector<int> path;
+    int group = -1, previous = -1;
+    for (const auto &row : result.rows) for (const auto &line : row.value(0).toString().split('\n')) {
+      const auto text = line.trimmed();
+      if (text.isEmpty()) continue;
+      EstimatedPlanNode node;
+      if (cockroach) {
+        const int bullet = line.indexOf(QChar(0x2022));
+        if (bullet < 0) {
+          const auto detail = text.section(QChar(0x2502), -1).trimmed();
+          int split = detail.indexOf(':');
+          if (previous >= 0 && split > 0)
+            plan.nodes[previous].properties.insert(detail.left(split).left(128), detail.mid(split + 1).trimmed().left(2048));
+          continue;
+        }
+        const int depth = bullet / 4;
+        if (bullet % 4 != 0 || depth > path.size())
+          throw std::runtime_error("CockroachDB 计划含未知层级");
+        path.resize(depth);
+        node.operation = line.mid(bullet + 1).trimmed().left(2048);
+        previous = add(std::move(node), path.isEmpty() ? -1 : path.back(), depth);
+        path << previous;
+      } else if (fragment.match(text).hasMatch()) {
+        node.operation = text.left(2048);
+        group = add(std::move(node), -1, 0);
+      } else {
+        const auto expected = operation.match(line);
+        if (!expected.hasMatch()) continue;
+        node.operation = expected.captured(1).left(2048);
+        add(std::move(node), group, group < 0 ? 0 : 1);
+      }
     }
   }
   void mysql(const QJsonValue &value, int parent, int depth,
@@ -436,6 +529,15 @@ EstimatedPlan decodeEstimatedPlan(DatabaseKind kind, const QueryResult &result,
   plan.format=isOceanBase(kind)?"oceanbase-json":kind==DatabaseKind::Oracle?"oracle-plan-table":kind==DatabaseKind::SQLite?"sqlite-plan-rows":
     kind==DatabaseKind::SQLServer?"sqlserver-showplan-xml":usesNativePostgres(kind)?"postgresql-json":
     kind==DatabaseKind::TiDB?"tidb-plan-rows":kind==DatabaseKind::Dameng?"dameng-plan-rows":isMySqlFamily(kind)?"mysql-json":QString{};
+  const bool textPlan = kind == DatabaseKind::CockroachDb || isAnalyticalMySql(kind);
+  const bool postgresJson = usesNativePostgres(kind) || kind == DatabaseKind::ClickHouse ||
+                            kind == DatabaseKind::OpenGauss;
+  if (kind == DatabaseKind::CockroachDb) plan.format = "cockroach-text";
+  if (isAnalyticalMySql(kind)) plan.format = databaseKindKey(kind) + "-fragments";
+  if (kind == DatabaseKind::DuckDb) plan.format = "duckdb-json";
+  if (kind == DatabaseKind::ClickHouse) plan.format = "clickhouse-json";
+  if (kind == DatabaseKind::OpenGauss) plan.format = "opengauss-json";
+  if (kind == DatabaseKind::MongoDb) plan.format = "mongodb-json";
   limits.maxBytes = std::clamp(limits.maxBytes, 1024, 16 * 1024 * 1024);
   limits.maxNodes = std::clamp(limits.maxNodes, 1, 50000);
   limits.maxDepth = std::clamp(limits.maxDepth, 1, 128);
@@ -444,7 +546,21 @@ EstimatedPlan decodeEstimatedPlan(DatabaseKind kind, const QueryResult &result,
       throw std::runtime_error("未取得执行计划");
     // Preserve a bounded original response even when decoding later fails.
     // A truncated response is inspectable, but never marked as a complete plan.
-    if(kind==DatabaseKind::SQLite || kind==DatabaseKind::Oracle || kind==DatabaseKind::TiDB || kind==DatabaseKind::Dameng) {
+    if (textPlan) {
+      for (const auto &row : result.rows) {
+        const auto encoded = row.value(0).toString().toUtf8();
+        if (encoded.size() + plan.raw.size() + 1 > limits.maxBytes)
+          throw std::runtime_error("执行计划原始文本超过限额");
+        plan.raw += encoded + '\n';
+      }
+    } else if (kind == DatabaseKind::DuckDb) {
+      for (const auto &row : result.rows)
+        if (row.value(0).toString() == "physical_plan" && row.value(1).toString().size() <= limits.maxBytes) {
+          plan.raw = row.value(1).toString().toUtf8();
+          if (plan.raw.size() > limits.maxBytes) plan.raw.clear();
+          break;
+        }
+    } else if(kind==DatabaseKind::SQLite || kind==DatabaseKind::Oracle || kind==DatabaseKind::TiDB || kind==DatabaseKind::Dameng) {
       QJsonArray rows;
       qint64 used=0;
       for(const auto &row:result.rows) {
@@ -476,11 +592,21 @@ EstimatedPlan decodeEstimatedPlan(DatabaseKind kind, const QueryResult &result,
           throw std::runtime_error("执行计划原始数据超过字节限额");
       }
     Decoder decoder{plan, limits, {}};
-    if (kind == DatabaseKind::Dameng) {
+    if (textPlan) {
+      decoder.textPlan(result, kind == DatabaseKind::CockroachDb);
+    } else if (kind == DatabaseKind::DuckDb || kind == DatabaseKind::MongoDb) {
+      QJsonParseError error;
+      const auto document = QJsonDocument::fromJson(plan.raw, &error);
+      if (error.error != QJsonParseError::NoError) throw std::runtime_error("执行计划 JSON 格式无效");
+      if (kind == DatabaseKind::DuckDb)
+        for (const auto &root : document.array()) decoder.duck(root.toObject(), -1, 0);
+      else
+        decoder.mongo(document.object());
+    } else if (kind == DatabaseKind::Dameng) {
       decoder.dameng(result);
     } else if (kind == DatabaseKind::TiDB) {
       decoder.tidb(result);
-    } else if (usesNativePostgres(kind) || isMySqlFamily(kind) || isOceanBase(kind) ||
+    } else if (postgresJson || isMySqlFamily(kind) || isOceanBase(kind) ||
                kind == DatabaseKind::SQLServer) {
       if (result.rows.size() != 1 || result.rows[0].isEmpty())
         throw std::runtime_error("执行计划不符合单个 JSON / XML 文档格式");
@@ -495,11 +621,10 @@ EstimatedPlan decodeEstimatedPlan(DatabaseKind kind, const QueryResult &result,
         auto document = QJsonDocument::fromJson(plan.raw, &error);
         if (error.error != QJsonParseError::NoError)
           throw std::runtime_error("执行计划 JSON 格式无效；请检查原始结果");
-        if (usesNativePostgres(kind)) {
-          plan.format = "postgresql-json";
+        if (postgresJson) {
           if (!document.isArray() || document.array().size() != 1 ||
               !document.array()[0].toObject()["Plan"].isObject())
-            throw std::runtime_error("PostgreSQL 计划缺少根 Plan");
+            throw std::runtime_error("执行计划缺少根 Plan");
           decoder.postgres(document.array()[0].toObject()["Plan"].toObject(),
                            -1, 0);
         } else {

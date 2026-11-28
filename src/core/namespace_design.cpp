@@ -1,5 +1,6 @@
 #include "navidog/namespace_design.hpp"
 #include "navidog/database.hpp"
+#include "navidog/object_management.hpp"
 #include <QFile>
 #include <QFileInfo>
 #include <QRegularExpression>
@@ -39,34 +40,46 @@ QString oracleUserSql(const NamespaceDraft& d,bool revealPassword) {
 }
 }
 bool supportsNamespace(DatabaseKind driver,NamespaceKind kind) {
-    if(kind==NamespaceKind::Schema)return navidog::usesNativePostgres(driver) || driver==DatabaseKind::SQLServer || driver==DatabaseKind::Oracle;
-    return driver==DatabaseKind::SQLite || navidog::isMySqlFamily(driver) || navidog::usesNativePostgres(driver) || driver==DatabaseKind::SQLServer;
+    if(kind==NamespaceKind::Schema)return usesNativePostgres(driver) || driver==DatabaseKind::OpenGauss ||
+        driver==DatabaseKind::DuckDb || driver==DatabaseKind::SQLServer || driver==DatabaseKind::Oracle;
+    return driver==DatabaseKind::SQLite || isMySqlFamily(driver) || isAnalyticalMySql(driver) ||
+        usesNativePostgres(driver) || driver==DatabaseKind::ClickHouse || driver==DatabaseKind::SQLServer;
 }
 bool supportsNamespaceDrop(DatabaseKind driver,NamespaceKind kind) {
     return driver!=DatabaseKind::SQLite && supportsNamespace(driver,kind);
 }
-QString dropNamespaceSql(const ConnectionProfile& profile,NamespaceKind kind,const QString& name) {
+QString dropNamespaceSql(const ConnectionProfile& profile,NamespaceKind kind,const QString& name,bool cascade) {
     require(!profile.readOnly,"只读连接不能删除数据库或 Schema。");
     require(supportsNamespaceDrop(profile.driver,kind),"此驱动不支持删除该类型对象。");
     identifier(name,profile.driver);
+    if(cascade) {
+        require(kind==NamespaceKind::Schema && supportsObjectCascade(profile.driver,"schema"),"此数据库不支持级联删除该类命名空间。");
+        const auto system=name.toLower();
+        require(!(usesNativePostgres(profile.driver) && (system.startsWith("pg_") || system=="information_schema")) &&
+                !(profile.driver==DatabaseKind::Oracle && (system=="sys" || system=="system")),
+                "此菜单只操作用户 Schema。");
+    }
     if(kind==NamespaceKind::Schema && profile.driver!=DatabaseKind::Oracle)
         require(!profile.database.isEmpty(),"请先选择 Schema 所属数据库。");
     const auto object=kind==NamespaceKind::Database?"DATABASE":
         profile.driver==DatabaseKind::Oracle?"USER":"SCHEMA";
-    return QString("DROP %1 %2;").arg(object,quoteIdentifier(name,profile.driver));
+    return QString("DROP %1 %2%3;").arg(object,quoteIdentifier(name,profile.driver),cascade?" CASCADE":"");
 }
-NamespaceResult dropNamespace(const ConnectionProfile& profile,NamespaceKind kind,const QString& name,const Cancellation& cancel) {
+NamespaceResult dropNamespace(const ConnectionProfile& profile,NamespaceKind kind,const QString& name,const Cancellation& cancel,bool cascade) {
     NamespaceResult result;
     try {
-        const auto sql=dropNamespaceSql(profile,kind,name);
+        const auto sql=dropNamespaceSql(profile,kind,name,cascade);
         if(cancel->load()){result.cancelled=true;return result;}
         auto administration=profile;
         if(kind==NamespaceKind::Database) {
             if(profile.driver==DatabaseKind::SQLServer)administration.database="master";
-            else if(navidog::usesNativePostgres(profile.driver) &&
-                    (profile.database==name || profile.database.isEmpty()))
-                administration.database=name=="postgres"?"template1":"postgres";
-            else if(isMySqlFamily(profile.driver))administration.database.clear();
+            else if(usesNativePostgres(profile.driver) && (profile.database==name || profile.database.isEmpty())) {
+                const auto maintenance = profile.driver==DatabaseKind::CockroachDb ? QString("defaultdb") : QString("postgres");
+                administration.database = name==maintenance ?
+                    (profile.driver==DatabaseKind::CockroachDb ? QString("postgres") : QString("template1")) : maintenance;
+            } else if(isMySqlFamily(profile.driver) || isAnalyticalMySql(profile.driver)) administration.database.clear();
+            else if(profile.driver==DatabaseKind::ClickHouse && (profile.database==name || profile.database.isEmpty()))
+                administration.database = name=="default" ? "system" : "default";
         }
         auto db=connectDatabase(administration);
         if(cancel->load()){result.cancelled=true;return result;}
@@ -94,6 +107,7 @@ QString namespaceSql(const ConnectionProfile& p,const NamespaceDraft& d) {
     if(d.kind==NamespaceKind::Schema) {
         require(!p.database.isEmpty(),"请先选择数据库。");
         if(navidog::usesNativePostgres(p.driver))require(!d.name.startsWith("pg_",Qt::CaseInsensitive),"pg_ 是 PostgreSQL 保留的 Schema 前缀。");
+        require(p.driver!=DatabaseKind::DuckDb || d.owner.isEmpty(),"DuckDB Schema 没有所有者选项。");
         return "CREATE SCHEMA "+q(d.name)+(d.owner.isEmpty()?QString{}:" AUTHORIZATION "+q(d.owner))+";";
     }
     QString sql="CREATE DATABASE "+q(d.name);
@@ -115,7 +129,7 @@ NamespaceOptions loadNamespaceOptions(const ConnectionProfile& p,NamespaceKind k
         if(navidog::isMySqlFamily(p.driver)) {
             for(const auto& row:read("SHOW CHARACTER SET").rows)options.charsets<<row[0].toString();
             for(const auto& row:read("SHOW COLLATION").rows){options.collations<<row[0].toString();options.collationCharsets<<row[1].toString();}
-        }else if(navidog::usesNativePostgres(p.driver)) {
+        }else if(navidog::usesNativePostgres(p.driver) || p.driver==DatabaseKind::OpenGauss) {
             for(const auto& row:read("SELECT rolname FROM pg_roles ORDER BY rolname").rows)options.owners<<row[0].toString();
         }else if(p.driver==DatabaseKind::SQLServer) {
             if(kind==NamespaceKind::Schema)for(const auto& row:read("SELECT name FROM sys.database_principals WHERE type IN ('S','U','G','R') ORDER BY name").rows)options.owners<<row[0].toString();

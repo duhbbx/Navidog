@@ -2307,6 +2307,108 @@ class Completer {
     return true;
   }
 
+  bool vendorTableGrammar() {
+    const auto extension = options.language.extension;
+    const bool olap = isOlapExtension(extension), yugabyte = extension == SqlExtension::YugabyteDb;
+    if ((!olap && !yugabyte) || before.size() < 5 || parameterPrefix || !qualifier.empty()) return false;
+    const auto word = [&](std::size_t i, std::string_view text) { return wordAt(before, i, text); };
+    const auto symbol = [&](std::size_t i, std::string_view text) {
+      return i < before.size() && isSymbol(before[i], text);
+    };
+    if (!word(0, "CREATE")) return false;
+    std::size_t i = word(1, "TEMP") || word(1, "TEMPORARY") ? 2 : 1;
+    if (!word(i++, "TABLE")) return false;
+    if (word(i, "IF") && word(i + 1, "NOT") && word(i + 2, "EXISTS")) i += 3;
+    if (i >= before.size() || !ident(before[i++])) return false;
+    while (symbol(i, ".")) {
+      ++i;
+      if (i >= before.size() || !ident(before[i++])) return false;
+    }
+    if (!symbol(i++, "(")) return false;
+    std::size_t depth = 1;
+    for (; i < before.size() && depth; ++i) {
+      if ((i & 63u) == 0) stop();
+      if (symbol(i, "(")) ++depth;
+      else if (symbol(i, ")")) --depth;
+    }
+    if (depth) return false;
+    const auto tail = i;
+    const auto last = before.size() - 1;
+    const auto offer = [&](std::vector<std::string> choices) {
+      keywordChoices = std::move(choices);
+      expect = Expect::FixedKeywords;
+      return true;
+    };
+    if (olap) {
+      const auto list = openColumnList();
+      if (list && *list > tail && (word(*list - 1, "KEY") || word(*list - 1, "HASH") ||
+          (word(*list - 1, "BY") && word(*list - 2, "ORDER")))) {
+        const auto definition = compile(dialect, source.substr(base, before[tail - 1].range.end - base),
+                                        options.language, catalog, names);
+        if (!definition->syntaxValid || definition->model.roots.size() != 1) return false;
+        const auto &table = definition->model.queries.at(definition->model.roots.front() - 1);
+        if (!table.ddl || table.ddl->object != ObjectKind::Table) return false;
+        for (const auto &column : table.ddl->definitions) listColumns.push_back(column.name);
+        excludeEarlierListColumns(*list);
+        columnListDetail = "column declared in this table";
+        expect = Expect::ColumnList;
+        return true;
+      }
+    }
+    if (quotedPrefix || openColumnList()) return false;
+    // A CTAS query owns completions from its AS or SELECT, even after a closing parenthesis.
+    for (std::size_t j = tail; j <= last; ++j) {
+      if ((j & 63u) == 0) stop();
+      if (word(j, "AS") || word(j, "SELECT")) return false;
+    }
+    if (yugabyte) {
+      if (last == tail - 1) return offer({"SPLIT INTO"});
+      if (last == tail && word(last, "SPLIT")) return offer({"INTO"});
+      if (last == tail + 2 && word(tail, "SPLIT") && word(tail + 1, "INTO") &&
+          before[last].kind == TokenKind::Number)
+        return offer({"TABLETS"});
+      return false;
+    }
+    if (word(last, "DISTRIBUTED") || word(last, "ORDER")) return offer({"BY"});
+    if (word(last, "BY") && word(last - 1, "DISTRIBUTED")) {
+      for (auto j = tail; j < last - 1; ++j)
+        if ((word(j, "UNIQUE") || word(j, "PRIMARY") || word(j, "AGGREGATE")) && word(j + 1, "KEY"))
+          return offer({"HASH"});
+      return offer({"HASH", "RANDOM"});
+    }
+    if ((word(last, "DUPLICATE") || word(last, "AGGREGATE") || word(last, "UNIQUE") ||
+        (extension == SqlExtension::StarRocks && word(last, "PRIMARY"))))
+      return offer({"KEY"});
+    if (extension == SqlExtension::Doris && word(last, "BUCKETS")) return offer({"AUTO"});
+
+    const auto definition = compile(dialect, source.substr(base, before[last].range.end - base),
+                                    options.language, catalog, names);
+    if (!definition->syntaxValid || definition->model.roots.size() != 1) return false;
+    const auto &table = definition->model.queries.at(definition->model.roots.front() - 1);
+    if (!table.ddl || table.ddl->object != ObjectKind::Table) return false;
+    const auto *layout = table.ddl->olap ? &*table.ddl->olap : nullptr;
+    if (layout && !layout->properties.empty()) return false;
+    std::vector<std::string> choices;
+    if (!layout || layout->key == OlapKeyKind::Unspecified) {
+      choices = {"DUPLICATE KEY", "UNIQUE KEY", "AGGREGATE KEY"};
+      if (extension == SqlExtension::StarRocks) choices.push_back("PRIMARY KEY");
+    }
+    if (!layout || layout->distribution == OlapDistribution::Unspecified) {
+      choices.push_back("DISTRIBUTED BY");
+    } else if (layout->distributionOrigin.end == before[last].range.end &&
+               !layout->buckets && !layout->automaticBuckets) {
+      choices.push_back("BUCKETS");
+    }
+    if ((!layout || layout->sortColumns.empty()) &&
+        ((extension == SqlExtension::StarRocks && layout &&
+          layout->distribution != OlapDistribution::Unspecified) ||
+         (extension == SqlExtension::Doris && layout && layout->key == OlapKeyKind::Unique &&
+          layout->keyOrigin.end == before[last].range.end)))
+      choices.push_back("ORDER BY");
+    choices.push_back("PROPERTIES");
+    return offer(std::move(choices));
+  }
+
   bool distributionGrammar() {
     if ((dialect != Dialect::TiDB && dialect != Dialect::OceanBase) || before.size() < 2 ||
         quotedPrefix || parameterPrefix || !qualifier.empty()) return false;
@@ -2834,7 +2936,27 @@ class Completer {
         (previous == "SELECT" || previous == "ALL" || previous == "DISTINCT" ||
          (beforeEnd.kind == TokenKind::Symbol && (beforeEnd.value == "." || beforeEnd.value == ",")));
     std::vector<std::string> choices;
-    if ((clause == "GROUP" || clause == "ORDER") && head == lastIndex) {
+    const auto extension = options.language.extension;
+    const bool from = clause == "FROM" || clause == "JOIN";
+    const bool namedTable = from && head + 1 <= lastIndex && !isSymbol(*terms[head + 1], ")");
+    const auto findWord = [&](std::string_view spelling) {
+      return std::find_if(terms.begin() + head + 1, terms.end(), [&](const auto *token) {
+        return token->kind == TokenKind::Word && fold(token->value) == spelling;
+      });
+    };
+    const bool postgresSample = dialect == Dialect::PostgreSQL && extension == SqlExtension::None;
+    if (namedTable && postgresSample && last == "TABLESAMPLE") {
+      choices = {"SYSTEM", "BERNOULLI"};
+    } else if (namedTable && extension == SqlExtension::CockroachDb && last == "OF" &&
+               previous == "AS") {
+      choices = {"SYSTEM TIME"};
+    } else if (namedTable && extension == SqlExtension::CockroachDb && last == "SYSTEM" &&
+               previous == "OF" && lastIndex > 2 && word(lastIndex - 2) == "AS") {
+      choices = {"TIME"};
+    } else if (extension == SqlExtension::ClickHouse && clause == "LIMIT" &&
+               head + 1 == lastIndex && end.kind == TokenKind::Number) {
+      choices = {"BY", "OFFSET"};
+    } else if ((clause == "GROUP" || clause == "ORDER") && head == lastIndex) {
       choices = {"BY"};
     } else if (joinModifier) {
       choices = {"JOIN"};
@@ -2901,6 +3023,26 @@ class Completer {
     }
     if (rowFunctionEndsAt(before.size()))
       choices.insert(choices.begin(),"WITH ORDINALITY");
+    if (!joinModifier && namedTable) {
+      const bool relationName = ident(end) && last != "AS";
+      if (extension == SqlExtension::ClickHouse) {
+        const bool sampled = findWord("SAMPLE") != terms.end();
+        if (relationName && !sampled) {
+          choices.insert(choices.begin(), "SAMPLE");
+          if (findWord("FINAL") == terms.end()) choices.insert(choices.begin(), "FINAL");
+        }
+        if (sampled && end.kind == TokenKind::Number)
+          choices.insert(choices.begin(), "OFFSET");
+      } else if (postgresSample) {
+        const auto sample = findWord("TABLESAMPLE");
+        if (relationName && sample == terms.end()) choices.push_back("TABLESAMPLE");
+        if (sample != terms.end() && isSymbol(end, ")") && findWord("REPEATABLE") == terms.end())
+          choices.insert(choices.begin(), "REPEATABLE");
+      } else if (extension == SqlExtension::CockroachDb && relationName &&
+                 findWord("SYSTEM") == terms.end() && !isSymbol(end, ")")) {
+        choices.insert(choices.begin(), "AS OF SYSTEM TIME");
+      }
+    }
     const bool page = !joinModifier && (clause == "FROM" || clause == "USING" ||
         ((clause == "GROUP" || clause == "ORDER") && word(head + 1) == "BY"));
     if (page) {
@@ -3043,7 +3185,7 @@ class Completer {
       expect = Expect::OutputColumn;
       return;
     }
-    if(distributionGrammar())return;
+    if (vendorTableGrammar() || distributionGrammar()) return;
     if(inspectionGrammar())return;
     if(orderedSetGrammar())return;
     if(windowReferenceGrammar() || windowGrammar())return;
@@ -3710,6 +3852,14 @@ class Completer {
       if (dialect==Dialect::MySQL || dialect==Dialect::PostgreSQL) words.push_back("TABLE");
       if (dialect==Dialect::MySQL || dialect==Dialect::PostgreSQL || dialect==Dialect::SQLite) words.push_back("VALUES");
     }
+    if ((expect == Expect::Statement || expect == Expect::QueryStart) &&
+        options.language.extension == SqlExtension::DuckDb)
+      words.push_back("FROM");
+    if ((options.language.extension == SqlExtension::ClickHouse ||
+         options.language.extension == SqlExtension::DuckDb) && before.size() >= 2 &&
+        before[before.size() - 2].kind == TokenKind::Word && before.back().kind == TokenKind::Word &&
+        fold(before[before.size() - 2].value) == "GROUP" && fold(before.back().value) == "BY")
+      words.push_back("ALL");
     if (expect == Expect::CreateObject) {
       words={"TABLE","VIEW","INDEX"};
       if (dialect!=Dialect::TiDB) {

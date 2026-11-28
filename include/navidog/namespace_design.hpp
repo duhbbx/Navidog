@@ -22,11 +22,11 @@ bool supportsNamespace(DatabaseKind,NamespaceKind);
 bool supportsNamespaceDrop(DatabaseKind,NamespaceKind);
 // SQL preview only; credentials are always redacted.
 QString namespaceSql(const ConnectionProfile&,const NamespaceDraft&);
-QString dropNamespaceSql(const ConnectionProfile&,NamespaceKind,const QString& name);
+QString dropNamespaceSql(const ConnectionProfile&,NamespaceKind,const QString& name,bool cascade=false);
 NamespaceOptions loadNamespaceOptions(const ConnectionProfile&,NamespaceKind,const Cancellation&);
 // Independent connection: never commits a query tab's transaction.
 NamespaceResult createNamespace(const ConnectionProfile&,const NamespaceDraft&,const Cancellation&);
-NamespaceResult dropNamespace(const ConnectionProfile&,NamespaceKind,const QString& name,const Cancellation&);
+NamespaceResult dropNamespace(const ConnectionProfile&,NamespaceKind,const QString& name,const Cancellation&,bool cascade=false);
 }
 Q_DECLARE_METATYPE(navidog::NamespaceOptions)
 Q_DECLARE_METATYPE(navidog::NamespaceResult)

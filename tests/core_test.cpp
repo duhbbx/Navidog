@@ -1,7 +1,9 @@
+#include "navidog/background_tasks.hpp"
 #include <QtTest>
 #include <algorithm>
 #include <QTemporaryDir>
 #include <QFile>
+#include <QBuffer>
 #include <QProcess>
 #include <QTimer>
 #include <QJsonDocument>
@@ -14,6 +16,7 @@
 #include "navidog/profile_store.hpp"
 #include "navidog/query_service.hpp"
 #include "navidog/redis_commands.hpp"
+#include "navidog/document_commands.hpp"
 #include "navidog/driver_packages.hpp"
 #include "navidog/operation_timing.hpp"
 #include "navidog/sql.hpp"
@@ -26,6 +29,7 @@
 #include "navidog/query_plan.hpp"
 #include "navidog/table_actions.hpp"
 #include "navidog/query_analysis.hpp"
+#include "navidog/query_parameters.hpp"
 #include "navidog/sql/compiler/compiler.hpp"
 #include "navidog/sql/compiler/conversion.hpp"
 #include "navidog/sql/compiler/formatter.hpp"
@@ -33,6 +37,7 @@
 #include "navidog/sql/optimizer/optimizer.hpp"
 #include "navidog/sql/optimizer/interpreter.hpp"
 #include "navidog/metadata_cache.hpp"
+#include "navidog/namespace_design.hpp"
 #include "navidog/credentials.hpp"
 #include "navidog/secret_store.hpp"
 #include "navidog/local_store.hpp"
@@ -42,6 +47,440 @@ class CoreTest : public QObject {
     QTemporaryDir dir_;
     navidog::ConnectionProfile profile_;
 private slots:
+    void objectActionsAreGatedByObjectAndDialect() {
+        using namespace navidog;
+        const auto pg = DatabaseKind::PostgreSQL;
+        const auto oracle = DatabaseKind::Oracle;
+        QVERIFY(nodeActions("schema", true, pg).contains(NodeAction::NewSourceList));
+        QVERIFY(nodeActions("schema", true, pg).contains(NodeAction::DropCascade));
+        QVERIFY(nodeActions("materializedViews", true, pg).contains(NodeAction::NewSource));
+        QVERIFY(nodeActions("trigger", true, oracle).contains(NodeAction::CompileObject));
+        QVERIFY(nodeActions("procedure", true, oracle).contains(NodeAction::ObjectProperties));
+        QVERIFY(!nodeActions("procedure", true, oracle).contains(NodeAction::DropCascade));
+        QVERIFY(!nodeActions("procedure", true, DatabaseKind::MySQL).contains(NodeAction::CompileObject));
+        QVERIFY(!nodeActions("table", true, DatabaseKind::SQLite).contains(NodeAction::DropCascade));
+    }
+
+    void batchObjectSqlAndDropsRespectScopeAndRollback() {
+        using namespace navidog;
+        QTemporaryDir directory;
+        ConnectionProfile profile;
+        profile.database=ensureDemoDatabase(directory.path());
+        auto db=connectDatabase(profile);
+        const auto token=cancellation();
+        QVERIFY(db->execute("CREATE TABLE batch_a(id INTEGER PRIMARY KEY)",{},token).error.isEmpty());
+        QVERIFY(db->execute("CREATE TABLE batch_b(id INTEGER PRIMARY KEY)",{},token).error.isEmpty());
+        CatalogNode a{"table","batch_a",profile.database,"main","batch_a"};
+        CatalogNode b{"table","batch_b",profile.database,"main","batch_b"};
+        CatalogNode column{"column","id",profile.database,"main","batch_a"};
+        const auto renamed=changeCatalogObject(profile,column,CatalogObjectChange::Rename,token,"entry_id");
+        QVERIFY2(renamed.applied,qPrintable(renamed.error));
+        QBuffer output;
+        QVERIFY(output.open(QIODevice::WriteOnly));
+        writeCatalogBatchSql(profile,{a,b},StatementTemplate::Select,output,{token,{}});
+        QVERIFY(output.data().contains("entry_id") && output.data().contains("batch_b"));
+        QBuffer exported;
+        QVERIFY(exported.open(QIODevice::WriteOnly));
+        writeCatalogBatchSql(profile,{a,b},{},exported,{token,{}});
+        QVERIFY(exported.data().contains("CREATE TABLE batch") || exported.data().contains("CREATE TABLE \"batch"));
+        auto missing=b;
+        missing.object=missing.name="absent_owned_batch";
+        const auto partial=dropCatalogBatch(profile,{a,missing},false,{token,{}});
+        QVERIFY(partial.rolledBack);
+        QVERIFY(partial.removed.isEmpty());
+        QVERIFY(!partial.error.isEmpty());
+        QCOMPARE(db->execute("SELECT name FROM sqlite_schema WHERE name='batch_a'",{},token).rows.size(),1);
+        auto foreign=b;
+        foreign.schema="other";
+        QVERIFY_EXCEPTION_THROWN(catalogBatchDropSql(profile,{a,foreign},false),std::runtime_error);
+        const auto removed=dropCatalogBatch(profile,{a,b},false,{token,{}});
+        QVERIFY2(removed.error.isEmpty(),qPrintable(removed.error));
+        QCOMPARE(removed.removed.size(),2);
+        QVERIFY(db->execute("SELECT name FROM sqlite_schema WHERE name IN ('batch_a','batch_b')",{},token).rows.isEmpty());
+    }
+
+    void queryParametersRespectDialectAndSourceRanges() {
+        using namespace navidog;
+        using Type = QueryParameterType;
+        auto plan = inspectQueryParameters(DatabaseKind::PostgreSQL,
+            R"(SELECT $4::integer, $4, '$5', $$ $6 $$, '{"a":1}'::jsonb ? 'a';)" "\n"
+            "PREPARE p AS SELECT $1::int;\nSELECT CAST($8 AS numeric) /* $6 */", {}, {});
+        QCOMPARE(plan.parameters.size(), 2);
+        QCOMPARE(plan.statements.size(), 2);
+        QCOMPARE(plan.statements[1].index, 2);
+        QCOMPARE(plan.parameters[0].type, Type::Integer);
+        QCOMPARE(plan.parameters[1].type, Type::ExactNumber);
+        QCOMPARE(plan.parameters[0].locations.size(), 2);
+        QCOMPARE(plan.parameters[1].locations[0].line, 3);
+        QVERIFY(plan.statements[0].sql.contains("SELECT $1::integer, $1"));
+        QVERIFY(plan.statements[0].sql.contains("jsonb ? 'a'"));
+        QCOMPARE(plan.statements[0].parameters.size(), 1);
+
+        plan = inspectQueryParameters(DatabaseKind::SQLite,
+            "SELECT :label, ?1, ?47, ?, ?48, '[?]', @label, $var::suffix(text);"
+            " SELECT :label", {}, {});
+        QCOMPARE(plan.parameters.size(), 5);
+        QCOMPARE(plan.parameters[0].locations.size(), 3);
+        QCOMPARE(plan.parameters[2].locations.size(), 2);
+        QCOMPARE(plan.statements[0].parameters, QVector<int>({0, 0, 1, 2, 2, 3, 4}));
+
+        plan = inspectQueryParameters(DatabaseKind::MySQL,
+            "SELECT @session, @@version, '?', CAST(? AS SIGNED); -- ?\nSELECT 2", {}, {});
+        QCOMPARE(plan.parameters.size(), 1);
+        QCOMPARE(plan.parameters[0].type, Type::Integer);
+
+        plan = inspectQueryParameters(DatabaseKind::Oracle,
+            "SELECT q'[ :ignored ]', CAST(:value AS DATE), :VALUE FROM dual;\n"
+            "CREATE TRIGGER sample BEFORE INSERT ON t FOR EACH ROW BEGIN :NEW.id := 1; END;\n/", {}, {});
+        QCOMPARE(plan.parameters.size(), 1);
+        QCOMPARE(plan.parameters[0].locations.size(), 2);
+        QCOMPARE(plan.parameters[0].type, Type::Timestamp);
+
+        plan = inspectQueryParameters(DatabaseKind::SQLServer,
+            "SELECT @variable, CAST(? AS bigint), [?], N'?'; -- ?", {}, {});
+        QCOMPARE(plan.parameters.size(), 1);
+        QCOMPARE(plan.parameters[0].type, Type::Integer);
+
+        QVERIFY(!parseQueryParameterValue(Type::Integer, "1.2", false));
+        QVERIFY(!parseQueryParameterValue(Type::Date, "2025-02-29", false));
+        const auto empty = parseQueryParameterValue(Type::Text, {}, false);
+        QVERIFY(empty && !empty->isNull());
+        const auto missing = parseQueryParameterValue(Type::Unknown, {}, true);
+        QVERIFY(missing && missing->isNull());
+        QCOMPARE(parseQueryParameterValue(Type::ExactNumber, "123456789.0123456789", false)->toString(),
+                 QString("123456789.0123456789"));
+    }
+
+    void queryParametersUseCachedColumnsAndBindInBatch() {
+        using namespace navidog;
+        auto metadata = std::make_shared<MetadataSnapshot>();
+        metadata->driver = DatabaseKind::SQLite;
+        metadata->schema = "main";
+        metadata->searchPath = QStringList{"main"};
+        metadata->verified = true;
+        metadata->refreshedMs = QDateTime::currentMSecsSinceEpoch();
+        metadata->tablesComplete = metadata->columnsComplete = true;
+        MetadataObject object;
+        object.name = object.key = "bindings_demo";
+        object.kind = "table";
+        object.schema = "main";
+        object.columns = {{"id", "INTEGER", {}, 1}, {"label", "TEXT", {}, 2}};
+        metadata->objects << object;
+        prepareMetadataTypeFacts(*metadata);
+        const QString sql =
+            "CREATE TABLE bindings_demo(id INTEGER, label TEXT); "
+            "INSERT INTO bindings_demo(id,label) VALUES(:id,:value); "
+            "SELECT id,label,?9 AS empty_value FROM bindings_demo WHERE id=:id;";
+        const auto plan = inspectQueryParameters(DatabaseKind::SQLite, sql, {}, "main", metadata);
+        QCOMPARE(plan.parameters.size(), 3);
+        QCOMPARE(plan.parameters[0].type, QueryParameterType::Integer);
+        QCOMPARE(plan.parameters[1].type, QueryParameterType::Text);
+        QTemporaryDir directory;
+        ConnectionProfile p;
+        p.database = ensureDemoDatabase(directory.path());
+        QueryExecutionOptions options;
+        options.sessionId = "bind-test";
+        const QString label = "O'Reilly; 中文";
+        options.bindings = bindQueryParameters(plan, {qlonglong(19), label, QVariant{}});
+        QueryService service;
+        QSignalSpy finished(&service, &QueryService::completed);
+        QVERIFY(service.run(p, sql, {}, options));
+        QVERIFY(finished.wait(5000));
+        const auto result = qvariant_cast<QueryOutcome>(finished.takeFirst().front());
+        QVERIFY2(result.result.error.isEmpty(), qPrintable(result.result.error));
+        QCOMPARE(result.executedStatements, 3);
+        QCOMPARE(result.result.rows.size(), 1);
+        QCOMPARE(result.result.rows[0][0].toInt(), 19);
+        QCOMPARE(result.result.rows[0][1].toString(), label);
+        QVERIFY(result.result.rows[0][2].isNull());
+        QVERIFY(!result.statements.join(' ').contains(label));
+    }
+
+    void extendedDialectAndDocumentSyntax() {
+        namespace sc = navidog::sql::compiler;
+        sc::LanguageOptions clickhouse;
+        clickhouse.extension = sc::SqlExtension::ClickHouse;
+        const auto click = sc::compile(sc::Dialect::MySQL, "SELECT id FROM events PREWHERE id > 1 WHERE id < 10", clickhouse);
+        QVERIFY(click->syntaxValid);
+        QVERIFY(click->statements.front().prewhere);
+        QVERIFY(click->model.queries.front().prewhere);
+        QVERIFY(!sc::compile(sc::Dialect::MySQL, "SELECT id FROM events PREWHERE id > 1")->syntaxValid);
+        sc::LanguageOptions duckdb;
+        duckdb.extension = sc::SqlExtension::DuckDb;
+        const auto duck = sc::compile(sc::Dialect::PostgreSQL,
+            "SELECT row_number() OVER (ORDER BY id) AS rn FROM events QUALIFY rn = 1", duckdb);
+        QVERIFY(duck->syntaxValid);
+        QVERIFY(duck->statements.front().qualify);
+        QVERIFY(duck->model.queries.front().qualify);
+        const auto command = navidog::parseDocumentCommand(navidog::mongoCatalogCommand("find", "orders\"2026"));
+        QCOMPARE(command.name, "find");
+        QVERIFY2(command.error.isEmpty(), qPrintable(command.error));
+        QCOMPARE(command.options.value("find").toString(), "orders\"2026");
+        QVERIFY(!navidog::parseDocumentCommand(R"({"find":"orders","filter":[]})").error.isEmpty());
+        const auto drop = navidog::parseDocumentCommand(navidog::mongoCommandDraft("dropIndexes","a\"b","x\\y"));
+        QVERIFY(drop.error.isEmpty());
+        QCOMPARE(drop.name,"dropIndexes");
+        QCOMPARE(drop.options.value("dropIndexes").toString(),"a\"b");
+        QCOMPARE(drop.options.value("index").toString(),"x\\y");
+    }
+
+    void extendedPlanPreservesTreeAndFragments() {
+        using namespace navidog;
+        QueryResult cockroach;
+        cockroach.columns = QStringList{"info"};
+        cockroach.rows = {{"• limit"}, {"│ count: 1"}, {"└── • hash join"},
+                          {"    ├── • scan"}, {"    └── • scan"}};
+        const auto tree = decodeEstimatedPlan(DatabaseKind::CockroachDb,cockroach);
+        QVERIFY2(tree.complete,qPrintable(tree.warning));
+        QCOMPARE(tree.roots.size(),1);
+        QCOMPARE(tree.nodes[0].children.size(),1);
+        QCOMPARE(tree.nodes[1].children.size(),2);
+        QCOMPARE(tree.nodes[0].properties.value("count"),"1");
+        QueryResult doris;
+        doris.columns = QStringList{"Explain String"};
+        doris.rows = {{"PLAN FRAGMENT 0\n  1:VAGGREGATE\n  0:VOlapScanNode"}};
+        const auto fragment = decodeEstimatedPlan(DatabaseKind::Doris,doris);
+        QVERIFY2(fragment.complete,qPrintable(fragment.warning));
+        QCOMPARE(fragment.nodes[0].children.size(),2);
+        QVERIFY(fragment.raw.contains("0:VOlapScanNode"));
+        doris.cellTruncated = true;
+        QVERIFY(!decodeEstimatedPlan(DatabaseKind::Doris,doris).complete);
+    }
+
+    void extendedDriverFixture_data() {
+        QTest::addColumn<int>("kindValue");
+        QTest::addColumn<QString>("environment");
+        using navidog::DatabaseKind;
+        QTest::newRow("duckdb") << int(DatabaseKind::DuckDb) << QString("NAVIDOG_TEST_DUCKDB_FILE");
+        QTest::newRow("clickhouse") << int(DatabaseKind::ClickHouse) << QString("NAVIDOG_TEST_CLICKHOUSE_PORT");
+        QTest::newRow("mongodb") << int(DatabaseKind::MongoDb) << QString("NAVIDOG_TEST_MONGODB_PORT");
+        QTest::newRow("cockroachdb") << int(DatabaseKind::CockroachDb) << QString("NAVIDOG_TEST_COCKROACH_PORT");
+        QTest::newRow("yugabytedb") << int(DatabaseKind::YugabyteDb) << QString("NAVIDOG_TEST_YUGABYTE_PORT");
+        QTest::newRow("doris") << int(DatabaseKind::Doris) << QString("NAVIDOG_TEST_DORIS_PORT");
+        QTest::newRow("starrocks") << int(DatabaseKind::StarRocks) << QString("NAVIDOG_TEST_STARROCKS_PORT");
+        QTest::newRow("opengauss") << int(DatabaseKind::OpenGauss) << QString("NAVIDOG_TEST_OPENGAUSS_PORT");
+    }
+
+    void extendedDriverFixture() {
+        using namespace navidog;
+        QFETCH(int, kindValue);
+        QFETCH(QString, environment);
+        const auto endpoint = qEnvironmentVariable(environment.toLatin1().constData());
+        if (endpoint.isEmpty()) QSKIP("Set the isolated fixture endpoint to run this integration test");
+        ConnectionProfile profile;
+        profile.driver = static_cast<DatabaseKind>(kindValue);
+        profile.id = "extended-fixture";
+        profile.host = "127.0.0.1";
+        profile.port = endpoint.toInt();
+        profile.credentialSource = CredentialSource::Passwordless;
+        profile.tls = false;
+        profile.advanced.readTimeout = 10;
+        const bool mongo = profile.driver == DatabaseKind::MongoDb;
+        const bool analytical = isAnalyticalMySql(profile.driver);
+        const bool openGauss = profile.driver == DatabaseKind::OpenGauss;
+        if (!mongo) profile.user = profile.driver == DatabaseKind::ClickHouse ? "default" : "root";
+        if (profile.driver == DatabaseKind::DuckDb) profile.database = endpoint;
+        else if (mongo || analytical) profile.database = "navidog_fixture";
+        else if (profile.driver == DatabaseKind::YugabyteDb) profile.database = profile.user = "yugabyte";
+        else if (openGauss) {
+            profile.database = "postgres";
+            profile.user = qEnvironmentVariable("NAVIDOG_TEST_OPENGAUSS_USER");
+            profile.password = qEnvironmentVariable("NAVIDOG_TEST_OPENGAUSS_PASSWORD");
+            profile.jdbcDriverJar = qEnvironmentVariable("NAVIDOG_TEST_OPENGAUSS_JAR");
+            profile.credentialSource = CredentialSource::Prompt;
+            profile.secretsLoaded = true;
+        }
+        else profile.database = profile.driver == DatabaseKind::CockroachDb ? "defaultdb" : "default";
+        if (analytical) {
+            auto root = profile;
+            root.database.clear();
+            try {
+                auto db = connectDatabase(root);
+                const auto created = db->execute("CREATE DATABASE IF NOT EXISTS navidog_fixture", {}, cancellation());
+                QVERIFY2(created.error.isEmpty(), qPrintable(created.error));
+            } catch (const std::exception& error) {
+                QFAIL(error.what());
+            }
+        }
+        QueryService service;
+        QSignalSpy tested(&service, &QueryService::connectionTestCompleted);
+        QVERIFY(service.testConnection(profile, "fixture"));
+        QVERIFY(tested.wait(10000));
+        const auto test = tested.takeFirst().at(1).value<QueryOutcome>();
+        QVERIFY2(test.result.error.isEmpty(), qPrintable(test.result.error));
+        QVERIFY(!test.serverVersion.isEmpty());
+        try {
+            auto db = connectDatabase(profile);
+            const auto token = cancellation();
+            if (mongo) {
+                const auto inserted = db->execute(R"({"insert":"navidog_check","documents":[{"n":1},{"n":2}]})", {}, token);
+                QVERIFY2(inserted.error.isEmpty(), qPrintable(inserted.error));
+                QCOMPARE(inserted.affectedRows, 2);
+                const auto duplicateId = QUuid::createUuid().toString(QUuid::Id128);
+                const auto duplicate = db->execute(QString(
+                    "{\"insert\":\"navidog_unique\",\"documents\":[{\"_id\":\"%1\"},{\"_id\":\"%1\"}]}")
+                    .arg(duplicateId), {}, token);
+                QVERIFY(!duplicate.error.isEmpty());
+                QCOMPARE(duplicate.affectedRows, 1);
+                CatalogNode database;
+                database.kind = "database";
+                database.database = profile.database;
+                const auto collection = loadCatalog(*db, profile, database, token);
+                QVERIFY2(collection.error.isEmpty(), qPrintable(collection.error));
+                QVERIFY(std::any_of(collection.nodes.begin(),collection.nodes.end(),
+                    [](const auto& node) { return node.kind == "mongoCollection" && node.name == "navidog_check"; }));
+                const auto docs = db->execute(R"({"find":"navidog_check","batchSize":1,"limit":2})", {}, token);
+                QVERIFY2(docs.error.isEmpty(), qPrintable(docs.error));
+                QCOMPARE(docs.rows.size(), 2);
+                database.kind = "mongoCollection";
+                database.object = "navidog_check";
+                const auto indexes = loadCatalog(*db, profile, database, token);
+                QVERIFY2(indexes.error.isEmpty(), qPrintable(indexes.error));
+                QCOMPARE(indexes.nodes.first().name, "_id_");
+                QVERIFY(nodeActions(database.kind, true, profile.driver).contains(NodeAction::Preview));
+                const auto collectionInfo = db->execute(definitionSql(profile,database), {}, token);
+                QVERIFY2(collectionInfo.error.isEmpty(), qPrintable(collectionInfo.error));
+                QCOMPARE(collectionInfo.rows.size(), 1);
+                QVERIFY(collectionInfo.rows.first().first().toString().contains("navidog_check"));
+            } else {
+                const auto row = db->execute("SELECT 42 AS n", {}, token);
+                QVERIFY2(row.error.isEmpty(), qPrintable(row.error));
+                QCOMPARE(row.rows.at(0).at(0).toInt(), 42);
+                const bool clickhouse = profile.driver == DatabaseKind::ClickHouse;
+                const bool distributed = isDistributedPostgres(profile.driver);
+                const QString tableName = distributed ? "navidog_metadata_check" : "navidog_check";
+                QString create = "CREATE TABLE IF NOT EXISTS " + tableName +
+                    (distributed ? " (id INTEGER PRIMARY KEY)" : " (id INTEGER)");
+                if (clickhouse) create += " ENGINE = Memory";
+                if (analytical) create += R"( DUPLICATE KEY(id) DISTRIBUTED BY HASH(id) BUCKETS 1 PROPERTIES ("replication_num"="1"))";
+                const auto created = db->execute(create, {}, token);
+                QVERIFY2(created.error.isEmpty(), qPrintable(created.error));
+                CatalogNode scope;
+                scope.database = profile.database;
+                scope.schema = profile.driver == DatabaseKind::DuckDb ? "main" : "public";
+                if (openGauss) {
+                    const auto current = db->execute("SELECT CURRENT_SCHEMA", {}, token);
+                    QVERIFY2(current.error.isEmpty(), qPrintable(current.error));
+                    scope.schema = current.rows.value(0).value(0).toString();
+                    QVERIFY(!scope.schema.isEmpty());
+                }
+                scope.kind = "tables";
+                const auto tables = loadCatalog(*db, profile, scope, token);
+                QVERIFY2(tables.error.isEmpty(), qPrintable(tables.error));
+                const auto table = std::find_if(tables.nodes.begin(), tables.nodes.end(),
+                    [&](const auto& node) { return node.name == tableName; });
+                QVERIFY(table != tables.nodes.end());
+                const auto actions = nodeActions(table->kind, true, profile.driver);
+                QVERIFY(actions.contains(NodeAction::Preview));
+                QVERIFY(actions.contains(NodeAction::Definition));
+                const auto preview = db->execute(previewSql(profile,*table), {}, token);
+                QVERIFY2(preview.error.isEmpty(), qPrintable(preview.error));
+                const auto definition = db->execute(definitionSql(profile,*table), {}, token);
+                QVERIFY2(definition.error.isEmpty(), qPrintable(definition.error));
+                QVERIFY(!definition.rows.isEmpty());
+                if (profile.driver == DatabaseKind::DuckDb)
+                    QVERIFY(definition.rows.first().first().toString().startsWith("CREATE TABLE"));
+                auto columns = *table;
+                columns.kind = "columns";
+                const auto fields = loadCatalog(*db, profile, columns, token);
+                QVERIFY2(fields.error.isEmpty(), qPrintable(fields.error));
+                QVERIFY(!fields.nodes.isEmpty());
+                QCOMPARE(fields.nodes.first().name, "id");
+                auto indexFolder = *table;
+                indexFolder.kind = "indexes";
+                if (!clickhouse && !analytical && !distributed) {
+                    const auto index = db->execute("CREATE INDEX IF NOT EXISTS navidog_idx ON " +
+                        tableQualifiedName(profile,*table) + " (id)", {}, token);
+                    QVERIFY2(index.error.isEmpty(), qPrintable(index.error));
+                }
+                const auto indexes = loadCatalog(*db, profile, indexFolder, token);
+                QVERIFY2(indexes.error.isEmpty(), qPrintable(indexes.error));
+                if (!clickhouse && !analytical) {
+                    const auto index = std::find_if(indexes.nodes.cbegin(), indexes.nodes.cend(),
+                        [&](const auto& node) { return node.name == (distributed ? tableName + "_pkey" : QString("navidog_idx")); });
+                    QVERIFY(index != indexes.nodes.cend());
+                    const auto indexDdl = db->execute(definitionSql(profile,*index), {}, token);
+                    QVERIFY2(indexDdl.error.isEmpty(), qPrintable(indexDdl.error));
+                    QVERIFY(!indexDdl.rows.isEmpty());
+                }
+                if (supportsNamespace(profile.driver, NamespaceKind::Schema)) {
+                    NamespaceDraft draft;
+                    draft.kind = NamespaceKind::Schema;
+                    draft.name = "navidog_namespace_check";
+                    const auto namespaceResult = createNamespace(profile, draft, token);
+                    QVERIFY2(namespaceResult.applied, qPrintable(namespaceResult.error));
+                    const auto removed = dropNamespace(profile, draft.kind, draft.name, token);
+                    QVERIFY2(removed.applied, qPrintable(removed.error));
+                } else if (clickhouse || analytical) {
+                    NamespaceDraft draft;
+                    draft.kind = NamespaceKind::Database;
+                    draft.name = "navidog_namespace_check";
+                    const auto namespaceResult = createNamespace(profile,draft,token);
+                    QVERIFY2(namespaceResult.applied,qPrintable(namespaceResult.error));
+                    CatalogNode database;
+                    database.kind = "database";
+                    database.database = draft.name;
+                    const auto properties = db->execute(definitionSql(profile,database),{},token);
+                    QVERIFY2(properties.error.isEmpty(),qPrintable(properties.error));
+                    QCOMPARE(properties.rows.size(),1);
+                    const auto removed = dropNamespace(profile,draft.kind,draft.name,token);
+                    QVERIFY2(removed.applied,qPrintable(removed.error));
+                }
+                if (distributed) {
+                    auto constraintsFolder = *table;
+                    constraintsFolder.kind = "constraints";
+                    const auto constraints = loadCatalog(*db,profile,constraintsFolder,token);
+                    QVERIFY2(constraints.error.isEmpty(),qPrintable(constraints.error));
+                    QVERIFY(!constraints.nodes.isEmpty());
+                    const auto constraint = db->execute(definitionSql(profile,constraints.nodes.first()),{},token);
+                    QVERIFY2(constraint.error.isEmpty(),qPrintable(constraint.error));
+                    QVERIFY(!constraint.rows.isEmpty());
+                    const auto setup = db->execute("CREATE TABLE IF NOT EXISTS navidog_edit_check (id INTEGER PRIMARY KEY, n INTEGER)", {}, token);
+                    QVERIFY2(setup.error.isEmpty(), qPrintable(setup.error));
+                    QVERIFY(db->execute("INSERT INTO navidog_edit_check VALUES (1, 2) ON CONFLICT (id) DO UPDATE SET n=2", {}, token).error.isEmpty());
+                    DataPageRequest request;
+                    request.node = *table;
+                    request.node.object = request.node.name = "navidog_edit_check";
+                    const auto page = readDataPage(profile,request,token);
+                    QVERIFY2(page.error.isEmpty() && page.editable, qPrintable(page.error + page.readOnlyReason));
+                    DataRowChange edit;
+                    edit.state = DataRowState::Modified;
+                    edit.values = edit.original = page.result.rows.first();
+                    edit.values[1] = 9;
+                    edit.touched.insert(1);
+                    const auto saved = commitDataChanges(profile,page.schema,{edit},token);
+                    QVERIFY2(saved.error.isEmpty(),qPrintable(saved.error));
+                    QCOMPARE(saved.updated,1);
+                    const auto stale = commitDataChanges(profile,page.schema,{edit},token);
+                    QVERIFY(!stale.error.isEmpty());
+                    QVERIFY(stale.rolledBack);
+                    QVERIFY(db->execute("DROP TABLE navidog_edit_check", {}, token).error.isEmpty());
+                }
+            }
+            const auto catalog = loadCatalog(*db, profile, {}, token);
+            QVERIFY2(catalog.error.isEmpty(), qPrintable(catalog.error));
+            QVERIFY(!catalog.nodes.isEmpty());
+            QSignalSpy completed(&service, &QueryService::completed);
+            QVERIFY(service.run(profile, mongo ? mongoCatalogCommand("find", "navidog_check") : "SELECT 42 AS n", {}));
+            QVERIFY(completed.wait(10000));
+            const auto outcome = completed.takeFirst().at(0).value<QueryOutcome>();
+            QVERIFY2(outcome.result.error.isEmpty(), qPrintable(outcome.result.error));
+            QVERIFY(!outcome.result.rows.isEmpty());
+            QueryExecutionOptions options;
+            options.explain = true;
+            QVERIFY(service.run(profile, mongo ? mongoCatalogCommand("find", "navidog_check") :
+                "SELECT 42 AS n", {}, options));
+            QVERIFY(completed.wait(10000));
+            const auto explained = completed.takeFirst().at(0).value<QueryOutcome>();
+            QVERIFY2(explained.result.error.isEmpty(), qPrintable(explained.result.error));
+            QVERIFY(explained.estimatedPlan.request.issued && explained.estimatedPlan.request.received);
+            QVERIFY2(explained.estimatedPlan.complete, qPrintable(explained.estimatedPlan.warning +
+                "\n" + QString::fromUtf8(explained.estimatedPlan.raw).left(1200)));
+        } catch (const std::exception& error) {
+            QFAIL(error.what());
+        }
+    }
+
     void driverReleaseAssetsRequireExactVersionPlatformAndDigest() {
         using namespace navidog;
         const auto jar = driverDownload(DriverPackage::H2);
@@ -1088,7 +1527,7 @@ private slots:
         store.save(restored.connections); QCOMPARE(store.loadWorkspace().groups.size(),2);
     }
     void nativeDriverRegistry() {
-        auto drivers=navidog::driverRegistry(); QCOMPARE(drivers.size(),18); QVector<navidog::DatabaseKind> ids;
+        auto drivers=navidog::driverRegistry(); QCOMPARE(drivers.size(),26); QVector<navidog::DatabaseKind> ids;
         for(const auto& d:drivers) { QVERIFY(!d.provider.isEmpty()); QVERIFY(!d.status.isEmpty()); ids<<d.id; }
         QVERIFY(ids.contains(navidog::DatabaseKind::Oracle)); QVERIFY(ids.contains(navidog::DatabaseKind::SQLServer)); QVERIFY(ids.contains(navidog::DatabaseKind::OceanBase));
         const auto tidb = std::find_if(drivers.begin(), drivers.end(), [](const auto &driver) {
@@ -1354,6 +1793,192 @@ private slots:
         task.action=TableAction::ReverseModel;auto model=runTableTask(p,task,token);QVERIFY2(model.applied,qPrintable(model.error));QCOMPARE(model.document["columns"].toArray().size(),4);QCOMPARE(model.document["references"].toArray()[0].toObject()["table"].toString(),QString("parent_owned"));
         task.action=TableAction::BuildBI;task.dimension="parent_id";auto chart=runTableTask(p,task,token);QVERIFY2(chart.applied,qPrintable(chart.error));QCOMPARE(chart.result.rows.size(),1);QCOMPARE(chart.result.rows[0][1].toInt(),5);
         task.dimension="unknown' field";QVERIFY(!runTableTask(p,task,token).error.isEmpty());task.action=TableAction::GenerateData;task.generationRules["amount"]=QJsonObject{{"kind","sequence"},{"value","9223372036854775807"}};auto overflow=runTableTask(p,task,token);QVERIFY(!overflow.applied);QVERIFY(overflow.rolledBack);QCOMPARE(db->execute("SELECT count(*) FROM generated_owned",{},token).rows[0][0].toInt(),5);
+    }
+    void backgroundTasksSerializeResourcesAndCancelIndependently() {
+        using namespace navidog;
+        BackgroundTasks tasks;
+        QTemporaryDir directory;
+        const auto output = directory.filePath("reserved.csv");
+        const auto first = tasks.submit({"导出", {}, "database-A", output}, [](const TaskContext& task) {
+            task.report({3, 10, TaskUnit::Rows, "导出"});
+            while (!task.cancel->load()) QThread::msleep(4);
+            TaskResult result;
+            result.cancelled = true;
+            return result;
+        });
+        QVERIFY(!first.isEmpty());
+        const auto next = tasks.submit({"导入", {}, "database-A", {}}, [](const TaskContext&) {
+            TaskResult result;
+            result.detail = "导入完成";
+            return result;
+        });
+        QCOMPARE(tasks.info(next)->state, TaskState::Queued);
+        QString rejection;
+        QVERIFY(tasks.submit({"冲突文件", {}, "database-B", output}, [](const TaskContext&) {
+            return TaskResult{};
+        }, &rejection).isEmpty());
+        QVERIFY(!rejection.isEmpty());
+        const auto independent = tasks.submit({"独立导出", {}, "database-B", {}}, [](const TaskContext&) {
+            return TaskResult{};
+        });
+        QTRY_COMPARE(tasks.info(first)->progress.done, qint64(3));
+        QTRY_COMPARE(tasks.info(independent)->state, TaskState::Succeeded);
+        QCOMPARE(tasks.info(next)->state, TaskState::Queued);
+        QVERIFY(tasks.cancel(first));
+        QTRY_COMPARE(tasks.info(first)->state, TaskState::Cancelled);
+        QTRY_COMPARE(tasks.info(next)->state, TaskState::Succeeded);
+        QCOMPARE(tasks.info(next)->detail, QString("导入完成"));
+        tasks.clearFinished();
+        QVERIFY(tasks.history().isEmpty());
+    }
+
+    void cancelledFileExportKeepsExistingFile() {
+        using namespace navidog;
+        QTemporaryDir directory;
+        const auto path = directory.filePath("cached.csv");
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QCOMPARE(file.write("original"), qint64(8));
+        file.close();
+        QueryResult data;
+        data.columns = {"id"};
+        data.rows = {{1}, {2}};
+        BackgroundTasks tasks;
+        const auto id = tasks.submit({"导出", {}, {}, path}, [data, path](const TaskContext& task) {
+            const TaskContext stopped{task.cancel, [&](const TaskProgress& progress) {
+                task.report(progress);
+                if (progress.done == progress.total) task.cancel->store(true);
+            }};
+            return exportResultFile(path, data, ResultExportFormat::Csv, DatabaseKind::SQLite, {}, stopped);
+        });
+        QTRY_COMPARE(tasks.info(id)->state, TaskState::Cancelled);
+        QVERIFY(tasks.info(id)->artifacts.isEmpty());
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QCOMPARE(file.readAll(), QByteArray("original"));
+    }
+
+    void dataGenerationUsesCompositeKeysWeightedFieldsAndCapacity() {
+        using namespace navidog;
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        ConnectionProfile profile;
+        profile.database = ensureDemoDatabase(directory.path());
+        auto db = connectDatabase(profile);
+        const auto token = cancellation();
+        auto sql = [&](const QString& query) {
+            const auto result = db->execute(query, {}, token);
+            if (!result.error.isEmpty()) throw std::runtime_error(result.error.toStdString());
+            return result;
+        };
+        sql("CREATE TABLE parent(region INT, tenant TEXT, PRIMARY KEY(region, tenant))");
+        sql("INSERT INTO parent VALUES (3, 'east'), (7, 'west')");
+        sql("CREATE TABLE child(id INTEGER PRIMARY KEY, region INT NOT NULL, tenant TEXT NOT NULL,"
+            "name VARCHAR(20) NOT NULL, age INT NOT NULL CHECK(age BETWEEN 18 AND 80),"
+            "created DATETIME NOT NULL, code TEXT UNIQUE NOT NULL, category TEXT NOT NULL,"
+            "FOREIGN KEY(region, tenant) REFERENCES parent)");
+        sql("CREATE INDEX child_age ON child(age)");
+        sql("CREATE TABLE startup_side_effect (id INT)");
+        profile.advanced.initialSql = "INSERT INTO startup_side_effect VALUES (1)";
+        TableTask task;
+        task.action = TableAction::GenerateData;
+        task.node.kind = "table";
+        task.node.schema = "main";
+        task.node.object = "child";
+        task.generation.size = "100,000,000,000,000";
+        task.generation.seed = 154;
+        task.generation.preview = true;
+        const auto table = readTableDefinition(*db, profile, task.node, token);
+        task.generationRules = suggestedGenerationRules(table, profile.driver);
+        QCOMPARE(task.generationRules["region"].toObject()["kind"].toString(), QString("foreign"));
+        QCOMPARE(task.generationRules["tenant"].toObject()["kind"].toString(), QString("foreign"));
+        task.generationRules["age"] = QJsonObject{{"kind", "number"}, {"value", "18..35@80;36..80@20"}};
+        task.generationRules["created"] = QJsonObject{{"kind", "temporal"},
+            {"value", "2026-01-01..2026-01-03"}, {"distribution", "0..5@90;6..23@10"}};
+        task.generationRules["code"] = QJsonObject{{"kind", "regex"}, {"value", "(?:[A-Z]{3}|华)[0-9]{6}"}};
+        task.generationRules["category"] = QJsonObject{{"kind", "choice"}, {"value", "A@10;B@90"}};
+        auto readOnly = profile;
+        readOnly.readOnly = true;
+        const auto estimate = runTableTask(readOnly, task, token);
+        QVERIFY2(estimate.error.isEmpty(), qPrintable(estimate.error));
+        QCOMPARE(estimate.rows, qint64(100000000000000LL));
+        QVERIFY(estimate.report.contains("UTF", Qt::CaseInsensitive));
+        QVERIFY(estimate.report.contains("常见索引"));
+        QCOMPARE(estimate.result.rows.size(), 12);
+        QCOMPARE(sql("SELECT count(*) FROM child").rows.front().front().toInt(), 0);
+        QCOMPARE(sql("SELECT count(*) FROM startup_side_effect").rows.front().front().toInt(), 0);
+        const int code = estimate.result.columns.indexOf("code");
+        QVERIFY(code >= 0);
+        const QRegularExpression pattern("^(?:[A-Z]{3}|华)[0-9]{6}$");
+        for (const auto& row : estimate.result.rows) QVERIFY(pattern.match(row[code].toString()).hasMatch());
+
+        task.generation.sizeMode = GenerationSizeMode::Capacity;
+        task.generation.size = "1 MiB";
+        const auto byCapacity = runTableTask(profile, task, token);
+        QVERIFY2(byCapacity.error.isEmpty(), qPrintable(byCapacity.error));
+        QVERIFY(byCapacity.rows > 5000 && byCapacity.rows < 40000);
+        task.generation.sizeMode = GenerationSizeMode::Rows;
+        task.generation.size = "1024";
+        task.generation.preview = false;
+        qint64 completed = 0;
+        const auto created = runTableTask(profile, task, token, [&](qint64 done, qint64 total) {
+            QCOMPARE(total, qint64(1024));
+            completed = done;
+        });
+        QVERIFY2(created.applied, qPrintable(created.error));
+        QCOMPARE(completed, qint64(1024));
+        const auto distribution = sql("SELECT count(*), sum(age BETWEEN 18 AND 35), "
+                                      "sum(CAST(strftime('%H',created) AS INT)<6), sum(category='B'), "
+                                      "count(DISTINCT code), count(DISTINCT region) FROM child").rows.front();
+        QCOMPARE(distribution[0].toInt(), 1024);
+        QVERIFY(distribution[1].toInt() > 740);
+        QVERIFY(distribution[2].toInt() > 850);
+        QVERIFY(distribution[3].toInt() > 850);
+        QCOMPARE(distribution[4].toInt(), 1024);
+        QCOMPARE(distribution[5].toInt(), 2);
+        QCOMPARE(sql("SELECT count(*) FROM child JOIN parent USING(region,tenant)").rows.front().front().toInt(), 1024);
+    }
+
+    void generationStopsInvalidRulesAndRollsBackBatches() {
+        using namespace navidog;
+        QTemporaryDir directory;
+        ConnectionProfile profile;
+        profile.database = ensureDemoDatabase(directory.path());
+        auto db = connectDatabase(profile);
+        const auto token = cancellation();
+        const auto run = [&](const QString& text) { return db->execute(text, {}, token); };
+        QVERIFY(run("CREATE TABLE late_failure(id INTEGER PRIMARY KEY, code INTEGER NOT NULL CHECK(code+0 < 300))").error.isEmpty());
+        TableTask task;
+        task.action = TableAction::GenerateData;
+        task.node.kind = "table";
+        task.node.schema = "main";
+        task.node.object = "late_failure";
+        task.generation.size = "400";
+        task.generationRules["code"] = QJsonObject{{"kind", "sequence"}, {"value", "1"}};
+        const auto failed = runTableTask(profile, task, token);
+        QVERIFY(!failed.applied);
+        QVERIFY(failed.rolledBack);
+        QCOMPARE(failed.rows, qint64(250));
+        QCOMPARE(run("SELECT count(*) FROM late_failure").rows.front().front().toInt(), 0);
+
+        QVERIFY(run("CREATE TABLE empty_parent(id INTEGER PRIMARY KEY)").error.isEmpty());
+        QVERIFY(run("CREATE TABLE empty_child(id INTEGER PRIMARY KEY, parent INTEGER NOT NULL REFERENCES empty_parent(id),"
+                    "label VARCHAR(16) NOT NULL)").error.isEmpty());
+        task.node.object = "empty_child";
+        task.generationRules = QJsonObject{{"parent", QJsonObject{{"kind", "foreign"}}},
+            {"label", QJsonObject{{"kind", "regex"}, {"value", "[A-Z]{4}"}}}};
+        task.generation.preview = true;
+        const auto noParent = runTableTask(profile, task, token);
+        QVERIFY2(noParent.error.isEmpty(), qPrintable(noParent.error));
+        QVERIFY(noParent.report.contains("没有可用父键"));
+        task.generation.preview = false;
+        const auto missing = runTableTask(profile, task, token);
+        QVERIFY(!missing.applied);
+        QVERIFY(missing.rolledBack);
+        QVERIFY(missing.error.contains("没有可用引用键"));
+        task.generation.preview = true;
+        task.generationRules["label"] = QJsonObject{{"kind", "regex"}, {"value", "(?=A)A"}};
+        const auto invalid = runTableTask(profile, task, token);
+        QVERIFY(invalid.error.contains("正则"));
     }
     void tablePlansQuoteIdentifiersAndGuardMaintenanceOptions() {
         using namespace navidog;ConnectionProfile p;p.driver=DatabaseKind::MySQL;TableTask task;task.node.kind="table";task.node.database="owned`db";task.node.object="table`name";task.action=TableAction::Rename;task.targetName="target`name";

@@ -1,0 +1,31 @@
+catalog store <<SQL
+CREATE TABLE events (id INT, tenant_id INT);
+SQL
+
+case final-with-other-clauses valid catalog=store <<SQL
+SELECT id FROM events FINAL PREWHERE tenant_id = 2 WHERE id > 0;
+SQL
+
+case limit-by-and-global-limit valid catalog=store <<SQL
+SELECT tenant_id, id FROM events ORDER BY id LIMIT 1, 4 BY tenant_id LIMIT 100;
+SQL
+
+case limit-by-all valid catalog=store <<SQL
+SELECT tenant_id, id FROM events LIMIT 4 BY ALL;
+SQL
+
+case group-key-resolves semantic-error UnknownColumn catalog=store <<SQL
+SELECT tenant_id FROM events LIMIT 4 BY missing_key;
+SQL
+
+case limit-by-missing-key syntax-error <<SQL
+SELECT id FROM events LIMIT 4 BY;
+SQL
+
+case duplicate-limits syntax-error <<SQL
+SELECT id FROM events LIMIT 4 BY tenant_id LIMIT 1 BY id;
+SQL
+
+case grouped-projection valid catalog=store <<SQL
+SELECT tenant_id, count(*) FROM events GROUP BY ALL;
+SQL
