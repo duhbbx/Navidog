@@ -220,7 +220,7 @@ TableTaskDialog::TableTaskDialog(const navidog::ConnectionProfile& p,navidog::Ta
         sizeLayout->addWidget(new QLabel("随机种子"));
         sizeLayout->addWidget(generationSeed_);
         form->addRow("生成规模", sizeRow);
-        connect(generationMode_, &QComboBox::currentIndexChanged, this, [this] {
+        connect(generationMode_, qOverload<int>(&QComboBox::currentIndexChanged), this, [this] {
             const bool capacity = generationMode_->currentIndex() == 1;
             generationSize_->setPlaceholderText(capacity ? "例如 20 GB、1.5 TiB" : "例如 100,000,000,000,000");
             generationSize_->setText(capacity ? "1 GiB" : QString::number(original_.maxRows));

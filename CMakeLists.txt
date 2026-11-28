@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(Navidog VERSION 0.54.32 LANGUAGES C CXX)
+project(Navidog VERSION 0.54.33 LANGUAGES C CXX)
 if(PROJECT_VERSION_PATCH GREATER_EQUAL 100)
     math(EXPR navidog_next_minor "${PROJECT_VERSION_MINOR} + ${PROJECT_VERSION_PATCH} / 100")
     math(EXPR navidog_next_patch "${PROJECT_VERSION_PATCH} % 100")

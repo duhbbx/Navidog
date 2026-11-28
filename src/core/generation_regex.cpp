@@ -175,7 +175,7 @@ struct Regex::Parser {
             else if (eat('.')) node.symbols = symbols(letters() + digits());
             else {
                 if (QStringLiteral("^$*+?{}]").contains(peek())) invalid("不支持此处的锚点、断言或重复");
-                node.symbols = {scalar()};
+                node.symbols.append(scalar());
             }
             node.minimum = int(node.symbols.front().size());
             for (const auto& symbol : node.symbols)
