@@ -109,7 +109,7 @@ class RedisDatabase final : public Database {
         else if (reply.type != REDIS_REPLY_NIL) {
             const auto limit = size_t(qMax(0, limits.maxCellBytes));
             result.cellTruncated |= reply.len > limit;
-            const QByteArray bytes(reply.str ? reply.str : "", qsizetype(std::min(reply.len, limit)));
+            const QByteArray bytes(reply.str ? reply.str : "", qsizetype(qMin(reply.len, limit)));
             const auto decoded = QString::fromUtf8(bytes);
             value = decoded.toUtf8() == bytes ? decoded : quoteRedisArgument(bytes);
         }

@@ -58,7 +58,8 @@ jobs:
           dependency_args=()
           if [[ "$EDITION" == Universal ]]; then
             # The runner's Homebrew libraries only contain its host architecture.
-            dependency_args+=(-DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=ON)
+            dependency_args+=(-DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=ON
+              -DNAVIDOG_WITH_POSTGRES=OFF -DNAVIDOG_WITH_MYSQL=OFF)
           fi
           cmake -S . -B "$NAVIDOG_BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR" -DCMAKE_OSX_ARCHITECTURES="$ARCHITECTURES" \
@@ -162,7 +163,7 @@ jobs:
             '18' { 'Visual Studio 18 2026' }
             default { throw "Unsupported Visual Studio version $($visualStudio.installationVersion)" }
           }
-          cmake -S . -B build -G $generator -A x64 -DCMAKE_CXX_FLAGS=/MP3 `
+          cmake -S . -B build -G $generator -A x64 "-DCMAKE_CXX_FLAGS=/MP3 /EHsc" `
             "-DCMAKE_PREFIX_PATH=$env:QT_ROOT_DIR" "-DNAVIDOG_SQLITE_SOURCE=$env:NAVIDOG_SQLITE_SOURCE" `
             -DBUILD_TESTING=OFF -DNAVIDOG_BUNDLE_HIREDIS=ON
           if ($LASTEXITCODE) { exit $LASTEXITCODE }

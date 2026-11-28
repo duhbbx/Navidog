@@ -58,8 +58,10 @@ QString driverPackageDirectory(DriverPackage package) {
     const auto data = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
     if (data.isEmpty()) return {};
     QString key = "components/" + packageKey(package);
+    // These runtime ABIs are unchanged in 0.54.24. Keep otherwise identical
+    // components installed by 0.54.23 usable without downloading again.
     if (package == DriverPackage::Java || package == DriverPackage::Redis)
-        key += '/' + packagePlatform() + '/' + QStringLiteral(NAVIDOG_VERSION);
+        key += '/' + packagePlatform() + "/0.54.23";
     return QDir(data).filePath(key);
 }
 
