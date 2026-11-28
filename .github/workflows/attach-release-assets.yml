@@ -29,8 +29,14 @@ jobs:
         run: |
           [[ "$RELEASE" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$BUILD_RUN" =~ ^[0-9]+$ ]]
           version="${RELEASE#v}"
-          gh run view "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" --json headBranch,workflowName |
-            jq -e '.headBranch == "main" and .workflowName == "Desktop builds"' >/dev/null
+          tag_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE" --jq '.sha')"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" |
+            jq -e --arg repository "$GITHUB_REPOSITORY" --arg sha "$tag_sha" '
+              .head_repository.full_name == $repository and .head_sha == $sha and
+              .head_branch == "main" and .path == ".github/workflows/build.yml" and
+              (.event == "push" or .event == "workflow_dispatch") and
+              .status == "completed" and .conclusion == "success"
+            ' >/dev/null
           dir="$(mktemp -d)"
           mkdir "$dir/upload"
           gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" --pattern 'Navidog-*' --dir "$dir/download"
