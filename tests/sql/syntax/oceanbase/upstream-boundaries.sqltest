@@ -1,0 +1,51 @@
+# Independently authored boundaries discovered by fixed upstream grammar/test comparison.
+# MySQL sql_yacc.yy commit/rollback, TiDB parser_test.go DML/subquery tests.
+# Source records: tests/sql/corpus/reference-sources.json.
+
+case commit-chain-no-release valid <<SQL
+COMMIT AND CHAIN NO RELEASE;
+SQL
+
+case rollback-no-chain-release valid <<SQL
+ROLLBACK AND NO CHAIN RELEASE;
+SQL
+
+case commit-chain-release syntax-error ExpectedToken <<SQL
+COMMIT AND CHAIN RELEASE;
+SQL
+
+case rollback-chain-release syntax-error ExpectedToken <<SQL
+ROLLBACK AND CHAIN RELEASE;
+SQL
+
+case insert-set-no-column-list valid <<SQL
+INSERT INTO audit_items SET item_id=17,label='item';
+SQL
+
+case insert-set-explicit-column-list syntax-error ExpectedToken <<SQL
+INSERT INTO audit_items(item_id) SET item_id=17;
+SQL
+
+case insert-set-empty-column-list syntax-error ExpectedToken <<SQL
+INSERT INTO audit_items() SET item_id=17;
+SQL
+
+case insert-empty-default-row valid <<SQL
+INSERT INTO audit_items() VALUES();
+SQL
+
+case insert-row-widths semantic-error InvalidQueryShape <<SQL
+INSERT INTO audit_items VALUES(17),(17,23);
+SQL
+
+case insert-column-widths semantic-error InvalidQueryShape <<SQL
+INSERT INTO audit_items(item_id) VALUES(17,23);
+SQL
+
+case arithmetic-prefix-not syntax-error ExpectedToken <<SQL
+SELECT + NOT EXISTS(SELECT 17);
+SQL
+
+case arithmetic-parenthesized-not valid <<SQL
+SELECT +(NOT EXISTS(SELECT 17));
+SQL

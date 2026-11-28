@@ -1,0 +1,145 @@
+# Independently authored PostgreSQL source structure and analysis boundaries.
+
+case implicit-column-label valid <<SQL
+SELECT item_id FROM (VALUES(17),(23)) AS audit_items(item_id);
+SQL
+
+case explicit-column-label valid <<SQL
+SELECT item_id AS item_id FROM (VALUES(17)) AS audit_items(item_id);
+SQL
+
+case function-default-alias valid <<SQL
+SELECT generate_series FROM generate_series(2,4);
+SQL
+
+case function-explicit-alias valid <<SQL
+SELECT g FROM generate_series(2,4) AS g;
+SQL
+
+case function-one-column-alias valid <<SQL
+SELECT n FROM generate_series(2,4) AS g(n);
+SQL
+
+case function-default-ordinality valid <<SQL
+SELECT generate_series,ordinality FROM generate_series(2,4) WITH ORDINALITY;
+SQL
+
+case function-one-alias-ordinality valid <<SQL
+SELECT n,ordinality FROM generate_series(2,4) WITH ORDINALITY AS g(n);
+SQL
+
+case function-two-aliases-ordinality valid <<SQL
+SELECT n,position FROM generate_series(2,4) WITH ORDINALITY AS g(n,position);
+SQL
+
+case comma-and-explicit-join valid <<SQL
+SELECT a.n,b.n,c.n FROM (VALUES(1),(2)) AS a(n),(VALUES(3),(4)) AS b(n) JOIN (VALUES(3),(4)) AS c(n) ON b.n=c.n;
+SQL
+
+case implicit-lateral-function valid <<SQL
+SELECT a.n,b.n FROM generate_series(1,2) AS a(n),generate_series(1,a.n) AS b(n);
+SQL
+
+case explicit-lateral-function valid <<SQL
+SELECT a.n,b.n FROM generate_series(1,2) AS a(n) CROSS JOIN LATERAL generate_series(1,a.n) AS b(n);
+SQL
+
+case inner-lateral-on-true valid <<SQL
+SELECT a.n,b.n FROM generate_series(1,2) AS a(n) JOIN LATERAL(SELECT a.n+7 AS n) AS b ON TRUE;
+SQL
+
+case left-lateral-on-true valid <<SQL
+SELECT a.n,b.n FROM generate_series(1,2) AS a(n) LEFT JOIN LATERAL(SELECT a.n+7 AS n) AS b ON TRUE;
+SQL
+
+case explicit-ascending valid <<SQL
+SELECT n FROM generate_series(2,4) AS g(n) ORDER BY n ASC;
+SQL
+
+case implicit-case-else valid <<SQL
+SELECT CASE WHEN n=2 THEN 17 END FROM generate_series(2,4) AS g(n);
+SQL
+
+case explicit-case-null valid <<SQL
+SELECT CASE WHEN n=2 THEN 17 ELSE NULL END FROM generate_series(2,4) AS g(n);
+SQL
+
+case column-null-default-order valid <<SQL
+CREATE TABLE audit_items(item_id INT NOT NULL DEFAULT 17);
+SQL
+
+case column-default-null-order valid <<SQL
+CREATE TABLE audit_items(item_id INT DEFAULT 17 NOT NULL);
+SQL
+
+case column-primary-null-order valid <<SQL
+CREATE TABLE audit_items(item_id SERIAL PRIMARY KEY NOT NULL,code INT);
+SQL
+
+case interspersed-table-constraint valid <<SQL
+CREATE TABLE audit_items(item_id INT,UNIQUE(item_id),cost INT);
+SQL
+
+case alter-null-default-order valid <<SQL
+ALTER TABLE audit_items ADD cost INT NOT NULL DEFAULT 17;
+SQL
+
+case unused-window-definition valid <<SQL
+SELECT n FROM generate_series(2,4) AS g(n) WINDOW unused AS(ORDER BY n ASC);
+SQL
+
+case quoted-window-inheritance valid <<SQL
+SELECT SUM(n) OVER "Ordered" FROM generate_series(2,4) AS g(n) WINDOW "Base" AS(),"Ordered" AS("Base" ORDER BY n ASC);
+SQL
+
+case bare-and-copied-window valid <<SQL
+SELECT SUM(n) OVER w,SUM(n) OVER(w) FROM generate_series(2,4) AS g(n) WINDOW w AS(ORDER BY n ASC);
+SQL
+
+case unused-window-partition-grouping semantic-error InvalidQueryShape <<SQL
+SELECT COUNT(*) FROM (VALUES(17),(23)) AS audit_items(item_id) WINDOW unused AS(PARTITION BY item_id);
+SQL
+
+case unused-window-order-grouping semantic-error InvalidQueryShape <<SQL
+SELECT COUNT(*) FROM (VALUES(17),(23)) AS audit_items(item_id) WINDOW unused AS(ORDER BY item_id);
+SQL
+
+case unused-window-grouped valid <<SQL
+SELECT item_id,COUNT(*) FROM (VALUES(17),(23)) AS audit_items(item_id) GROUP BY item_id WINDOW unused AS(ORDER BY item_id);
+SQL
+
+case unused-window-aggregate valid <<SQL
+SELECT 17 FROM (VALUES(17),(23)) AS audit_items(item_id) WINDOW unused AS(ORDER BY SUM(item_id));
+SQL
+
+case missing-window-analysis semantic-error InvalidQueryShape <<SQL
+SELECT SUM(n) OVER missing FROM generate_series(2,4) AS g(n);
+SQL
+
+case duplicate-window-analysis semantic-error DuplicateAlias <<SQL
+SELECT 17 WINDOW w AS(),w AS();
+SQL
+
+case forward-window-analysis semantic-error InvalidQueryShape <<SQL
+SELECT 17 WINDOW child AS(parent),parent AS();
+SQL
+
+case cycle-window-analysis semantic-error InvalidQueryShape <<SQL
+SELECT 17 WINDOW a AS(b),b AS(a);
+SQL
+
+case partition-override-analysis semantic-error InvalidQueryShape <<SQL
+SELECT SUM(n) OVER(w PARTITION BY n) FROM generate_series(2,4) AS g(n) WINDOW w AS();
+SQL
+
+case order-override-analysis semantic-error InvalidQueryShape <<SQL
+SELECT SUM(n) OVER(w ORDER BY n) FROM generate_series(2,4) AS g(n) WINDOW w AS(ORDER BY n);
+SQL
+
+case nested-window-scope-analysis semantic-error InvalidQueryShape <<SQL
+SELECT (SELECT SUM(n) OVER w FROM generate_series(2,4) AS g(n)) WINDOW w AS();
+SQL
+
+case window-error-then-malformed syntax-error <<SQL
+SELECT SUM(n) OVER missing FROM generate_series(2,4) AS g(n); SELECT (;
+SQL

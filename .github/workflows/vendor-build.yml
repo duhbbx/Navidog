@@ -1,0 +1,53 @@
+name: Vendor SDK builds
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Build target
+        type: choice
+        required: true
+        options: [uos, kylin, harmonyos, harmonyos-cli]
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    name: ${{ inputs.target }} desktop
+    if: inputs.target == 'uos' || inputs.target == 'kylin'
+    runs-on: [self-hosted, linux, "${{ inputs.target }}"]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Build and test desktop application
+        env:
+          TARGET: ${{ inputs.target }}
+        run: ./scripts/build-linux.sh "$TARGET"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Navidog-${{ inputs.target }}-${{ runner.arch }}
+          path: |
+            dist/${{ inputs.target }}/*.tar.gz
+            dist/${{ inputs.target }}/*.deb
+            dist/${{ inputs.target }}/*.rpm
+          if-no-files-found: error
+
+  harmonyos:
+    name: HarmonyOS ${{ inputs.target == 'harmonyos' && 'GUI' || 'SQL compiler' }}
+    if: inputs.target == 'harmonyos' || inputs.target == 'harmonyos-cli'
+    runs-on: [self-hosted, linux, harmonyos]
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - if: inputs.target == 'harmonyos'
+        run: ./scripts/build-harmonyos.sh --gui
+      - if: inputs.target == 'harmonyos-cli'
+        run: ./scripts/build-harmonyos.sh arm64-v8a
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Navidog-${{ inputs.target }}-arm64-v8a
+          path: |
+            dist/harmonyos/*.hap
+            dist/harmonyos/*.tar.gz
+          if-no-files-found: error

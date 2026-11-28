@@ -1,0 +1,50 @@
+# Independently authored; Oracle 19c SELECT/Using Subqueries documents and pinned PlSqlParser.g4.
+# https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/SELECT.html
+
+case anonymous-projection valid <<SQL
+SELECT item_id FROM (SELECT 17 AS item_id FROM dual);
+SQL
+
+case anonymous-expression valid <<SQL
+SELECT item_id+1 AS next_id FROM (SELECT 17 AS item_id FROM dual);
+SQL
+
+case anonymous-nested valid <<SQL
+SELECT item_id FROM (SELECT item_id FROM (SELECT 17 AS item_id FROM dual));
+SQL
+
+case anonymous-filter valid <<SQL
+SELECT item_id FROM (SELECT 17 AS item_id FROM dual) WHERE item_id>0;
+SQL
+
+case anonymous-join valid <<SQL
+SELECT item_id,event_id FROM (SELECT 17 AS item_id FROM dual) CROSS JOIN (SELECT 23 AS event_id FROM dual);
+SQL
+
+case anonymous-set valid <<SQL
+SELECT item_id FROM (SELECT 17 AS item_id FROM dual UNION ALL SELECT 23 FROM dual);
+SQL
+
+case anonymous-count valid <<SQL
+SELECT COUNT(*) FROM (SELECT 17 AS item_id FROM dual);
+SQL
+
+case explicit-alias valid <<SQL
+SELECT q.item_id FROM (SELECT 17 AS item_id FROM dual) q;
+SQL
+
+case anonymous-missing-column semantic-error UnknownColumn <<SQL
+SELECT absent FROM (SELECT 17 AS item_id FROM dual);
+SQL
+
+case anonymous-ambiguous-column semantic-error AmbiguousColumn <<SQL
+SELECT item_id FROM (SELECT 17 AS item_id FROM dual),(SELECT 23 AS item_id FROM dual);
+SQL
+
+case anonymous-no-qualifier semantic-error UnknownColumn <<SQL
+SELECT q.item_id FROM (SELECT 17 AS item_id FROM dual);
+SQL
+
+case anonymous-missing-close syntax-error ExpectedToken <<SQL
+SELECT item_id FROM (SELECT 17 AS item_id FROM dual;
+SQL

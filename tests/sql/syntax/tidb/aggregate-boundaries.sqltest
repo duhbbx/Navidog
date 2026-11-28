@@ -1,0 +1,117 @@
+# Independently authored; native aggregate signatures and DISTINCT modifiers differ among MySQL-family products.
+
+case bit_and-argument valid <<SQL
+SELECT BIT_AND(17);
+SQL
+
+case bit_and-all valid <<SQL
+SELECT BIT_AND(ALL 17);
+SQL
+
+case bit_and-distinct syntax-error ExpectedToken <<SQL
+SELECT BIT_AND(DISTINCT 17);
+SQL
+
+case bit_and-empty syntax-error ExpectedToken <<SQL
+SELECT BIT_AND();
+SQL
+
+case bit_and-two syntax-error ExpectedToken <<SQL
+SELECT BIT_AND(17,23);
+SQL
+
+case bit_and-star syntax-error ExpectedToken <<SQL
+SELECT BIT_AND(*);
+SQL
+
+case bit_or-argument valid <<SQL
+SELECT BIT_OR(17);
+SQL
+
+case bit_or-all valid <<SQL
+SELECT BIT_OR(ALL 17);
+SQL
+
+case bit_or-distinct syntax-error ExpectedToken <<SQL
+SELECT BIT_OR(DISTINCT 17);
+SQL
+
+case bit_or-empty syntax-error ExpectedToken <<SQL
+SELECT BIT_OR();
+SQL
+
+case bit_or-two syntax-error ExpectedToken <<SQL
+SELECT BIT_OR(17,23);
+SQL
+
+case bit_or-star syntax-error ExpectedToken <<SQL
+SELECT BIT_OR(*);
+SQL
+
+case bit_xor-argument valid <<SQL
+SELECT BIT_XOR(17);
+SQL
+
+case bit_xor-all valid <<SQL
+SELECT BIT_XOR(ALL 17);
+SQL
+
+case bit_xor-distinct syntax-error ExpectedToken <<SQL
+SELECT BIT_XOR(DISTINCT 17);
+SQL
+
+case bit_xor-empty syntax-error ExpectedToken <<SQL
+SELECT BIT_XOR();
+SQL
+
+case bit_xor-two syntax-error ExpectedToken <<SQL
+SELECT BIT_XOR(17,23);
+SQL
+
+case bit_xor-star syntax-error ExpectedToken <<SQL
+SELECT BIT_XOR(*);
+SQL
+
+case std-one valid <<SQL
+SELECT STD(17);
+SQL
+
+case std-two syntax-error ExpectedToken <<SQL
+SELECT STD(17,23);
+SQL
+
+case std-distinct valid <<SQL
+SELECT STD(DISTINCT 17);
+SQL
+
+case json-array-one valid <<SQL
+SELECT JSON_ARRAYAGG(17);
+SQL
+
+case json-array-two syntax-error ExpectedToken <<SQL
+SELECT JSON_ARRAYAGG(17,23);
+SQL
+
+case json-array-distinct syntax-error ExpectedToken <<SQL
+SELECT JSON_ARRAYAGG(DISTINCT 17);
+SQL
+
+case json-object-two valid <<SQL
+SELECT JSON_OBJECTAGG('item',17);
+SQL
+
+case json-object-three syntax-error ExpectedToken <<SQL
+SELECT JSON_OBJECTAGG('item',17,23);
+SQL
+
+case json-object-distinct syntax-error ExpectedToken <<SQL
+SELECT JSON_OBJECTAGG(DISTINCT 'item',17);
+SQL
+
+case bit-in-where semantic-error InvalidQueryShape <<SQL
+SELECT item_id FROM audit_items WHERE BIT_AND(item_id)>0;
+SQL
+
+case json-nested-aggregate semantic-error InvalidQueryShape <<SQL
+SELECT SUM(JSON_ARRAYAGG(item_id)) FROM audit_items;
+SQL

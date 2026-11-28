@@ -1,0 +1,56 @@
+name: Publish Navidog SQL container
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: SQL compiler ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Build and publish architecture image
+        env:
+          ARCH: ${{ matrix.arch }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/navidog-sql"
+          version="$(sed -nE 's/^project\(Navidog VERSION ([0-9.]+) .*/\1/p' CMakeLists.txt)"
+          test -n "$version"
+          tag="$image:$version-$ARCH"
+          docker build --file packaging/container/Dockerfile --label "org.opencontainers.image.version=$version" --tag "$tag" .
+          docker run --rm "$tag" --help
+          printf '%s\n' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker push "$tag"
+
+  publish:
+    name: Publish multi-architecture image
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Publish version and latest tags
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/navidog-sql"
+          version="$(sed -nE 's/^project\(Navidog VERSION ([0-9.]+) .*/\1/p' CMakeLists.txt)"
+          test -n "$version"
+          printf '%s\n' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker buildx imagetools create \
+            --tag "$image:$version" --tag "$image:latest" "$image:$version-amd64" "$image:$version-arm64"
+          docker buildx imagetools inspect "$image:$version"

@@ -1,0 +1,110 @@
+# Authored PostgreSQL a_expr/b_expr boundaries; native PG 18.6 raw parser.
+# Comparison/BETWEEN/LIKE recursion differs from fixed-token IN and null tests.
+
+case comparison-chain syntax-error ExpectedToken <<SQL
+SELECT 17=23=29;
+SQL
+
+case mixed-comparison-chain syntax-error ExpectedToken <<SQL
+SELECT 17<23<>29;
+SQL
+
+case parenthesized-comparison-left valid <<SQL
+SELECT (17=23)=FALSE;
+SQL
+
+case parenthesized-comparison-right valid <<SQL
+SELECT TRUE=(17<23);
+SQL
+
+case pattern-chain syntax-error ExpectedToken <<SQL
+SELECT 'item' LIKE 'i%' ILIKE 'i%';
+SQL
+
+case escaped-pattern-chain syntax-error ExpectedToken <<SQL
+SELECT 'item' LIKE 'i%' ESCAPE '!' LIKE 'i%';
+SQL
+
+case parenthesized-pattern valid <<SQL
+SELECT ('item' LIKE 'i%' ESCAPE '!') IS TRUE;
+SQL
+
+case between-chain syntax-error ExpectedToken <<SQL
+SELECT 17 BETWEEN 0 AND 23 BETWEEN 0 AND 29;
+SQL
+
+case between-then-in syntax-error ExpectedToken <<SQL
+SELECT 17 BETWEEN 0 AND 23 IN(TRUE);
+SQL
+
+case in-then-between valid <<SQL
+SELECT 17 IN(17) BETWEEN FALSE AND TRUE;
+SQL
+
+case in-chain valid <<SQL
+SELECT 17 IN(17) IN(TRUE);
+SQL
+
+case quantified-then-comparison valid <<SQL
+SELECT 17=ANY(ARRAY[17])=TRUE;
+SQL
+
+case repeated-truth-tests valid <<SQL
+SELECT TRUE IS TRUE IS TRUE;
+SQL
+
+case repeated-null-tests valid <<SQL
+SELECT NULL ISNULL ISNULL;
+SQL
+
+case distinct-chain syntax-error ExpectedToken <<SQL
+SELECT 17 IS DISTINCT FROM 23 IS DISTINCT FROM 29;
+SQL
+
+case distinct-then-null syntax-error ExpectedToken <<SQL
+SELECT 17 IS DISTINCT FROM 23 ISNULL;
+SQL
+
+case null-then-distinct valid <<SQL
+SELECT 17 ISNULL IS DISTINCT FROM FALSE;
+SQL
+
+case between-lower-comparison valid <<SQL
+SELECT TRUE BETWEEN 17=17 AND TRUE;
+SQL
+
+case between-lower-distinct valid <<SQL
+SELECT TRUE BETWEEN 17 IS DISTINCT FROM 23 AND TRUE;
+SQL
+
+case between-lower-bare-null syntax-error ExpectedToken <<SQL
+SELECT TRUE BETWEEN TRUE IS NULL AND TRUE;
+SQL
+
+case between-lower-parenthesized-null valid <<SQL
+SELECT TRUE BETWEEN (TRUE IS NULL) AND TRUE;
+SQL
+
+case between-lower-bare-in syntax-error ExpectedToken <<SQL
+SELECT TRUE BETWEEN 17 IN(17) AND TRUE;
+SQL
+
+case between-lower-parenthesized-in valid <<SQL
+SELECT TRUE BETWEEN (17 IN(17)) AND TRUE;
+SQL
+
+case between-lower-bare-quantified syntax-error ExpectedToken <<SQL
+SELECT TRUE BETWEEN 17=ANY(ARRAY[17]) AND TRUE;
+SQL
+
+case between-lower-parenthesized-quantified valid <<SQL
+SELECT TRUE BETWEEN (17=ANY(ARRAY[17])) AND TRUE;
+SQL
+
+case between-lower-parenthesized-logical valid <<SQL
+SELECT TRUE BETWEEN (FALSE OR TRUE) AND TRUE;
+SQL
+
+case between-lower-bare-logical syntax-error ExpectedToken <<SQL
+SELECT TRUE BETWEEN FALSE OR TRUE AND TRUE;
+SQL

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "native_parser": {
+    "adapter": "pglast",
+    "version": "8.9",
+    "postgresql_version": [
+      18,
+      6
+    ],
+    "libpg_query_revision": "776c2ac5efa2a736f45bc7f18e1fd06cb9c6504e",
+    "native_sha256": "920de229ad92aab61eb32a8b82047109f84b595d5f3fc5898842b99dc527ec9e"
+  },
+  "fingerprint_algorithm": "postgresql-raw-tree-parseloc-v4",
+  "input_sha256": "323a34e17aeac785873fee148d20c04883ce815b1999b6506edca9bbc11e153b",
+  "cases": 0,
+  "note": "Triage only. Every entry remains unreviewed; no structural field is suppressed and no equivalence is asserted.",
+  "triage_summary": {},
+  "entries": []
+}

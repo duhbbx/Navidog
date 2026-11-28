@@ -1,0 +1,569 @@
+{
+  "schema_version": 1,
+  "purpose": "Historical 0.54.16 exact reviews; inactive. Superseded source forms are now preserved by native generation.",
+  "native_sha256": "920de229ad92aab61eb32a8b82047109f84b595d5f3fc5898842b99dc527ec9e",
+  "fingerprint_algorithm": "postgresql-raw-tree-parseloc-v4",
+  "entries": [
+    {
+      "case": "vacuum-options",
+      "source_path": "tests/sql/syntax/postgresql/examples.sqltest",
+      "source_sql_sha256": "a603fd1f104f8c2ba6650ec1221449bd01d739777f0dc5e03cf902a0d676d6db",
+      "original_ast_sha256": "41f79cea69223d918f17637e8ffe63e3ca7119626df0212847e5b9678c54b2c1",
+      "generated_ast_sha256": "3c694e2a774b81966280823cb8578687ae9dbb80e19cc3cf6d224633cb3e3f55",
+      "reason": "Boolean VACUUM option OFF and FALSE are two accepted spellings of false; no SQL acceptance is overridden.",
+      "evidence": [
+        "Pinned PostgreSQL src/backend/commands/define.c defGetBoolean accepts both off and false."
+      ]
+    },
+    {
+      "case": "query-order-expression",
+      "source_path": "tests/sql/syntax/postgresql/grammar-basics.sqltest",
+      "source_sql_sha256": "2b34a3755c0271613d9fa9413a22e5539e604e906a903e4663cb8ea60781ef39",
+      "original_ast_sha256": "81529ad68bc733ee024a7cf095fe67a70069231eb49a217ec057d06242c97950",
+      "generated_ast_sha256": "611aac434f0f4f77fc8af0ae6963a2ef7213147469b8ce1941313da02c421310",
+      "reason": "Explicit ASC becomes the default ascending sort direction; the ordered expression and NULL policy are retained.",
+      "evidence": [
+        "Owned PG 15.17 probes explicit-asc-canonicalization/default-asc-canonicalization return identical ordered rows, including NULL."
+      ]
+    },
+    {
+      "case": "window-quoted-partition-name",
+      "source_path": "tests/sql/syntax/postgresql/identifier-contexts.sqltest",
+      "source_sql_sha256": "6bdc6dd07a3fc01a5cb4c3fa8f6836da44bd7bc7d62eede71e5a153232dc618a",
+      "original_ast_sha256": "6fa83b8567e902c414e757c92adeae8eef9363119838205b7739363f5749e989",
+      "generated_ast_sha256": "3f289b7de61b7dfd681efa769b9760155579058497481f1ee7e0eb63c740c976",
+      "reason": "This exact empty named window is expanded to OVER (); no partition/order/frame specification changes.",
+      "evidence": [
+        "Owned PG 15.17 probes empty-named-window/empty-inline-window return 40 for both rows."
+      ]
+    },
+    {
+      "case": "window-roundtrip-named-rows",
+      "source_path": "tests/sql/syntax/postgresql/window-roundtrip.sqltest",
+      "source_sql_sha256": "7f194656174a89660e5b3790892c91dd4bbf0e7ba5526536f6360833534c2f0f",
+      "original_ast_sha256": "7bdd7c598536235673e6ce799d8154dd1bce8b15d4c719041d72e74008f45edc",
+      "generated_ast_sha256": "ff1b76a4a34540305cdf7637b2d5e65c2a1b354b7020296ce281cf0f9ea75bf7",
+      "reason": "This exact authored named-window reference/inheritance is expanded to the same native partition/order/frame specification; every other normalized native tree field is identical.",
+      "evidence": [
+        "Owned 15.17 (Homebrew) probe window-roundtrip-named-rows matched original/generated ordered rows with peers, NULL and separated numeric keys.",
+        "Independent native-root WINDOW substitution produced the exact generated raw-tree hash."
+      ],
+      "native_execution_sql_sha256": "50c19ea537f1b09780b06bf2ac9a2bec178f32d46b513cdba1c6f0d0ad04e015",
+      "generated_sql_sha256": "f96c24170f2247079aa0b1ae59ca6e347d7edcf35724093bf1cf9da6309aef50"
+    },
+    {
+      "case": "window-roundtrip-copied-window",
+      "source_path": "tests/sql/syntax/postgresql/window-roundtrip.sqltest",
+      "source_sql_sha256": "84f80af527f02d31ac39485d9efbfaf98e3dbb2725d8b7678db096842956f05f",
+      "original_ast_sha256": "49d9453578f496a3eb0a63b9444b4c218760b66b43c218cb272bb839b8b806fd",
+      "generated_ast_sha256": "3494310c586f3480a3a0134a5839ae08075e687cfa934236c426bcdb9e118343",
+      "reason": "This exact authored named-window reference/inheritance is expanded to the same native partition/order/frame specification; every other normalized native tree field is identical.",
+      "evidence": [
+        "Owned 15.17 (Homebrew) probe window-roundtrip-copied-window matched original/generated ordered rows with peers, NULL and separated numeric keys.",
+        "Independent native-root WINDOW substitution produced the exact generated raw-tree hash."
+      ],
+      "native_execution_sql_sha256": "9418ab047410f71eb8a280f1ba61eb1f88f7504a1f9652dfb1165f2eea68d576",
+      "generated_sql_sha256": "7466ed6f13cb4deebf933ee9454a2f9a5adbfffd757be0454bc58211587cac60"
+    },
+    {
+      "case": "window-roundtrip-inherited-last-value",
+      "source_path": "tests/sql/syntax/postgresql/window-roundtrip.sqltest",
+      "source_sql_sha256": "3c2025aa2df9c408f8a5f247d1017eb9df8c85181e13183025cb6c2fdb2bb5c9",
+      "original_ast_sha256": "0b0b94ffac06a9c94729a652a2f5d1031a1fed6caea45e68226cd2301fb585c7",
+      "generated_ast_sha256": "ab0bc54f3172a869711e20426927384446ba4ca88fd563dd17ded18cce427029",
+      "reason": "This exact authored named-window reference/inheritance is expanded to the same native partition/order/frame specification; every other normalized native tree field is identical.",
+      "evidence": [
+        "Owned 15.17 (Homebrew) probe window-roundtrip-inherited-last-value matched original/generated ordered rows with peers, NULL and separated numeric keys.",
+        "Independent native-root WINDOW substitution produced the exact generated raw-tree hash."
+      ],
+      "native_execution_sql_sha256": "fa75fc0bfc1a7a06a79d23ef22ce18049f6009c24503551b6fdec373f5478a70",
+      "generated_sql_sha256": "85fd4ec3d17d463be1e89ca6b15950fcc6c56ac03a5f1cc0bc9352d80402903c"
+    },
+    {
+      "case": "window-roundtrip-default-range-peers",
+      "source_path": "tests/sql/syntax/postgresql/window-roundtrip.sqltest",
+      "source_sql_sha256": "f63350437841d6f4576f8578c071768ad160b39454fa1eda33eadadec4f9f190",
+      "original_ast_sha256": "a5295af9a2a86f682d04062b93b53948ed6ec8eb892932ee4ef125780b5a736a",
+      "generated_ast_sha256": "08ef08ef6091d26d5026bebe5c786459424af2a9357219d662ae0c28c8324134",
+      "reason": "This exact authored named-window reference/inheritance is expanded to the same native partition/order/frame specification; every other normalized native tree field is identical.",
+      "evidence": [
+        "Owned 15.17 (Homebrew) probe window-roundtrip-default-range-peers matched original/generated ordered rows with peers, NULL and separated numeric keys.",
+        "Independent native-root WINDOW substitution produced the exact generated raw-tree hash."
+      ],
+      "native_execution_sql_sha256": "1874caae6f9b80e26798c241d6311947ce6f17725d2a367b475c63c3da60d677",
+      "generated_sql_sha256": "0665532e4b4b141cbbd4cec280c82877ba0b38a37378e704b8bc161381a23f92"
+    },
+    {
+      "case": "window-roundtrip-numeric-range-gaps",
+      "source_path": "tests/sql/syntax/postgresql/window-roundtrip.sqltest",
+      "source_sql_sha256": "1b0750cb336367bf73719daa41e7987f5564bdfcb3753b9b75b074d204a7ed70",
+      "original_ast_sha256": "43c2b088cb888202362777140b624dbcef7a065e6f8a43a7375def94847b18e0",
+      "generated_ast_sha256": "9ef163893f39b4233dc493bb0369ba2e497b8265171eaf8d5aa1ac5191335288",
+      "reason": "This exact authored named-window reference/inheritance is expanded to the same native partition/order/frame specification; every other normalized native tree field is identical.",
+      "evidence": [
+        "Owned 15.17 (Homebrew) probe window-roundtrip-numeric-range-gaps matched original/generated ordered rows with peers, NULL and separated numeric keys.",
+        "Independent native-root WINDOW substitution produced the exact generated raw-tree hash."
+      ],
+      "native_execution_sql_sha256": "a09d14bf9a822a50ae2a53092543e92a8b347fd457037678156f44eb4ee3dd32",
+      "generated_sql_sha256": "55cd6f8bf707ef8575372d2339b93f3f2dcff94915b1cf1e0a3158056e4f8f50"
+    },
+    {
+      "case": "window-roundtrip-groups-exclude-ties",
+      "source_path": "tests/sql/syntax/postgresql/window-roundtrip.sqltest",
+      "source_sql_sha256": "c4d5668f191298e97185cf2129227c5e3e311fc4f3c1cd325808a5da5a5166ab",
+      "original_ast_sha256": "0d7312cb6288bac7e7679aef9e57c4bd272f96dae9ea67f06791e4c5f5bfe1a4",
+      "generated_ast_sha256": "0ee8c2fcefd60be02079eda2f8fdcc57d58415e8f05ea62756da791ac748813b",
+      "reason": "This exact authored named-window reference/inheritance is expanded to the same native partition/order/frame specification; every other normalized native tree field is identical.",
+      "evidence": [
+        "Owned 15.17 (Homebrew) probe window-roundtrip-groups-exclude-ties matched original/generated ordered rows with peers, NULL and separated numeric keys.",
+        "Independent native-root WINDOW substitution produced the exact generated raw-tree hash."
+      ],
+      "native_execution_sql_sha256": "38c8c97958a2ae101004c4fff2fcdc4b52672115901b6dc428be378ae6a00a05",
+      "generated_sql_sha256": "83b9238bd7e9b5c0f5154be9c0fc9710bbd867c86e6d79d0d6f092945100ed3d"
+    },
+    {
+      "case": "window-roundtrip-filtered-window",
+      "source_path": "tests/sql/syntax/postgresql/window-roundtrip.sqltest",
+      "source_sql_sha256": "323c1a5dba2aa860cf4c5ffc8c4c922fa17626079bdf9e6c150b50c740c1dd81",
+      "original_ast_sha256": "cb88f710748682005b6fbd27b14d23d7cb07d0ddbcb0c6804b0e508ad8896681",
+      "generated_ast_sha256": "12285409cdebe1377b304f4bf2aad6e1cb095a413278643f7ff7bf7d6c4a3c68",
+      "reason": "This exact authored named-window reference/inheritance is expanded to the same native partition/order/frame specification; every other normalized native tree field is identical.",
+      "evidence": [
+        "Owned 15.17 (Homebrew) probe window-roundtrip-filtered-window matched original/generated ordered rows with peers, NULL and separated numeric keys.",
+        "Independent native-root WINDOW substitution produced the exact generated raw-tree hash."
+      ],
+      "native_execution_sql_sha256": "94614e0f81f36ce8d59b54e064fb96b0d08a7e4e998752a744fb57eca8f04e65",
+      "generated_sql_sha256": "cf8a7a7aa6014ece849ec4186dfb82e2322cc47958838a73f84dd77f20fae0ef"
+    },
+    {
+      "case": "window-roundtrip-empty-named-window",
+      "source_path": "tests/sql/syntax/postgresql/window-roundtrip.sqltest",
+      "source_sql_sha256": "d9e2aa20bf2812003de6c768e94c3d08dc89f6755621491330a1544c3124e7f9",
+      "original_ast_sha256": "de8cfdcde97d87831396153f1ee62186097e63f62cf531e138ce592616ab2bfb",
+      "generated_ast_sha256": "e19193a446933c738f2654bb89c5290351b445511710962888c5a33cd4226bad",
+      "reason": "This exact authored named-window reference/inheritance is expanded to the same native partition/order/frame specification; every other normalized native tree field is identical.",
+      "evidence": [
+        "Owned 15.17 (Homebrew) probe window-roundtrip-empty-named-window matched original/generated ordered rows with peers, NULL and separated numeric keys.",
+        "Independent native-root WINDOW substitution produced the exact generated raw-tree hash."
+      ],
+      "native_execution_sql_sha256": "b870e4b3459604e22ecb289f738bfa558a77d2ee1796eb79721b9f59895767b9",
+      "generated_sql_sha256": "6af20d050aebdaa79007dac0618bcc11b3b34c0e3d77ad306311ef6b46f91f50"
+    },
+    {
+      "case": "columns-constructed-array",
+      "source_path": "tests/sql/syntax/postgresql/column-roundtrip.sqltest",
+      "source_sql_sha256": "2b02573d51e2140034ed63e19fe1a7fd211c9c04495552972025885b92564e4b",
+      "original_ast_sha256": "40f7972f96226277eab15f7b1e9377fd0847b5361b88ef066a6bf4ff7546a838",
+      "generated_ast_sha256": "5bf703a4c6f7dc7490f5846c334db0ae834508a373ae8c1093637037e50ed36f",
+      "reason": "The exact constant ARRAY projection gains its native default output name array.",
+      "evidence": [
+        "Owned PostgreSQL 15.17 (Homebrew): the complete independently authored constant-input query matched ordered rows plus native described result names/types.",
+        "Native raw trees were reparsed and both exact hashes verified; the listed difference paths were manually reviewed. This entry does not approve other SQL or other tree hashes."
+      ],
+      "native_execution_sql_sha256": "677b1d4a9bc9ff163e4ca326f23ec0b2acd75e8c9da57462ec111069ffaf000c",
+      "generated_sql_sha256": "341ac8d0d08760f5fda266d585e45cc6d5e1497b0523cf0553d87df005abf101",
+      "native_columns": [
+        [
+          "array",
+          "integer[]"
+        ]
+      ],
+      "reviewed_difference_paths": [
+        "$.stmts[0].stmt.SelectStmt.targetList[0].ResTarget.name"
+      ]
+    },
+    {
+      "case": "columns-array-indirection",
+      "source_path": "tests/sql/syntax/postgresql/column-roundtrip.sqltest",
+      "source_sql_sha256": "32242f36b6cfff2eb151ecd61647c851a66138d1f1bbee09b8cc3df37acd2f44",
+      "original_ast_sha256": "8ebfb5e89d9385245779fb2d113033110d1d52db25263c710c15b2a9ea21b1b5",
+      "generated_ast_sha256": "7b21b807c8c7f06852c9f49c166ebe683076667e20e2c362561699df4411d396",
+      "reason": "The two exact subscripting/slicing projections gain their native default output name a; the native integer and integer[] result types stay distinct.",
+      "evidence": [
+        "Owned PostgreSQL 15.17 (Homebrew): the complete independently authored constant-input query matched ordered rows plus native described result names/types.",
+        "Native raw trees were reparsed and both exact hashes verified; the listed difference paths were manually reviewed. This entry does not approve other SQL or other tree hashes."
+      ],
+      "native_execution_sql_sha256": "3e756575ffbe60ff22cde2824e25825631d4490365bd65f78d421b73832fe687",
+      "generated_sql_sha256": "d73c61418447bb417a64884c98a1ee71455f7b27252ab082ab374384b035ef12",
+      "native_columns": [
+        [
+          "a",
+          "integer"
+        ],
+        [
+          "a",
+          "integer[]"
+        ]
+      ],
+      "reviewed_difference_paths": [
+        "$.stmts[0].stmt.SelectStmt.targetList[0].ResTarget.name",
+        "$.stmts[0].stmt.SelectStmt.targetList[1].ResTarget.name"
+      ]
+    },
+    {
+      "case": "columns-scalar-subselect-array",
+      "source_path": "tests/sql/syntax/postgresql/column-roundtrip.sqltest",
+      "source_sql_sha256": "4de7a58a7117b338cf48c71f01e65992c1ff4deee3b09526fb6abdccc4266038",
+      "original_ast_sha256": "dd7971a36b925f213f3e2b39177cf851c50feb2dfb9378f53d3b803e5ec75315",
+      "generated_ast_sha256": "2117d67057f91dcc2454a15b4e803ac130940e5ddb06c666bd70c270af82d4b1",
+      "reason": "Only the inner constant ARRAY projection gains its native default name array; the outer scalar-subquery subscript retains its original name and integer type.",
+      "evidence": [
+        "Owned PostgreSQL 15.17 (Homebrew): the complete independently authored constant-input query matched ordered rows plus native described result names/types.",
+        "Native raw trees were reparsed and both exact hashes verified; the listed difference paths were manually reviewed. This entry does not approve other SQL or other tree hashes."
+      ],
+      "native_execution_sql_sha256": "fc2a828655c6c3bdec8aee47d3e8399e1185482d11b7da5574a3a6e4948e8f50",
+      "generated_sql_sha256": "7e330d76b227580354fd6b560bc82916852127a370c70a064ef2ef3220b2242c",
+      "native_columns": [
+        [
+          "array",
+          "integer"
+        ]
+      ],
+      "reviewed_difference_paths": [
+        "$.stmts[0].stmt.SelectStmt.targetList[0].ResTarget.val.A_Indirection.arg.SubLink.subselect.SelectStmt.targetList[0].ResTarget.name"
+      ]
+    },
+    {
+      "case": "columns-series-implicit",
+      "source_path": "tests/sql/syntax/postgresql/column-roundtrip.sqltest",
+      "source_sql_sha256": "0a9875b04876bda3a94720aad5da667e2540de0b309d7a7d83a380c03fbd8b85",
+      "original_ast_sha256": "401c5a76b2617e0624fc8fba0c82a87d773b844cecd589ed91867f242adcebc8",
+      "generated_ast_sha256": "f128dcda0a59a919398957414605c3c359c11dd06d1db6dab8a8795d8a95a0c4",
+      "reason": "The exact built-in generate_series relation gains its effective native table/column name generate_series.",
+      "evidence": [
+        "Owned PostgreSQL 15.17 (Homebrew): the complete independently authored constant-input query matched ordered rows plus native described result names/types.",
+        "Native raw trees were reparsed and both exact hashes verified; the listed difference paths were manually reviewed. This entry does not approve other SQL or other tree hashes."
+      ],
+      "native_execution_sql_sha256": "913ff9663e3500f01a2eb16698c3e6c5002564077726e9e6728a826509710c45",
+      "generated_sql_sha256": "6c6f4722ea7e185f25bbf862f63d735cfc2924d056327dfcb8976e3deb870dde",
+      "native_columns": [
+        [
+          "generate_series",
+          "integer"
+        ]
+      ],
+      "reviewed_difference_paths": [
+        "$.stmts[0].stmt.SelectStmt.fromClause[0].RangeFunction.alias"
+      ]
+    },
+    {
+      "case": "columns-series-alias",
+      "source_path": "tests/sql/syntax/postgresql/column-roundtrip.sqltest",
+      "source_sql_sha256": "7eceb5ef35b5e8354aa315a3b4ea91181a900f03ce3cf05435d9e4cb50be3cc5",
+      "original_ast_sha256": "a3b896e2ff2e7c4636f90e770716cc6a01c849af813b42699382902f88544138",
+      "generated_ast_sha256": "7e5edcbb5c214641d6c4d0772a0bf33b0cfeeeb840d91fec9aad52f7215d92cf",
+      "reason": "The exact scalar generate_series relation adds its native effective output column name s to the existing table alias s.",
+      "evidence": [
+        "Owned PostgreSQL 15.17 (Homebrew): the complete independently authored constant-input query matched ordered rows plus native described result names/types.",
+        "Native raw trees were reparsed and both exact hashes verified; the listed difference paths were manually reviewed. This entry does not approve other SQL or other tree hashes."
+      ],
+      "native_execution_sql_sha256": "ffca619250db6e4cfd1c30b7768a5cc01f4210f0bfe293b71b78e2d3454b8285",
+      "generated_sql_sha256": "01a101e93d5521c5dcc45c925a51db2f7c970a8acf9674204dd9183bb9bdd81e",
+      "native_columns": [
+        [
+          "s",
+          "integer"
+        ]
+      ],
+      "reviewed_difference_paths": [
+        "$.stmts[0].stmt.SelectStmt.fromClause[0].RangeFunction.alias.colnames"
+      ]
+    },
+    {
+      "case": "columns-lateral-comma",
+      "source_path": "tests/sql/syntax/postgresql/column-roundtrip.sqltest",
+      "source_sql_sha256": "72aeda90e5629d31434014f4d1a95225bc63959ee9cef3af538a738a9bc5c7eb",
+      "original_ast_sha256": "6b29add4a2c8058b823b5cb181cfc9969a18a77299688b68ba57e3df1922998c",
+      "generated_ast_sha256": "526d18a5dd40aaf8537907bb3503e1ffc9ec4f8572d5674ce26e89229e7d6ac4",
+      "reason": "This exact comma join to an implicitly lateral unnest is emitted as CROSS JOIN LATERAL with the same effective scalar-function column name. The complete fixed two-row array input, including NULL, produces identical ordered rows and columns.",
+      "evidence": [
+        "Owned PostgreSQL 15.17 (Homebrew): the complete independently authored constant-input query matched ordered rows plus native described result names/types.",
+        "Native raw trees were reparsed and both exact hashes verified; the listed difference paths were manually reviewed. This entry does not approve other SQL or other tree hashes."
+      ],
+      "native_execution_sql_sha256": "fd3502239c11966871e9e0c7f502bcf85916f578aa8f5ee78c1049ecbeef7acd",
+      "generated_sql_sha256": "d7f443af82fa02be102d0feffcc86a821530ecd19e93b8dc25b36df799647b2f",
+      "native_columns": [
+        [
+          "row_id",
+          "integer"
+        ],
+        [
+          "item",
+          "integer"
+        ]
+      ],
+      "reviewed_difference_paths": [
+        "$.stmts[0].stmt.SelectStmt.fromClause.length",
+        "$.stmts[0].stmt.SelectStmt.fromClause[0].JoinExpr",
+        "$.stmts[0].stmt.SelectStmt.fromClause[0].RangeSubselect"
+      ]
+    },
+    {
+      "case": "columns-project-set",
+      "source_path": "tests/sql/syntax/postgresql/column-roundtrip.sqltest",
+      "source_sql_sha256": "a95a7d2b255ac28e1f7b04a55436a7a537a1e08d85d257a4915f724481253693",
+      "original_ast_sha256": "a81ac6359ab9f3bd3e242ed26e285fd0018ee4c3861f691068aafb8290eca2e2",
+      "generated_ast_sha256": "b4472e91997edb072cfcef5990c7fc1f5aa3fb22ce7d764a581ea7236501f88a",
+      "reason": "The two exact integer generate_series projections gain their native default output names; their unequal set lengths and NULL padding are preserved.",
+      "evidence": [
+        "Owned PostgreSQL 15.17 (Homebrew): the complete independently authored constant-input query matched ordered rows plus native described result names/types.",
+        "Native raw trees were reparsed and both exact hashes verified; the listed difference paths were manually reviewed. This entry does not approve other SQL or other tree hashes."
+      ],
+      "native_execution_sql_sha256": "ccbb1c6723de1a660937bbce71efd48ce292d53a10882de08c5ac88af925b277",
+      "generated_sql_sha256": "fa399332de502a86417839c16f5c0b6a822b90c7e8a37a5695881e7ac288efe6",
+      "native_columns": [
+        [
+          "generate_series",
+          "integer"
+        ],
+        [
+          "generate_series",
+          "integer"
+        ]
+      ],
+      "reviewed_difference_paths": [
+        "$.stmts[0].stmt.SelectStmt.targetList[0].ResTarget.name",
+        "$.stmts[0].stmt.SelectStmt.targetList[1].ResTarget.name"
+      ]
+    },
+    {
+      "case": "columns-quoted-array",
+      "source_path": "tests/sql/syntax/postgresql/column-roundtrip.sqltest",
+      "source_sql_sha256": "2a1f0d6594b6ed8cd61f94d7655947c3512fb42a8796de1d0e4ff6fd46b9a254",
+      "original_ast_sha256": "71fc5c3e6e0f1e7e4d7868f420e886aaff15279ec8797e12a0a4a3e5e4e6725b",
+      "generated_ast_sha256": "d7696ef096aa252f7c6a06b2a1a8e9146d90d32553504cc977d7fece48c1bdf8",
+      "reason": "The two exact qualified array expressions gain their native default output name Parts with case preserved; subscripting and slicing retain integer versus integer[] types.",
+      "evidence": [
+        "Owned PostgreSQL 15.17 (Homebrew): the complete independently authored constant-input query matched ordered rows plus native described result names/types.",
+        "Native raw trees were reparsed and both exact hashes verified; the listed difference paths were manually reviewed. This entry does not approve other SQL or other tree hashes."
+      ],
+      "native_execution_sql_sha256": "5fe4bff6032193e3f3d0cb24e1549e0271ef906ff789dea492e47aa7436b5a72",
+      "generated_sql_sha256": "5019cefa1c3135f780546266ff9a00f0fd1345348334afdea135a0a8effe19cd",
+      "native_columns": [
+        [
+          "Parts",
+          "integer"
+        ],
+        [
+          "Parts",
+          "integer[]"
+        ]
+      ],
+      "reviewed_difference_paths": [
+        "$.stmts[0].stmt.SelectStmt.targetList[0].ResTarget.name",
+        "$.stmts[0].stmt.SelectStmt.targetList[1].ResTarget.name"
+      ]
+    },
+    {
+      "case": "ordered-pk-not-null",
+      "source_path": "tests/sql/corpus/postgresql-ddl-probes.json",
+      "source_sql_sha256": "c365503f8f4af03e82567f249a6107b6672937fecbf445e8240aea77a7e726c5",
+      "original_ast_sha256": "16a8d2c3a45f44f8bd9665ad0c2ed32c9d6b7c44f0e2daf3e0e4b324f061766f",
+      "generated_ast_sha256": "edae4f9957b67eec6429c0e506c5bbb48821ec5a0c72c1c8eb6d3660c92ab687",
+      "reason": "For this exact authored table, only the PRIMARY KEY and NOT NULL column-constraint order is canonicalized. Column ordinal/name/type/nullability, constraint names/definitions/validation and all owned rows match on both native server versions, including the separately named PostgreSQL 18 NOT NULL constraint.",
+      "evidence": [
+        "Both exact native raw trees and their stored hashes were reparsed before manual review. Differences are the listed constraint/container ordering fields only.",
+        "Only this exact independently authored SQL and both raw-tree hashes are approved; downloaded upstream SQL was never executed or added by this review."
+      ],
+      "native_execution_sql_sha256": "c365503f8f4af03e82567f249a6107b6672937fecbf445e8240aea77a7e726c5",
+      "generated_sql_sha256": "868ed307f2f63a295a584dd969aec83b2a312aa58289753a588ebc30cd5965f0",
+      "native_execution_observations": [
+        {
+          "version": "15.17 (Homebrew)",
+          "manifest_sha256": "ba0f7b09c81ca0f65ed827c8b883fb2a4c3802c83b7379e60143ed3f3904a07e",
+          "inspection_stdout_sha256": "c12f1f1bddf41cf3c614a36dcff2b0a16c4b3f900637d1dc868d36b91d89f6dc"
+        },
+        {
+          "version": "18.7 (Debian 18.7-1.pgdg13+5)",
+          "manifest_sha256": "ba0f7b09c81ca0f65ed827c8b883fb2a4c3802c83b7379e60143ed3f3904a07e",
+          "inspection_stdout_sha256": "64d6160f57991bb215f9dba9de7e74645fb0503959576262b1d000084c21bb38"
+        }
+      ],
+      "reviewed_difference_paths": [
+        "$.stmts[0].stmt.CreateStmt.tableElts[0].ColumnDef.constraints[0].Constraint.contype",
+        "$.stmts[0].stmt.CreateStmt.tableElts[0].ColumnDef.constraints[0].Constraint.initially_valid",
+        "$.stmts[0].stmt.CreateStmt.tableElts[0].ColumnDef.constraints[0].Constraint.is_enforced",
+        "$.stmts[0].stmt.CreateStmt.tableElts[0].ColumnDef.constraints[1].Constraint.contype",
+        "$.stmts[0].stmt.CreateStmt.tableElts[0].ColumnDef.constraints[1].Constraint.initially_valid",
+        "$.stmts[0].stmt.CreateStmt.tableElts[0].ColumnDef.constraints[1].Constraint.is_enforced"
+      ]
+    },
+    {
+      "case": "ordered-default-not-null",
+      "source_path": "tests/sql/corpus/postgresql-ddl-probes.json",
+      "source_sql_sha256": "3e5ceb2de628877883cc5bcac7ab0a7251efe98c44ad98b508ca2e3cb6182b33",
+      "original_ast_sha256": "73166be0dcd096d311de71061392eea4d6b7e4029229ebfad8bff7ead1dddc49",
+      "generated_ast_sha256": "d2101054520a0ac4c5001af71ebf0995602f6e230a5dc0ce655863abd056069a",
+      "reason": "For this exact authored ADD COLUMN with a constant default, only DEFAULT and NOT NULL constraint order changes. Both native servers preserve the cost column ordinal/type/nullability/default, actual rows 31/17 and 43/17, and all constraint names/definitions/validation.",
+      "evidence": [
+        "Both exact native raw trees and their stored hashes were reparsed before manual review. Differences are the listed constraint/container ordering fields only.",
+        "Only this exact independently authored SQL and both raw-tree hashes are approved; downloaded upstream SQL was never executed or added by this review."
+      ],
+      "native_execution_sql_sha256": "3e5ceb2de628877883cc5bcac7ab0a7251efe98c44ad98b508ca2e3cb6182b33",
+      "generated_sql_sha256": "ccce621ea9e5b1e0eb310442bd0798ec255e3cb222c62508122ae43487495f8c",
+      "native_execution_observations": [
+        {
+          "version": "15.17 (Homebrew)",
+          "manifest_sha256": "ba0f7b09c81ca0f65ed827c8b883fb2a4c3802c83b7379e60143ed3f3904a07e",
+          "inspection_stdout_sha256": "2ba8ecaa2e69c2769ef3716fc94079515535d9a95cbb2a8c1b7427e4faa20832"
+        },
+        {
+          "version": "18.7 (Debian 18.7-1.pgdg13+5)",
+          "manifest_sha256": "ba0f7b09c81ca0f65ed827c8b883fb2a4c3802c83b7379e60143ed3f3904a07e",
+          "inspection_stdout_sha256": "59a98f55e5e9c7fc7ebf858d59a5a2ca58e443bbdaca45c7ee879a8b8d21addf"
+        }
+      ],
+      "reviewed_difference_paths": [
+        "$.stmts[0].stmt.AlterTableStmt.cmds[0].AlterTableCmd.def.ColumnDef.constraints[0].Constraint.contype",
+        "$.stmts[0].stmt.AlterTableStmt.cmds[0].AlterTableCmd.def.ColumnDef.constraints[0].Constraint.initially_valid",
+        "$.stmts[0].stmt.AlterTableStmt.cmds[0].AlterTableCmd.def.ColumnDef.constraints[0].Constraint.is_enforced",
+        "$.stmts[0].stmt.AlterTableStmt.cmds[0].AlterTableCmd.def.ColumnDef.constraints[0].Constraint.raw_expr",
+        "$.stmts[0].stmt.AlterTableStmt.cmds[0].AlterTableCmd.def.ColumnDef.constraints[1].Constraint.contype",
+        "$.stmts[0].stmt.AlterTableStmt.cmds[0].AlterTableCmd.def.ColumnDef.constraints[1].Constraint.initially_valid",
+        "$.stmts[0].stmt.AlterTableStmt.cmds[0].AlterTableCmd.def.ColumnDef.constraints[1].Constraint.is_enforced",
+        "$.stmts[0].stmt.AlterTableStmt.cmds[0].AlterTableCmd.def.ColumnDef.constraints[1].Constraint.raw_expr"
+      ]
+    },
+    {
+      "case": "interspersed-table-constraint",
+      "source_path": "tests/sql/corpus/postgresql-ddl-probes.json",
+      "source_sql_sha256": "f150e616e5946e429ac44b0757cec7d0c9f5399248cbc0a82f1000396a30726a",
+      "original_ast_sha256": "a050147a811574bc0efe85515d667bae2328d3b92b9c3ebf16998da5d407a4b2",
+      "generated_ast_sha256": "76feb32092c30ad536d57f5498da0f324d27d70edfa7fe869ec239f39e34d1b3",
+      "reason": "For this exact authored table, UNIQUE is emitted after the column definitions; declared column order and every column attribute plus the generated unique constraint name/definition/validation are unchanged on both native servers.",
+      "evidence": [
+        "Both exact native raw trees and their stored hashes were reparsed before manual review. Differences are the listed constraint/container ordering fields only.",
+        "Only this exact independently authored SQL and both raw-tree hashes are approved; downloaded upstream SQL was never executed or added by this review."
+      ],
+      "native_execution_sql_sha256": "f150e616e5946e429ac44b0757cec7d0c9f5399248cbc0a82f1000396a30726a",
+      "generated_sql_sha256": "de411b04fd9792487f90b6981fff78438af34ea83761de76cd04b26aded13023",
+      "native_execution_observations": [
+        {
+          "version": "15.17 (Homebrew)",
+          "manifest_sha256": "ba0f7b09c81ca0f65ed827c8b883fb2a4c3802c83b7379e60143ed3f3904a07e",
+          "inspection_stdout_sha256": "deba1e2bdf6bcdb41fdbe1327ae2a4c6dbef6ff0d56aa276edba514d6c97431e"
+        },
+        {
+          "version": "18.7 (Debian 18.7-1.pgdg13+5)",
+          "manifest_sha256": "ba0f7b09c81ca0f65ed827c8b883fb2a4c3802c83b7379e60143ed3f3904a07e",
+          "inspection_stdout_sha256": "deba1e2bdf6bcdb41fdbe1327ae2a4c6dbef6ff0d56aa276edba514d6c97431e"
+        }
+      ],
+      "reviewed_difference_paths": [
+        "$.stmts[0].stmt.CreateStmt.tableElts[2].ColumnDef",
+        "$.stmts[0].stmt.CreateStmt.tableElts[2].Constraint",
+        "$.stmts[0].stmt.CreateStmt.tableElts[3].ColumnDef",
+        "$.stmts[0].stmt.CreateStmt.tableElts[3].Constraint"
+      ]
+    },
+    {
+      "case": "cached-explicit-asc-1",
+      "source_path": "postgresql/src/test/regress/sql/merge.sql",
+      "source_sql_sha256": "2d4700a08cb70d1ba9bc78fdab874c832c6298caad841efd1cf7c0727049d37e",
+      "original_ast_sha256": "2834c495046e004b3d2f5751de5d178490de2261f8003dcecc0cdff2b3181237",
+      "generated_ast_sha256": "f643967b07aec7a0f2c86915bf3ab71629abcf1bbf49c432e2f1e67e90292c32",
+      "reason": "For this exact native tree pair, the sole difference is one SORTBY_ASC versus SORTBY_DEFAULT enum. The pinned PostgreSQL analyzer handles these two values in the same branch, selecting the same sort/equality operators, reverse=false, and unchanged NULL ordering. Every other native tree field is identical.",
+      "evidence": [
+        "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/backend/parser/parse_clause.c#L3431",
+        "PostgreSQL 18 Sorting Rows documents ASC as the default; the entire native tree matched after substituting this one enum, without dropping any fields."
+      ],
+      "verification": "exact-native-sort-enum-substitution",
+      "native_execution_performed": false,
+      "proof_source_sha256": "fd3fb69d6ea2ed0c220eba1d4479c0b79d8713b39a28c62cc4bf1428491e8ebd",
+      "substitutions": 1
+    },
+    {
+      "case": "cached-explicit-asc-2",
+      "source_path": "postgresql/src/test/regress/sql/select.sql",
+      "source_sql_sha256": "39f95f496ef7f45c2f10934542f05f8ce362807ac59baf3e9fbf84d6b62e040b",
+      "original_ast_sha256": "750a8c0a0642ad59a93b9813e11925f9c59e2a37f2f1e52673e7cef2757a54a4",
+      "generated_ast_sha256": "ccf447e43abab53fb334768787a620af46b0d7e51dccd113c622b489136d4068",
+      "reason": "For this exact native tree pair, the sole difference is one SORTBY_ASC versus SORTBY_DEFAULT enum. The pinned PostgreSQL analyzer handles these two values in the same branch, selecting the same sort/equality operators, reverse=false, and unchanged NULL ordering. Every other native tree field is identical.",
+      "evidence": [
+        "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/backend/parser/parse_clause.c#L3431",
+        "PostgreSQL 18 Sorting Rows documents ASC as the default; the entire native tree matched after substituting this one enum, without dropping any fields."
+      ],
+      "verification": "exact-native-sort-enum-substitution",
+      "native_execution_performed": false,
+      "proof_source_sha256": "fd3fb69d6ea2ed0c220eba1d4479c0b79d8713b39a28c62cc4bf1428491e8ebd",
+      "substitutions": 1
+    },
+    {
+      "case": "window-volatile-sort",
+      "source_path": "tests/sql/corpus/postgresql-ddl-probes.json",
+      "source_sql_sha256": "e255027a45912e7192940daacdb0906b65547eaec0e735a479fa0daaa4c768b6",
+      "original_ast_sha256": "1e1e27aa3390a0e26fd7f4a4fa18fe3fd4f699b30d94684d4067a5507cf27d76",
+      "generated_ast_sha256": "9a29ef5d574655e97149fb5156c56ce744f7d1d847a5bcc3d9e429a8671505d9",
+      "reason": "This exact authored view expands its single shared named window to the identical complete native view tree. Owned PostgreSQL 15.17 and 18.7 matched all finite input rows and the sequence last_value/is_called pair, confirming four ORDER BY nextval calls or one frame-bound nextval call respectively. This does not approve other volatile expressions or window trees.",
+      "evidence": [
+        "Independent native WINDOW substitution reproduced the entire generated view raw-tree hash without deleting other fields.",
+        "Both native server versions executed only the exact authored view in a fresh owned schema; the inspection checks actual sequence use as well as result rows."
+      ],
+      "native_execution_sql_sha256": "e255027a45912e7192940daacdb0906b65547eaec0e735a479fa0daaa4c768b6",
+      "generated_sql_sha256": "60904c036b746e164325392342eb52ac9e6cc9d561ae4e36a9cc845519844ea3",
+      "verification": "exact-native-view-window-expansion-and-owned-evaluation-count",
+      "native_execution_observations": [
+        {
+          "version": "15.17 (Homebrew)",
+          "manifest_sha256": "ba0f7b09c81ca0f65ed827c8b883fb2a4c3802c83b7379e60143ed3f3904a07e",
+          "inspection_stdout_sha256": "70f064ae916f0eda1ff42be4c308afd3a527ddd43e6fafd674eebf07e1b10de1",
+          "sequence_invocations": 4,
+          "sequence_is_called": true
+        },
+        {
+          "version": "18.7 (Debian 18.7-1.pgdg13+5)",
+          "manifest_sha256": "ba0f7b09c81ca0f65ed827c8b883fb2a4c3802c83b7379e60143ed3f3904a07e",
+          "inspection_stdout_sha256": "70f064ae916f0eda1ff42be4c308afd3a527ddd43e6fafd674eebf07e1b10de1",
+          "sequence_invocations": 4,
+          "sequence_is_called": true
+        }
+      ]
+    },
+    {
+      "case": "window-volatile-frame",
+      "source_path": "tests/sql/corpus/postgresql-ddl-probes.json",
+      "source_sql_sha256": "4bdab92868b565da8312dcccdd0828cfb1196442bd82953dae2f2828ae450958",
+      "original_ast_sha256": "73152fed6f46dac2b3c820a8fd5256c219102b08de432c2b1a39093885bf6ea9",
+      "generated_ast_sha256": "499e009373c710f575274191623905247e1095c62d3758272e8dc3ce8137508e",
+      "reason": "This exact authored view expands its single shared named window to the identical complete native view tree. Owned PostgreSQL 15.17 and 18.7 matched all finite input rows and the sequence last_value/is_called pair, confirming four ORDER BY nextval calls or one frame-bound nextval call respectively. This does not approve other volatile expressions or window trees.",
+      "evidence": [
+        "Independent native WINDOW substitution reproduced the entire generated view raw-tree hash without deleting other fields.",
+        "Both native server versions executed only the exact authored view in a fresh owned schema; the inspection checks actual sequence use as well as result rows."
+      ],
+      "native_execution_sql_sha256": "4bdab92868b565da8312dcccdd0828cfb1196442bd82953dae2f2828ae450958",
+      "generated_sql_sha256": "6cb4458b3b35e7b483f7a17934f0e415f117462dc09194bac16844c7b54d2aa9",
+      "verification": "exact-native-view-window-expansion-and-owned-evaluation-count",
+      "native_execution_observations": [
+        {
+          "version": "15.17 (Homebrew)",
+          "manifest_sha256": "ba0f7b09c81ca0f65ed827c8b883fb2a4c3802c83b7379e60143ed3f3904a07e",
+          "inspection_stdout_sha256": "e8f6b3993b155320750362955369473090152f54a646ce7621d0b4ae6da962e4",
+          "sequence_invocations": 1,
+          "sequence_is_called": true
+        },
+        {
+          "version": "18.7 (Debian 18.7-1.pgdg13+5)",
+          "manifest_sha256": "ba0f7b09c81ca0f65ed827c8b883fb2a4c3802c83b7379e60143ed3f3904a07e",
+          "inspection_stdout_sha256": "e8f6b3993b155320750362955369473090152f54a646ce7621d0b4ae6da962e4",
+          "sequence_invocations": 1,
+          "sequence_is_called": true
+        }
+      ]
+    },
+    {
+      "case": "cached-array-default-label",
+      "source_path": "postgresql/src/test/regress/sql/arrays.sql",
+      "source_sql_sha256": "b36ba46724a0ae088ec833fdde98e8bffe3a6b35dbd48bed9dafdc951ebde480",
+      "original_ast_sha256": "7f12a184bacf54414de8f10265b5f1fd378e9868c3da542bcc663c4bafb03e17",
+      "generated_ast_sha256": "7f9fe7b47677774fa67770f407dff99ec0f0f010acf82b124b0ff3e7ac00cf33",
+      "reason": "The sole change in this exact scalar ARRAY constructor is an explicit ResTarget name array. The pinned PostgreSQL FigureColnameInternal assigns exactly array to T_A_ArrayExpr; adding that native default name produces the identical complete generated raw tree. The literal elements, NULL and every other field are unchanged.",
+      "evidence": [
+        "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/backend/parser/parse_target.c#L1888",
+        "The complete native tree equals the generated tree after adding only its source-defined default result name."
+      ],
+      "verification": "exact-native-default-projection-name",
+      "native_execution_performed": false,
+      "proof_source_sha256": "4f0cda351acc3e2854bf55514e69cf8b7de6ad82e1535045e4523581ca0d943c"
+    }
+  ]
+}

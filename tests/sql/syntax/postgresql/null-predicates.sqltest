@@ -1,0 +1,34 @@
+# Independently authored; PostgreSQL gram.y a_expr ISNULL / a_expr NOTNULL.
+# https://www.postgresql.org/docs/18/functions-comparison.html
+
+case compact-null-predicate valid <<SQL
+SELECT NULL ISNULL, 17 NOTNULL, NULL NOTNULL;
+SQL
+
+case compact-null-arithmetic-precedence valid <<SQL
+SELECT 3 + NULL ISNULL, 3 + 5 NOTNULL;
+SQL
+
+case compact-null-boolean-precedence valid <<SQL
+SELECT NULL ISNULL AND 17 NOTNULL, NOT NULL ISNULL;
+SQL
+
+case compact-null-filter valid <<SQL
+SELECT item_id FROM audit_items WHERE item_id NOTNULL;
+SQL
+
+case compact-null-case valid <<SQL
+SELECT CASE WHEN NULL ISNULL THEN 17 ELSE 23 END;
+SQL
+
+case compact-null-bare-and-alias valid <<SQL
+SELECT NULL ISNULL AND;
+SQL
+
+case compact-null-filter-incomplete-and syntax-error ExpectedToken <<SQL
+SELECT item_id FROM audit_items WHERE item_id ISNULL AND;
+SQL
+
+case compact-null-incomplete-not syntax-error ExpectedToken <<SQL
+SELECT NOT;
+SQL

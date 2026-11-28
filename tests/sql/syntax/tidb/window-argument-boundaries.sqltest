@@ -1,0 +1,71 @@
+# Authored window argument grammar; parse/prepare/runtime are separate stages.
+# MySQL 8.4.11, MariaDB 11.4.12, TiDB 8.5.3 native PREPARE/SELECT probes.
+# OceanBase uses its pinned public mysql-mode productions only.
+
+case basic-buckets valid <<SQL
+SELECT NTILE(2) OVER(ORDER BY ABS(17));
+SQL
+
+case nth-parenthesized-arithmetic valid <<SQL
+SELECT NTH_VALUE(17,(1+1)) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-empty syntax-error ExpectedToken <<SQL
+SELECT NTILE() OVER();
+SQL
+
+case ntile-extra-argument syntax-error ExpectedToken <<SQL
+SELECT NTILE(1,2) OVER();
+SQL
+
+case nth-missing-position syntax-error ExpectedToken <<SQL
+SELECT NTH_VALUE(17) OVER();
+SQL
+
+case ntile-all syntax-error ExpectedToken <<SQL
+SELECT NTILE(ALL 1) OVER();
+SQL
+
+case lag-empty syntax-error ExpectedToken <<SQL
+SELECT LAG() OVER();
+SQL
+
+case nth-bare-arithmetic syntax-error ExpectedToken <<SQL
+SELECT NTH_VALUE(17,1+1) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-bare-arithmetic syntax-error ExpectedToken <<SQL
+SELECT NTILE(1+1) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-parenthesized-arithmetic valid <<SQL
+SELECT NTILE((1+1)) OVER(ORDER BY ABS(17));
+SQL
+
+case lag-bare-arithmetic syntax-error ExpectedToken <<SQL
+SELECT LAG(17,1+1) OVER(ORDER BY ABS(17));
+SQL
+
+case lag-default-argument valid <<SQL
+SELECT LAG(17,1,0) OVER(ORDER BY ABS(17));
+SQL
+
+case lag-variable-offset syntax-error ExpectedToken <<SQL
+SELECT LAG(17,@step) OVER();
+SQL
+
+case lag-parenthesized-offset syntax-error ExpectedToken <<SQL
+SELECT LAG(17,(1)) OVER();
+SQL
+
+case lag-negative-offset syntax-error ExpectedToken <<SQL
+SELECT LAG(17,-1) OVER();
+SQL
+
+case lead-null-offset syntax-error ExpectedToken <<SQL
+SELECT LEAD(17,NULL) OVER();
+SQL
+
+case lag-offset-parameter valid <<SQL
+SELECT LAG(17,?) OVER(ORDER BY ABS(17));
+SQL

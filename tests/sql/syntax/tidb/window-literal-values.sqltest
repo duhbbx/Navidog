@@ -1,0 +1,109 @@
+# Independently authored native execution restrictions; these are not syntax errors.
+
+case ntile-zero semantic-error InvalidQueryShape <<SQL
+SELECT NTILE(0) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-negative semantic-error InvalidQueryShape <<SQL
+SELECT NTILE(-1) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-decimal semantic-error InvalidQueryShape <<SQL
+SELECT NTILE(1.0) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-floating semantic-error InvalidQueryShape <<SQL
+SELECT NTILE(1e0) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-string semantic-error InvalidQueryShape <<SQL
+SELECT NTILE('1') OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-query-column semantic-error InvalidQueryShape <<SQL
+SELECT NTILE(item_id) OVER(ORDER BY item_id) FROM (SELECT 1 AS item_id) AS audit_items;
+SQL
+
+case nth-zero semantic-error InvalidQueryShape <<SQL
+SELECT NTH_VALUE(17,0) OVER(ORDER BY ABS(17));
+SQL
+
+case nth-negative semantic-error InvalidQueryShape <<SQL
+SELECT NTH_VALUE(17,-1) OVER(ORDER BY ABS(17));
+SQL
+
+case nth-decimal semantic-error InvalidQueryShape <<SQL
+SELECT NTH_VALUE(17,1.0) OVER(ORDER BY ABS(17));
+SQL
+
+case nth-string semantic-error InvalidQueryShape <<SQL
+SELECT NTH_VALUE(17,'1') OVER(ORDER BY ABS(17));
+SQL
+
+case lag-decimal semantic-error InvalidQueryShape <<SQL
+SELECT LAG(17,1.0) OVER(ORDER BY ABS(17));
+SQL
+
+case lead-floating semantic-error InvalidQueryShape <<SQL
+SELECT LEAD(17,1e0) OVER(ORDER BY ABS(17));
+SQL
+
+case lag-outside-uint64 semantic-error InvalidQueryShape <<SQL
+SELECT LAG(17,18446744073709551616) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-null-result valid <<SQL
+SELECT NTILE(NULL) OVER(ORDER BY ABS(17));
+SQL
+
+case nth-null-result valid <<SQL
+SELECT NTH_VALUE(17,NULL) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-execution-max valid <<SQL
+SELECT NTILE(18446744073709551615) OVER(ORDER BY ABS(17));
+SQL
+
+case nth_value-execution-max valid <<SQL
+SELECT NTH_VALUE(17,18446744073709551615) OVER(ORDER BY ABS(17));
+SQL
+
+case lag-execution-max valid <<SQL
+SELECT LAG(17,18446744073709551615) OVER(ORDER BY ABS(17));
+SQL
+
+case lead-execution-max valid <<SQL
+SELECT LEAD(17,18446744073709551615) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-boolean-true valid <<SQL
+SELECT NTILE(TRUE) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-boolean-false semantic-error InvalidQueryShape <<SQL
+SELECT NTILE(FALSE) OVER(ORDER BY ABS(17));
+SQL
+
+case nth_value-boolean-true valid <<SQL
+SELECT NTH_VALUE(17,TRUE) OVER(ORDER BY ABS(17));
+SQL
+
+case nth_value-boolean-false semantic-error InvalidQueryShape <<SQL
+SELECT NTH_VALUE(17,FALSE) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-date-type semantic-error InvalidQueryShape <<SQL
+SELECT NTILE(CURRENT_DATE) OVER(ORDER BY ABS(17));
+SQL
+
+case nth_value-date-type semantic-error InvalidQueryShape <<SQL
+SELECT NTH_VALUE(17,CURRENT_DATE) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-user-string-type semantic-error InvalidQueryShape <<SQL
+SELECT NTILE(CURRENT_USER) OVER(ORDER BY ABS(17));
+SQL
+
+case nth_value-user-string-type semantic-error InvalidQueryShape <<SQL
+SELECT NTH_VALUE(17,CURRENT_USER) OVER(ORDER BY ABS(17));
+SQL

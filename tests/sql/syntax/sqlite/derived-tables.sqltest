@@ -1,0 +1,40 @@
+# Independently authored; SQLite table-or-subquery permits an omitted alias.
+# https://www.sqlite.org/syntax/table-or-subquery.html
+# SQLite src/parse.y: seltablist ::= stl_prefix LP select RP as on_using
+
+case anonymous-derived-values valid <<SQL
+SELECT * FROM (VALUES (17), (23));
+SQL
+
+case anonymous-derived-select valid <<SQL
+SELECT item_id FROM (SELECT 17 AS item_id);
+SQL
+
+case anonymous-derived-expression valid <<SQL
+SELECT item_id + 1 AS next_id FROM (SELECT 17 AS item_id);
+SQL
+
+case anonymous-derived-join valid <<SQL
+SELECT item_id, event_id
+FROM (SELECT 17 AS item_id) CROSS JOIN (SELECT 23 AS event_id);
+SQL
+
+case anonymous-derived-nested valid <<SQL
+SELECT * FROM (SELECT * FROM (SELECT 17 AS item_id));
+SQL
+
+case anonymous-derived-with-cte valid <<SQL
+WITH q AS (SELECT * FROM (VALUES (17))) SELECT * FROM q;
+SQL
+
+case anonymous-derived-ambiguous semantic-error AmbiguousColumn <<SQL
+SELECT item_id FROM (SELECT 17 AS item_id), (SELECT 23 AS item_id);
+SQL
+
+case anonymous-derived-missing-column semantic-error UnknownColumn <<SQL
+SELECT absent FROM (SELECT 17 AS item_id);
+SQL
+
+case anonymous-derived-missing-close syntax-error ExpectedToken <<SQL
+SELECT * FROM (SELECT 17;
+SQL

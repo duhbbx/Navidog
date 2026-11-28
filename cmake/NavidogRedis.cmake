@@ -1,0 +1,63 @@
+option(NAVIDOG_WITH_REDIS "Enable the official hiredis driver" ON)
+option(NAVIDOG_BUNDLE_HIREDIS "Build the separate official hiredis package" OFF)
+if(NOT NAVIDOG_WITH_REDIS OR NAVIDOG_WIN7 OR NAVIDOG_HARMONYOS)
+    return()
+endif()
+
+if(NAVIDOG_BUNDLE_HIREDIS)
+    include(FetchContent)
+    FetchContent_Declare(navidog_hiredis
+        URL https://codeload.github.com/redis/hiredis/tar.gz/refs/tags/v1.3.0
+        URL_HASH SHA256=25cee4500f359cf5cad3b51ed62059aadfc0939b05150c1f19c7e2829123631c
+        EXCLUDE_FROM_ALL)
+    # Build the upstream library sources without its tests and packaging targets.
+    FetchContent_GetProperties(navidog_hiredis)
+    if(NOT navidog_hiredis_POPULATED)
+        cmake_policy(PUSH)
+        if(POLICY CMP0169)
+            cmake_policy(SET CMP0169 OLD)
+        endif()
+        FetchContent_Populate(navidog_hiredis)
+        cmake_policy(POP)
+    endif()
+    set(hiredis_sources alloc.c async.c hiredis.c net.c read.c sds.c sockcompat.c)
+    list(TRANSFORM hiredis_sources PREPEND "${navidog_hiredis_SOURCE_DIR}/")
+    add_library(navidog_hiredis SHARED ${hiredis_sources})
+    set_target_properties(navidog_hiredis PROPERTIES C_STANDARD 99 AUTOMOC OFF
+        OUTPUT_NAME "navidog-hiredis" WINDOWS_EXPORT_ALL_SYMBOLS ON
+        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/driver-runtime/redis"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/driver-runtime/redis")
+    foreach(config Debug Release RelWithDebInfo MinSizeRel)
+        string(TOUPPER "${config}" upper)
+        set_target_properties(navidog_hiredis PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY_${upper} "${CMAKE_BINARY_DIR}/driver-runtime/redis"
+            RUNTIME_OUTPUT_DIRECTORY_${upper} "${CMAKE_BINARY_DIR}/driver-runtime/redis")
+    endforeach()
+    configure_file("${navidog_hiredis_SOURCE_DIR}/COPYING" "${CMAKE_BINARY_DIR}/driver-runtime/redis/COPYING" COPYONLY)
+    target_include_directories(navidog_core PRIVATE "${navidog_hiredis_SOURCE_DIR}")
+    target_compile_definitions(navidog_core PRIVATE NAVIDOG_MANAGED_REDIS=1)
+    target_include_directories(navidog_hiredis PUBLIC "${navidog_hiredis_SOURCE_DIR}")
+    if(WIN32)
+        target_compile_definitions(navidog_hiredis PRIVATE _CRT_SECURE_NO_WARNINGS WIN32_LEAN_AND_MEAN)
+        target_link_libraries(navidog_hiredis PUBLIC ws2_32 crypt32)
+    endif()
+    set(navidog_redis_library navidog_hiredis)
+else()
+    find_package(hiredis 1.0 CONFIG QUIET)
+    if(TARGET hiredis::hiredis)
+        set(navidog_redis_library hiredis::hiredis)
+    elseif(PkgConfig_FOUND AND NOT CMAKE_CROSSCOMPILING)
+        pkg_check_modules(HIREDIS QUIET IMPORTED_TARGET hiredis>=1.0)
+        if(TARGET PkgConfig::HIREDIS)
+            set(navidog_redis_library PkgConfig::HIREDIS)
+        endif()
+    endif()
+endif()
+
+if(navidog_redis_library)
+    target_sources(navidog_core PRIVATE src/drivers/redis.cpp)
+    target_compile_definitions(navidog_core PRIVATE NAVIDOG_HAS_REDIS=1)
+    if(NOT NAVIDOG_BUNDLE_HIREDIS)
+        target_link_libraries(navidog_core PRIVATE ${navidog_redis_library})
+    endif()
+endif()

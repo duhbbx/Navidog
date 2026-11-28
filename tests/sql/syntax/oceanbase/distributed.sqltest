@@ -1,0 +1,52 @@
+case create-tablegroup valid <<SQL
+CREATE TABLEGROUP IF NOT EXISTS tickets SHARDING='ADAPTIVE';
+SQL
+
+case create-tablegroup-with-invalid-sharding semantic-error InvalidQueryShape <<SQL
+CREATE TABLEGROUP tickets SHARDING='RANDOM';
+SQL
+
+case assign-tablegroup valid <<SQL
+CREATE TABLE tickets (id INT PRIMARY KEY) TABLEGROUP=ticket_group
+PARTITION BY HASH(id) PARTITIONS 4;
+SQL
+
+case set-tablegroup valid <<SQL
+ALTER TABLE sales.tickets SET TABLEGROUP = ticket_group;
+SQL
+
+case unassign-tablegroup valid <<SQL
+ALTER TABLE sales.tickets SET TABLEGROUP = '';
+SQL
+
+case drop-tablegroup valid <<SQL
+DROP TABLEGROUP IF EXISTS tickets;
+SQL
+
+case drop-qualified-tablegroup syntax-error ExpectedToken <<SQL
+DROP TABLEGROUP sales.tickets;
+SQL
+
+case local-index valid <<SQL
+CREATE UNIQUE INDEX ticket_local ON sales.tickets(customer_id,id) LOCAL;
+SQL
+
+case global-index valid <<SQL
+CREATE INDEX ticket_global ON sales.tickets(customer_id) GLOBAL;
+SQL
+
+case show-tablegroups valid <<SQL
+SHOW TABLEGROUPS;
+SQL
+
+case show-create-tablegroup valid <<SQL
+SHOW CREATE TABLEGROUP ticket_group;
+SQL
+
+case ob-version valid <<SQL
+SELECT OB_VERSION();
+SQL
+
+case wrong-database-auto-random unsupported <<SQL
+CREATE TABLE t (id BIGINT PRIMARY KEY AUTO_RANDOM);
+SQL

@@ -1,0 +1,1322 @@
+case insert-select valid <<SQL
+INSERT INTO archived_orders (id, total)
+SELECT id, total FROM orders WHERE status = 'closed';
+SQL
+
+case missing-table-name syntax-error ExpectedToken <<SQL
+SELECT 1 FROM;
+SQL
+
+case insert-on-duplicate-key-update valid <<SQL
+INSERT INTO t1 (a, b, c) VALUES (1, 2, 3) ON DUPLICATE KEY UPDATE c = c + 1;
+SQL
+
+case with-recursive-cte valid <<SQL
+WITH RECURSIVE cte (n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM cte WHERE n < 5) SELECT * FROM cte;
+SQL
+
+case window-named-window valid <<SQL
+SELECT val, ROW_NUMBER() OVER w AS rn FROM numbers WINDOW w AS (ORDER BY val);
+SQL
+
+case json-table-basic valid <<SQL
+SELECT * FROM JSON_TABLE('[{"a":1}]', '$[*]' COLUMNS (a INT PATH '$.a')) AS jt;
+SQL
+
+case insert-default-values valid <<SQL
+INSERT INTO tbl_name () VALUES();
+SQL
+
+case select-limit-offset valid <<SQL
+SELECT * FROM tbl LIMIT 5, 10;
+SQL
+
+case insert-row-alias-on-dup valid <<SQL
+INSERT INTO t1 VALUES (1, 2, 3) AS new ON DUPLICATE KEY UPDATE c = new.c + 1;
+SQL
+
+case replace-into valid <<SQL
+REPLACE INTO t1 (id, name) VALUES (1, 'a');
+SQL
+
+case insert-set-form valid <<SQL
+INSERT INTO t1 SET a = 1, b = 2;
+SQL
+
+case update-join valid <<SQL
+UPDATE t1 JOIN t2 ON t1.id = t2.id SET t1.val = t2.val WHERE t2.flag = 1;
+SQL
+
+case delete-using valid <<SQL
+DELETE FROM t1 USING t1 JOIN t2 ON t1.id = t2.id WHERE t2.flag = 0;
+SQL
+
+case straight-join valid <<SQL
+SELECT * FROM t1 STRAIGHT_JOIN t2 ON t1.id = t2.id;
+SQL
+
+case missing-table-name syntax-error ExpectedToken <<SQL
+SELECT 1 FROM; -- 这里应当报缺少表名
+SQL
+
+case reserved-word-as-identifier syntax-error <<SQL
+SELECT order FROM t1;
+SQL
+
+case insert-on-dup-qualified-target valid <<SQL
+INSERT INTO t1 (a, b) VALUES (1, 2) ON DUPLICATE KEY UPDATE t1.a = 3;
+SQL
+
+case unclosed-string syntax-error LexicalError <<SQL
+SELECT 'abc FROM t1;
+SQL
+
+case select-empty-column-list syntax-error <<SQL
+SELECT FROM t1;
+SQL
+
+catalog no_cte <<SQL
+CREATE TABLE unrelated (n INT);
+SQL
+
+catalog same_named_base <<SQL
+CREATE TABLE cte (n INT);
+SQL
+
+# A nonrecursive CTE body can read a base relation with the same name.
+case nonrecursive-cte-missing-base-table semantic-error UnknownTable catalog=no_cte <<SQL
+WITH cte (n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM cte WHERE n < 5) SELECT * FROM cte;
+SQL
+
+case nonrecursive-cte-reads-same-named-base-table valid catalog=same_named_base <<SQL
+WITH cte (n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM cte WHERE n < 5) SELECT * FROM cte;
+SQL
+
+case procedure-declare-valid routine-valid <<SQL
+CREATE PROCEDURE p1() BEGIN DECLARE v1 INT DEFAULT 0; SET v1 = 1; END;
+SQL
+
+case procedure-set-default-invalid routine-error <<SQL
+CREATE PROCEDURE p1() BEGIN DECLARE v1 INT; SET v1 = DEFAULT; END;
+SQL
+
+
+case table-statement-basic valid <<SQL
+TABLE t1;
+SQL
+
+case table-statement-order-limit valid <<SQL
+TABLE t1 ORDER BY id LIMIT 5;
+SQL
+
+case table-union-with-select valid <<SQL
+TABLE t1 UNION SELECT * FROM t2;
+SQL
+
+case table-in-subquery valid <<SQL
+SELECT * FROM t1 WHERE id IN (TABLE t2);
+SQL
+
+
+case start-transaction valid <<SQL
+START TRANSACTION;
+SQL
+
+case savepoint-rollback valid <<SQL
+SAVEPOINT sp1;
+ROLLBACK TO SAVEPOINT sp1;
+RELEASE SAVEPOINT sp1;
+SQL
+
+case prepare-execute-deallocate valid <<SQL
+PREPARE stmt FROM 'SELECT 1';
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+SQL
+
+
+
+case create-table-basic valid <<SQL
+CREATE TABLE t_new (id INT PRIMARY KEY, name VARCHAR(32) NOT NULL);
+SQL
+
+case alter-table-add-column valid <<SQL
+ALTER TABLE t1 ADD COLUMN c INT DEFAULT 0;
+SQL
+
+case create-index-basic valid <<SQL
+CREATE INDEX idx_name ON t1 (name);
+SQL
+
+case create-view-basic valid <<SQL
+CREATE VIEW v1 AS SELECT id, name FROM t1;
+SQL
+
+
+case procedure-if-statement routine-valid <<SQL
+CREATE PROCEDURE p_if() BEGIN IF 1 = 1 THEN SELECT 1; END IF; END;
+SQL
+
+case procedure-while-loop routine-valid <<SQL
+CREATE PROCEDURE p_while() BEGIN DECLARE i INT DEFAULT 0; WHILE i < 3 DO SET i = i + 1; END WHILE; END;
+SQL
+
+case procedure-case-statement routine-valid <<SQL
+CREATE PROCEDURE p_case() BEGIN CASE 1 WHEN 1 THEN SELECT 1; ELSE SELECT 0; END CASE; END;
+SQL
+
+
+case table-with-where syntax-error <<SQL
+TABLE t1 WHERE id = 1;
+SQL
+
+case subquery-limit-in-not-supported unsupported <<SQL
+SELECT * FROM t1 WHERE s1 IN (SELECT s2 FROM t2 ORDER BY s1 LIMIT 1);
+SQL
+
+
+catalog users <<DDL
+CREATE TABLE users (id integer, name varchar(32), email varchar(64));
+DDL
+
+case insert-select-valid valid catalog=users <<SQL
+INSERT INTO users (id, name) SELECT id, name FROM users;
+SQL
+
+case update-missing-column semantic-error UnknownColumn catalog=users <<SQL
+UPDATE users SET missing_col = 1;
+SQL
+
+
+
+
+case create-table-expression-default valid <<SQL
+CREATE TABLE t_def (id INT, created DATE DEFAULT (CURRENT_DATE));
+SQL
+
+case create-table-blob-default-no-parens syntax-error <<SQL
+CREATE TABLE t_bad (b BLOB DEFAULT 'abc');
+SQL
+
+
+case parenthesized-query-union valid <<SQL
+(TABLE t1 ORDER BY a) UNION (TABLE t2 ORDER BY b) ORDER BY z;
+SQL
+
+case set-role-none valid <<SQL
+SET ROLE NONE;
+SQL
+
+case set-default-role valid <<SQL
+SET DEFAULT ROLE ALL TO 'user1'@'localhost';
+SQL
+
+
+case function valid <<SQL
+CREATE DEFINER=`root`@`localhost` FUNCTION `new_function`(p_value INT) RETURNS int
+    DETERMINISTIC
+BEGIN
+
+    RETURN p_value + 1;
+END
+SQL
+
+
+
+case create-view-valid-basic valid <<SQL
+CREATE VIEW v AS SELECT qty, price, qty*price AS value FROM t;
+SQL
+
+case create-view-valid-no-table valid <<SQL
+CREATE VIEW v_today (today) AS SELECT CURRENT_DATE;
+SQL
+
+case create-view-valid-column-list valid <<SQL
+CREATE VIEW v (a, b) AS SELECT c1, c2 FROM t;
+SQL
+
+case create-view-valid-or-replace valid <<SQL
+CREATE OR REPLACE VIEW v AS SELECT qty, price FROM t;
+SQL
+
+case create-view-valid-algorithm-merge valid <<SQL
+CREATE ALGORITHM = MERGE VIEW v_merge (vc1, vc2) AS SELECT c1, c2 FROM t WHERE c3 > 100;
+SQL
+
+case create-view-valid-algorithm-temptable valid <<SQL
+CREATE ALGORITHM = TEMPTABLE VIEW v_temp AS SELECT DISTINCT c1 FROM t;
+SQL
+
+case create-view-valid-definer valid <<SQL
+CREATE DEFINER = 'admin'@'localhost' VIEW v AS SELECT c1 FROM t;
+SQL
+
+case create-view-valid-sql-security-invoker valid <<SQL
+CREATE SQL SECURITY INVOKER VIEW v AS SELECT c1 FROM t;
+SQL
+
+case create-view-valid-check-option valid <<SQL
+CREATE VIEW v_adult AS SELECT * FROM users WHERE age >= 18 WITH CHECK OPTION;
+SQL
+
+case create-view-valid-check-option-local valid <<SQL
+CREATE VIEW v2 AS SELECT * FROM v1 WHERE a > 0 WITH LOCAL CHECK OPTION;
+SQL
+
+case create-view-valid-check-option-cascaded valid <<SQL
+CREATE VIEW v3 AS SELECT * FROM v1 WHERE a > 0 WITH CASCADED CHECK OPTION;
+SQL
+
+case create-view-valid-join valid <<SQL
+CREATE VIEW v_join AS SELECT e.name, d.dept_name FROM employees e JOIN departments d ON e.dept_id = d.id;
+SQL
+
+case create-view-valid-union valid <<SQL
+CREATE VIEW v_union AS SELECT id FROM t1 UNION ALL SELECT id FROM t2;
+SQL
+
+case create-view-valid-subquery valid <<SQL
+CREATE VIEW v_sub AS SELECT * FROM t1 WHERE id IN (SELECT id FROM t2);
+SQL
+
+case create-view-valid-order-by valid <<SQL
+CREATE VIEW v_ordered AS SELECT c1, c2 FROM t ORDER BY c1 DESC;
+SQL
+
+case create-view-valid-qualified-name valid <<SQL
+CREATE VIEW test.v AS SELECT * FROM t;
+SQL
+
+case create-view-valid-expression valid <<SQL
+CREATE VIEW v_expr AS SELECT c1, UPPER(c2) AS upper_c2, c3 + 1 AS next_c3 FROM t;
+SQL
+
+case create-view-syntax-missing-commas-invalid syntax-error <<SQL
+CREATE VIEW ClientMedical (LastName FirstName Highest) AS SELECT Client.LastName, Client.FirstName, Qualifications.Highest FROM Client INNER JOIN Qualifications ON Qualifications.idClient = Client.idClient;
+SQL
+
+case create-view-valid-parenthesized-union valid <<SQL
+CREATE VIEW v AS (SELECT c1 FROM t1) UNION (SELECT c1 FROM t2);
+SQL
+
+case create-view-syntax-system-variable-invalid semantic-error InvalidQueryShape <<SQL
+CREATE VIEW v AS SELECT @@version;
+SQL
+
+case create-view-syntax-user-variable-invalid semantic-error InvalidQueryShape <<SQL
+CREATE VIEW v AS SELECT @myvar;
+SQL
+
+catalog temporary_source <<SQL
+CREATE TEMPORARY TABLE temp_table (id INT);
+SQL
+
+case create-view-syntax-temporary-table-invalid semantic-error InvalidQueryShape catalog=temporary_source <<SQL
+CREATE VIEW v AS SELECT * FROM temp_table;
+SQL
+
+case create-view-syntax-prepared-param-invalid semantic-error InvalidQueryShape <<SQL
+CREATE VIEW v AS SELECT ?;
+SQL
+
+case create-view-syntax-duplicate-columns-invalid semantic-error DuplicateAlias <<SQL
+CREATE VIEW v AS SELECT c1 AS a, c2 AS a FROM t;
+SQL
+
+
+case view-explicit-unique-columns valid <<SQL
+CREATE VIEW v (a, b) AS SELECT 1 AS same_label, 2 AS same_label;
+SQL
+
+case view-invalid-explicit-column-count semantic-error InvalidQueryShape <<SQL
+CREATE VIEW v (a, b) AS SELECT 1;
+SQL
+
+case view-invalid-nested-variable semantic-error InvalidQueryShape <<SQL
+CREATE VIEW v AS SELECT d.x FROM (SELECT @session_value AS x) d;
+SQL
+
+case create-table-valid-basic valid <<SQL
+CREATE TABLE pet (name VARCHAR(20), owner VARCHAR(20), species VARCHAR(20), sex CHAR(1), birth DATE, death DATE);
+SQL
+
+case create-table-valid-primary-key valid <<SQL
+CREATE TABLE t1 (a INT, b CHAR(20), PRIMARY KEY (a));
+SQL
+
+case create-table-valid-auto-increment valid <<SQL
+CREATE TABLE t5 (id INT AUTO_INCREMENT, b CHAR(20), PRIMARY KEY (id));
+SQL
+
+case create-table-valid-composite-pk valid <<SQL
+CREATE TABLE t6 (id INT AUTO_INCREMENT, a INT, b CHAR(20), PRIMARY KEY (id, a));
+SQL
+
+case create-table-valid-engine valid <<SQL
+CREATE TABLE t1 (a INT, b CHAR(20), PRIMARY KEY (a)) ENGINE=InnoDB;
+SQL
+
+case create-table-valid-qualified-name valid <<SQL
+CREATE TABLE db1.t1 (i INT);
+SQL
+
+case create-table-valid-if-not-exists valid <<SQL
+CREATE TABLE IF NOT EXISTS t1 (i INT);
+SQL
+
+case create-table-valid-temporary valid <<SQL
+CREATE TEMPORARY TABLE temp_t (id INT, name VARCHAR(20));
+SQL
+
+case create-table-valid-like valid <<SQL
+CREATE TABLE new_tbl LIKE orig_tbl;
+SQL
+
+case create-table-valid-as-select valid <<SQL
+CREATE TABLE new_tbl AS SELECT * FROM orig_tbl;
+SQL
+
+case create-table-valid-charset-collate valid <<SQL
+CREATE TABLE t (c CHAR(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin);
+SQL
+
+case create-table-valid-default-value valid <<SQL
+CREATE TABLE t_user (id INT PRIMARY KEY, status TINYINT DEFAULT 1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+SQL
+
+case create-table-valid-index valid <<SQL
+CREATE TABLE t_order (id INT PRIMARY KEY, user_id INT, amount DECIMAL(10,2), INDEX idx_user (user_id));
+SQL
+
+case create-table-valid-unique-key valid <<SQL
+CREATE TABLE t_account (id INT PRIMARY KEY, email VARCHAR(100), UNIQUE KEY uk_email (email));
+SQL
+
+case inline-index-unnamed-and-prefix valid <<SQL
+CREATE TABLE t (u INT, name VARCHAR(50), KEY (u DESC), INDEX idx (name(6), u) USING BTREE);
+SQL
+
+case inline-index-named-repeated semantic-error DuplicateAlias <<SQL
+CREATE TABLE t (u INT, KEY same_name (u), INDEX SAME_NAME (u));
+SQL
+
+case inline-index-column-unknown semantic-error UnknownColumn <<SQL
+CREATE TABLE t (u INT, UNIQUE KEY by_col (missing));
+SQL
+
+case inline-index-zero-prefix syntax-error InvalidQueryShape <<SQL
+CREATE TABLE t (name VARCHAR(50), INDEX idx (name(0)));
+SQL
+
+case inline-index-ctas valid <<SQL
+CREATE TABLE t (KEY projected_key (projected)) AS SELECT 10 AS projected;
+SQL
+
+case create-table-blob-unparenthesized-default syntax-error <<SQL
+CREATE TABLE t_bad (b BLOB DEFAULT 'abc');
+SQL
+
+case create-table-syntax-reserved-word-invalid syntax-error <<SQL
+CREATE TABLE asset (id INT, condition VARCHAR(255), GROUP VARCHAR(255), STATUS VARCHAR(255));
+SQL
+
+case create-table-syntax-trailing-comma-invalid syntax-error <<SQL
+CREATE TABLE student (student_id INT PRIMARY KEY, name VARCHAR(20), major VARCHAR(20),);
+SQL
+
+case create-table-auto-increment-no-key semantic-error InvalidQueryShape <<SQL
+CREATE TABLE bad_t (id INT AUTO_INCREMENT, b CHAR(20));
+SQL
+
+case create-table-syntax-varchar-no-length-invalid syntax-error ExpectedToken <<SQL
+CREATE TABLE bad_t2 (name VARCHAR);
+SQL
+
+case create-table-syntax-numeric-table-name-invalid syntax-error <<SQL
+CREATE TABLE 23 (a INT);
+SQL
+
+case create-table-syntax-missing-closing-paren-invalid syntax-error <<SQL
+CREATE TABLE bad_t3 (id INT, name VARCHAR(20);
+SQL
+
+
+
+case create-function-valid-simple valid <<SQL
+CREATE FUNCTION f_add(a INT, b INT) RETURNS INT NO SQL RETURN a + b;
+SQL
+
+case create-function-valid-deterministic valid <<SQL
+CREATE FUNCTION f_square(num INT) RETURNS INT DETERMINISTIC RETURN num * num;
+SQL
+
+case create-function-valid-reads-sql-data valid <<SQL
+CREATE FUNCTION f_get_total() RETURNS DECIMAL(9,2) READS SQL DATA RETURN (SELECT SUM(col_price * col_quantity) FROM book);
+SQL
+
+case create-function-valid-multi-statement valid <<SQL
+DELIMITER $$
+CREATE FUNCTION f_get_quantity(_id INT) RETURNS INT READS SQL DATA
+BEGIN
+    IF _id > 0 THEN
+        RETURN (SELECT SUM(col_quantity) FROM book WHERE id_publisher = _id);
+    ELSE
+        RETURN (SELECT SUM(col_quantity) FROM book);
+    END IF;
+END$$
+DELIMITER ;
+SQL
+
+case create-function-valid-if-elseif valid <<SQL
+DELIMITER $$
+CREATE FUNCTION cleanstr(string1 VARCHAR(60)) RETURNS VARCHAR(60) DETERMINISTIC
+BEGIN
+    IF LOWER(string1) IN ('cabo verde', 'cambodia', 'cameroon') THEN
+        RETURN string1;
+    ELSEIF REGEXP_LIKE(string1, '^ca', 'i') = 1 THEN
+        RETURN string1;
+    ELSE
+        RETURN string1;
+    END IF;
+END$$
+DELIMITER ;
+SQL
+
+case create-function-valid-with-comment valid <<SQL
+CREATE FUNCTION f_add(a INT, b INT) RETURNS INT NO SQL COMMENT 'add two integers' RETURN a + b;
+SQL
+
+case create-function-valid-sql-security-invoker valid <<SQL
+CREATE FUNCTION f_test() RETURNS INT SQL SECURITY INVOKER READS SQL DATA RETURN (SELECT COUNT(*) FROM t);
+SQL
+
+case create-function-valid-loadable valid <<SQL
+CREATE FUNCTION metaphon RETURNS STRING SONAME 'udf_example.so';
+SQL
+
+case create-function-no-return routine-error InvalidQueryShape <<SQL
+CREATE FUNCTION f_bad() RETURNS INT BEGIN DECLARE x INT; SET x = 1; END;
+SQL
+
+case create-function-syntax-return-select-no-paren-invalid routine-error ExpectedToken <<SQL
+CREATE FUNCTION f_bad() RETURNS INT READS SQL DATA RETURN SELECT COUNT(*) FROM users;
+SQL
+
+case create-function-nested-if-complete routine-valid <<SQL
+DELIMITER $$
+CREATE FUNCTION f_bad(x INT) RETURNS INT DETERMINISTIC
+BEGIN
+    IF x > 0 THEN
+        IF x > 10 THEN
+            RETURN 2;
+        END IF;
+    ELSE
+        RETURN 0;
+    END IF;
+END$$
+DELIMITER ;
+SQL
+
+# Binary logging may require an explicit characteristic depending on server settings.
+case create-function-with-default-characteristics routine-valid <<SQL
+CREATE FUNCTION fun(n INT) RETURNS INT BEGIN DECLARE total INT DEFAULT 0; WHILE n>0 DO SET total = total + n; SET n = n - 1; END WHILE; RETURN total; END;
+SQL
+
+catalog two_columns <<SQL
+CREATE TABLE t (c1 INT, c2 INT);
+SQL
+
+case create-function-scalar-subquery-multiple-columns routine-error InvalidQueryShape catalog=two_columns <<SQL
+CREATE FUNCTION f_bad() RETURNS INT READS SQL DATA RETURN (SELECT * FROM t);
+SQL
+
+case create-function-commit-invalid routine-error InvalidQueryShape <<SQL
+CREATE FUNCTION f_bad() RETURNS INT MODIFIES SQL DATA BEGIN COMMIT; RETURN 1; END;
+SQL
+
+
+case procedure-valid-no-param valid <<SQL
+CREATE PROCEDURE p1() SELECT 1;
+SQL
+
+case procedure-valid-no-param-call-without-parens valid <<SQL
+CREATE PROCEDURE p2() BEGIN SELECT 'hello'; END;
+SQL
+
+case procedure-valid-in-param valid <<SQL
+CREATE PROCEDURE p_in(IN x INT) BEGIN SELECT x * 2; END;
+SQL
+
+case procedure-valid-out-param valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_out(OUT ver VARCHAR(25))
+BEGIN
+  SELECT VERSION() INTO ver;
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-inout-param valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_inout(INOUT incr INT)
+BEGIN
+  SET incr = incr + 1;
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-mixed-params valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_mixed(IN a INT, OUT b INT, INOUT c INT)
+BEGIN
+  SET b = a * 2;
+  SET c = c + a;
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-if-elseif valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_grade(IN score INT, OUT grade CHAR(1))
+BEGIN
+  IF score >= 90 THEN SET grade = 'A';
+  ELSEIF score >= 80 THEN SET grade = 'B';
+  ELSEIF score >= 70 THEN SET grade = 'C';
+  ELSE SET grade = 'F';
+  END IF;
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-case-statement valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_case(IN x INT, OUT msg VARCHAR(20))
+BEGIN
+  CASE x
+    WHEN 1 THEN SET msg = 'one';
+    WHEN 2 THEN SET msg = 'two';
+    ELSE SET msg = 'other';
+  END CASE;
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-while-loop valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_while(IN n INT, OUT total INT)
+BEGIN
+  DECLARE i INT DEFAULT 0;
+  SET total = 0;
+  WHILE i < n DO
+    SET total = total + i;
+    SET i = i + 1;
+  END WHILE;
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-repeat-loop valid <<SQL
+DELIMITER //
+CREATE PROCEDURE dorepeat(p1 INT)
+BEGIN
+  SET @x = 0;
+  REPEAT SET @x = @x + 1; UNTIL @x > p1 END REPEAT;
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-loop-leave valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_loop(IN n INT)
+BEGIN
+  DECLARE i INT DEFAULT 0;
+  my_loop: LOOP
+    SET i = i + 1;
+    IF i >= n THEN LEAVE my_loop; END IF;
+  END LOOP;
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-cursor valid <<SQL
+DELIMITER //
+CREATE PROCEDURE curdemo()
+BEGIN
+  DECLARE done INT DEFAULT FALSE;
+  DECLARE a CHAR(16);
+  DECLARE b, c INT;
+  DECLARE cur1 CURSOR FOR SELECT id, data FROM test.t1;
+  DECLARE cur2 CURSOR FOR SELECT i FROM test.t2;
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+  OPEN cur1; OPEN cur2;
+  read_loop: LOOP
+    FETCH cur1 INTO a, b;
+    FETCH cur2 INTO c;
+    IF done THEN LEAVE read_loop; END IF;
+    IF b < c THEN INSERT INTO test.t3 VALUES (a,b);
+    ELSE INSERT INTO test.t3 VALUES (a,c);
+    END IF;
+  END LOOP;
+  CLOSE cur1; CLOSE cur2;
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-handler-exit valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_exit_handler()
+BEGIN
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    SELECT 'error occurred';
+  END;
+  INSERT INTO t1 VALUES (1);
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-handler-continue valid <<SQL
+DELIMITER //
+CREATE PROCEDURE handlerdemo()
+BEGIN
+  DECLARE CONTINUE HANDLER FOR SQLSTATE '23000' SET @x2 = 1;
+  SET @x = 1;
+  INSERT INTO test.t VALUES (1);
+  SET @x = 2;
+  INSERT INTO test.t VALUES (1);
+  SET @x = 3;
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-named-condition valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_condition()
+BEGIN
+  DECLARE no_such_table CONDITION FOR SQLSTATE '42S02';
+  DECLARE CONTINUE HANDLER FOR no_such_table
+  BEGIN
+    SELECT 'table missing';
+  END;
+  SELECT * FROM nonexistent_table;
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-get-diagnostics valid <<SQL
+DELIMITER //
+CREATE PROCEDURE do_insert(value INT)
+BEGIN
+  DECLARE code CHAR(5) DEFAULT '00000';
+  DECLARE msg TEXT;
+  DECLARE nrows INT;
+  DECLARE CONTINUE HANDLER FOR SQLEXCEPTION
+  BEGIN
+    GET DIAGNOSTICS CONDITION 1 code = RETURNED_SQLSTATE, msg = MESSAGE_TEXT;
+  END;
+  INSERT INTO t1 VALUES (value);
+  GET DIAGNOSTICS nrows = ROW_COUNT;
+  SELECT code, msg, nrows;
+END //
+DELIMITER ;
+SQL
+
+case get-diagnostics-locals-and-stacked routine-valid <<SQL
+CREATE PROCEDURE p(IN p_index INT) BEGIN
+  DECLARE state_value CHAR(5);
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    GET STACKED DIAGNOSTICS CONDITION p_index state_value=RETURNED_SQLSTATE, @err=MYSQL_ERRNO;
+  END;
+  GET CURRENT DIAGNOSTICS @count=NUMBER;
+END;
+SQL
+
+case get-diagnostics-unknown-local routine-error UnknownColumn <<SQL
+CREATE PROCEDURE p() BEGIN GET DIAGNOSTICS missing=NUMBER; END;
+SQL
+
+case get-diagnostics-mixed-information routine-error ExpectedToken <<SQL
+CREATE PROCEDURE p() BEGIN GET DIAGNOSTICS CONDITION 1 @x=ROW_COUNT; END;
+SQL
+
+case procedure-valid-dynamic-sql valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_dynamic(IN tbl VARCHAR(64))
+BEGIN
+  SET @s = CONCAT('SELECT COUNT(*) FROM `', tbl, '`');
+  PREPARE stmt FROM @s;
+  EXECUTE stmt;
+  DEALLOCATE PREPARE stmt;
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-dynamic-with-param valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_dynamic_where(IN min_id INT)
+BEGIN
+  SET @s = 'SELECT * FROM t WHERE id > ?';
+  PREPARE stmt FROM @s;
+  SET @a = min_id;
+  EXECUTE stmt USING @a;
+  DEALLOCATE PREPARE stmt;
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-multiple-resultsets valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_multi_rs()
+BEGIN
+  SELECT 'first';
+  SELECT 'second';
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-transaction valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_tx(IN a INT, IN b INT)
+BEGIN
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+  END;
+  START TRANSACTION;
+  UPDATE accounts SET balance = balance - a WHERE id = 1;
+  UPDATE accounts SET balance = balance + b WHERE id = 2;
+  COMMIT;
+END //
+DELIMITER ;
+SQL
+
+case procedure-prepared-operation-in-function routine-error InvalidQueryShape <<SQL
+CREATE FUNCTION not_dynamic() RETURNS INT BEGIN PREPARE s FROM 'SELECT 1'; RETURN 1; END;
+SQL
+
+case procedure-valid-label-block valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_label()
+BEGIN
+  lbl: BEGIN
+    SELECT 'inside';
+    LEAVE lbl;
+    SELECT 'never';
+  END lbl;
+END //
+DELIMITER ;
+SQL
+
+case block-label-casefold routine-valid <<SQL
+CREATE PROCEDURE p() Outer_Block: BEGIN
+  LEAVE outer_block;
+END OUTER_BLOCK;
+SQL
+
+case block-label-iterate-invalid routine-error InvalidQueryShape <<SQL
+CREATE PROCEDURE p() outer_block: BEGIN ITERATE outer_block; END outer_block;
+SQL
+
+case block-end-label-mismatch routine-error InvalidQueryShape <<SQL
+CREATE PROCEDURE p() outer_block: BEGIN DO 0; END wrong_block;
+SQL
+
+case block-label-shadowing-invalid routine-error DuplicateAlias <<SQL
+CREATE PROCEDURE p() same_name: BEGIN same_name: BEGIN DO 0; END; END;
+SQL
+
+case block-label-hidden-in-handler routine-error InvalidQueryShape <<SQL
+CREATE PROCEDURE p() outer_block: BEGIN
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION LEAVE outer_block;
+  DO 0;
+END outer_block;
+SQL
+
+case procedure-valid-declare-variables valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_vars()
+BEGIN
+  DECLARE a INT DEFAULT 10;
+  DECLARE b VARCHAR(50) DEFAULT 'hello';
+  DECLARE c DATETIME DEFAULT NOW();
+  SELECT a, b, c;
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-sql-security-invoker valid <<SQL
+CREATE PROCEDURE p_invoker() SQL SECURITY INVOKER SELECT CURRENT_USER();
+SQL
+
+case procedure-valid-sql-security-definer valid <<SQL
+CREATE PROCEDURE p_definer() SQL SECURITY DEFINER SELECT CURRENT_USER();
+SQL
+
+case procedure-valid-comment valid <<SQL
+CREATE PROCEDURE p_comment() COMMENT 'this is a test procedure' SELECT 1;
+SQL
+
+case procedure-valid-deterministic valid <<SQL
+CREATE PROCEDURE p_det() DETERMINISTIC SELECT 1;
+SQL
+
+case procedure-valid-reads-sql-data valid <<SQL
+CREATE PROCEDURE p_reads() READS SQL DATA SELECT COUNT(*) FROM t;
+SQL
+
+case procedure-valid-modifies-sql-data valid <<SQL
+CREATE PROCEDURE p_modifies() MODIFIES SQL DATA INSERT INTO t VALUES (1);
+SQL
+
+case procedure-valid-no-sql valid <<SQL
+CREATE PROCEDURE p_nosql() NO SQL SET @x = 1;
+SQL
+
+case procedure-valid-contains-sql valid <<SQL
+CREATE PROCEDURE p_contains() CONTAINS SQL SELECT 1;
+SQL
+
+case procedure-valid-nested-block valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_nested()
+BEGIN
+  DECLARE x INT DEFAULT 1;
+  outer_blk: BEGIN
+    DECLARE y INT DEFAULT 2;
+    inner_blk: BEGIN
+      DECLARE z INT DEFAULT 3;
+      SELECT x + y + z;
+    END inner_blk;
+  END outer_blk;
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-iterate valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_iterate(IN n INT)
+BEGIN
+  DECLARE i INT DEFAULT 0;
+  DECLARE sum INT DEFAULT 0;
+  myloop: LOOP
+    SET i = i + 1;
+    IF i > n THEN LEAVE myloop; END IF;
+    IF i % 2 = 0 THEN ITERATE myloop; END IF;
+    SET sum = sum + i;
+  END LOOP;
+  SELECT sum;
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-recursion valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_recursive(IN n INT, OUT result INT)
+BEGIN
+  IF n <= 1 THEN
+    SET result = 1;
+  ELSE
+    CALL p_recursive(n - 1, result);
+    SET result = result * n;
+  END IF;
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-signal valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_signal(IN x INT)
+BEGIN
+  IF x < 0 THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'negative not allowed';
+  END IF;
+  SELECT x;
+END //
+DELIMITER ;
+SQL
+
+case procedure-unknown-signal-condition routine-error InvalidQueryShape <<SQL
+CREATE PROCEDURE p() BEGIN SIGNAL unknown_condition; END;
+SQL
+
+case procedure-signal-error-code-condition routine-error InvalidQueryShape <<SQL
+CREATE PROCEDURE p() BEGIN DECLARE denied CONDITION FOR 1213; SIGNAL denied; END;
+SQL
+
+case procedure-signal-duplicate-information routine-error InvalidQueryShape <<SQL
+CREATE PROCEDURE p() BEGIN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='one', MESSAGE_TEXT='two'; END;
+SQL
+
+case procedure-signal-unknown-message-local routine-error UnknownColumn <<SQL
+CREATE PROCEDURE p() BEGIN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT=not_declared; END;
+SQL
+
+case procedure-valid-resignal valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_resignal()
+BEGIN
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    RESIGNAL;
+  END;
+  INSERT INTO t1 VALUES (1);
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-select-into valid <<SQL
+DELIMITER //
+CREATE PROCEDURE p_select_into(IN uid INT, OUT uname VARCHAR(50))
+BEGIN
+  SELECT name INTO uname FROM users WHERE id = uid;
+END //
+DELIMITER ;
+SQL
+
+case procedure-valid-update valid <<SQL
+CREATE PROCEDURE p_update(IN uid INT, IN newname VARCHAR(50))
+UPDATE users SET name = newname WHERE id = uid;
+SQL
+
+case procedure-valid-delete valid <<SQL
+CREATE PROCEDURE p_delete(IN uid INT)
+DELETE FROM users WHERE id = uid;
+SQL
+
+case procedure-valid-insert-select valid <<SQL
+CREATE PROCEDURE p_insel()
+INSERT INTO archive SELECT * FROM source WHERE created_at < '2024-01-01';
+SQL
+
+case procedure-valid-fully-qualified-name valid <<SQL
+CREATE PROCEDURE test.p_qualified() SELECT 1;
+SQL
+
+case procedure-valid-if-not-exists valid <<SQL
+CREATE PROCEDURE IF NOT EXISTS p_ifne() SELECT 1;
+SQL
+
+# The entire definition is passed to the parser without client-side splitting.
+case procedure-valid-without-client-delimiter routine-valid <<SQL
+CREATE PROCEDURE p_bad() BEGIN SELECT 1; SELECT 2; END;
+SQL
+
+case procedure-syntax-begin-without-end-invalid routine-error <<SQL
+DELIMITER //
+CREATE PROCEDURE p_bad2() BEGIN SELECT 1; //
+DELIMITER ;
+SQL
+
+case procedure-syntax-declare-after-statement-invalid routine-error <<SQL
+DELIMITER //
+CREATE PROCEDURE p_bad3()
+BEGIN
+  SELECT 1;
+  DECLARE x INT;
+END //
+DELIMITER ;
+SQL
+
+case procedure-syntax-cursor-after-handler-invalid routine-error InvalidQueryShape <<SQL
+DELIMITER //
+CREATE PROCEDURE p_bad4()
+BEGIN
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET @x = 1;
+  DECLARE cur CURSOR FOR SELECT id FROM t;
+  OPEN cur;
+END //
+DELIMITER ;
+SQL
+
+case procedure-syntax-commit-not-allowed-in-function routine-error InvalidQueryShape <<SQL
+CREATE FUNCTION f_bad() RETURNS INT MODIFIES SQL DATA
+BEGIN
+  COMMIT;
+  RETURN 1;
+END;
+SQL
+
+
+
+
+case cursor-valid-basic-loop valid <<SQL
+DELIMITER //
+CREATE PROCEDURE cur_basic()
+BEGIN
+  DECLARE done INT DEFAULT FALSE;
+  DECLARE v_id INT;
+  DECLARE v_name VARCHAR(50);
+  DECLARE cur CURSOR FOR SELECT id, name FROM users;
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+  OPEN cur;
+  read_loop: LOOP
+    FETCH cur INTO v_id, v_name;
+    IF done THEN LEAVE read_loop; END IF;
+    SELECT v_id, v_name;
+  END LOOP;
+  CLOSE cur;
+END //
+DELIMITER ;
+SQL
+
+case cursor-valid-two-cursors valid <<SQL
+DELIMITER //
+CREATE PROCEDURE cur_two()
+BEGIN
+  DECLARE done INT DEFAULT FALSE;
+  DECLARE a CHAR(16);
+  DECLARE b, c INT;
+  DECLARE cur1 CURSOR FOR SELECT id, data FROM test.t1;
+  DECLARE cur2 CURSOR FOR SELECT i FROM test.t2;
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+  OPEN cur1;
+  OPEN cur2;
+  read_loop: LOOP
+    FETCH cur1 INTO a, b;
+    FETCH cur2 INTO c;
+    IF done THEN LEAVE read_loop; END IF;
+    IF b < c THEN INSERT INTO test.t3 VALUES (a,b);
+    ELSE INSERT INTO test.t3 VALUES (a,c);
+    END IF;
+  END LOOP;
+  CLOSE cur1;
+  CLOSE cur2;
+END //
+DELIMITER ;
+SQL
+
+case cursor-valid-while-loop valid <<SQL
+DELIMITER //
+CREATE PROCEDURE cur_while()
+BEGIN
+  DECLARE v_done INT DEFAULT 0;
+  DECLARE v_val INT;
+  DECLARE cur CURSOR FOR SELECT val FROM t1;
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;
+  OPEN cur;
+  WHILE v_done = 0 DO
+    FETCH cur INTO v_val;
+    IF v_done = 0 THEN
+      INSERT INTO t2 VALUES (v_val);
+    END IF;
+  END WHILE;
+  CLOSE cur;
+END //
+DELIMITER ;
+SQL
+
+case cursor-valid-repeat-loop valid <<SQL
+DELIMITER //
+CREATE PROCEDURE cur_repeat()
+BEGIN
+  DECLARE v_done INT DEFAULT 0;
+  DECLARE v_id INT;
+  DECLARE cur CURSOR FOR SELECT id FROM source_table;
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;
+  OPEN cur;
+  REPEAT
+    FETCH cur INTO v_id;
+    IF v_done = 0 THEN
+      UPDATE target_table SET flag = 1 WHERE id = v_id;
+    END IF;
+  UNTIL v_done = 1 END REPEAT;
+  CLOSE cur;
+END //
+DELIMITER ;
+SQL
+
+case cursor-valid-aggregate-accumulate valid <<SQL
+DELIMITER //
+CREATE PROCEDURE cur_sum(OUT total DECIMAL(10,2))
+BEGIN
+  DECLARE v_done INT DEFAULT 0;
+  DECLARE v_amount DECIMAL(10,2);
+  DECLARE cur CURSOR FOR SELECT amount FROM orders WHERE status = 'paid';
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;
+  SET total = 0;
+  OPEN cur;
+  read_loop: LOOP
+    FETCH cur INTO v_amount;
+    IF v_done THEN LEAVE read_loop; END IF;
+    SET total = total + v_amount;
+  END LOOP;
+  CLOSE cur;
+END //
+DELIMITER ;
+SQL
+
+case cursor-valid-conditional-skip valid <<SQL
+DELIMITER //
+CREATE PROCEDURE cur_skip_even()
+BEGIN
+  DECLARE v_done INT DEFAULT 0;
+  DECLARE v_num INT;
+  DECLARE cur CURSOR FOR SELECT num FROM numbers;
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;
+  OPEN cur;
+  read_loop: LOOP
+    FETCH cur INTO v_num;
+    IF v_done THEN LEAVE read_loop; END IF;
+    IF v_num % 2 = 0 THEN ITERATE read_loop; END IF;
+    INSERT INTO odd_numbers VALUES (v_num);
+  END LOOP;
+  CLOSE cur;
+END //
+DELIMITER ;
+SQL
+
+case cursor-valid-nested-block valid <<SQL
+DELIMITER //
+CREATE PROCEDURE cur_nested()
+BEGIN
+  DECLARE v_done INT DEFAULT 0;
+  DECLARE v_id INT;
+  DECLARE cur CURSOR FOR SELECT id FROM t1;
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;
+  OPEN cur;
+  outer_loop: LOOP
+    FETCH cur INTO v_id;
+    IF v_done THEN LEAVE outer_loop; END IF;
+    BEGIN
+      DECLARE v_cnt INT;
+      SELECT COUNT(*) INTO v_cnt FROM t2 WHERE ref_id = v_id;
+      IF v_cnt > 0 THEN
+        INSERT INTO t3 VALUES (v_id, v_cnt);
+      END IF;
+    END;
+  END LOOP;
+  CLOSE cur;
+END //
+DELIMITER ;
+SQL
+
+case cursor-valid-with-transaction valid <<SQL
+DELIMITER //
+CREATE PROCEDURE cur_tx()
+BEGIN
+  DECLARE v_done INT DEFAULT 0;
+  DECLARE v_id INT;
+  DECLARE cur CURSOR FOR SELECT id FROM pending_orders;
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION ROLLBACK;
+  START TRANSACTION;
+  OPEN cur;
+  read_loop: LOOP
+    FETCH cur INTO v_id;
+    IF v_done THEN LEAVE read_loop; END IF;
+    UPDATE orders SET status = 'processed' WHERE id = v_id;
+    INSERT INTO order_log (order_id, action) VALUES (v_id, 'processed');
+  END LOOP;
+  CLOSE cur;
+  COMMIT;
+END //
+DELIMITER ;
+SQL
+
+case cursor-valid-fetch-after-done routine-runtime <<SQL
+DELIMITER //
+CREATE PROCEDURE cur_fetch_after_done()
+BEGIN
+  DECLARE v_done INT DEFAULT 0;
+  DECLARE v_id INT;
+  DECLARE cur CURSOR FOR SELECT id FROM t1;
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;
+  OPEN cur;
+  read_loop: LOOP
+    FETCH cur INTO v_id;
+    IF v_done THEN
+      SELECT 'cursor exhausted' AS msg;
+      LEAVE read_loop;
+    END IF;
+  END LOOP;
+  CLOSE cur;
+  FETCH cur INTO v_id;
+END //
+DELIMITER ;
+SQL
+
+case cursor-syntax-declare-after-handler-invalid routine-error InvalidQueryShape <<SQL
+DELIMITER //
+CREATE PROCEDURE cur_bad_order()
+BEGIN
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET @x = 1;
+  DECLARE cur CURSOR FOR SELECT id FROM t;
+  OPEN cur;
+END //
+DELIMITER ;
+SQL
+
+case cursor-fetch-column-mismatch routine-runtime <<SQL
+DELIMITER //
+CREATE PROCEDURE cur_bad_fetch()
+BEGIN
+  DECLARE v_id INT;
+  DECLARE cur CURSOR FOR SELECT id, name FROM users;
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET @done = 1;
+  OPEN cur;
+  FETCH cur INTO v_id;
+  CLOSE cur;
+END //
+DELIMITER ;
+SQL
+
+case cursor-fetch-unopened-cursor routine-runtime <<SQL
+DELIMITER //
+CREATE PROCEDURE cur_bad_open()
+BEGIN
+  DECLARE v_id INT;
+  DECLARE cur CURSOR FOR SELECT id FROM t;
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET @done = 1;
+  FETCH cur INTO v_id;
+END //
+DELIMITER ;
+SQL
+
+case cursor-close-unopened-cursor routine-runtime <<SQL
+DELIMITER //
+CREATE PROCEDURE cur_bad_close()
+BEGIN
+  DECLARE v_id INT;
+  DECLARE cur CURSOR FOR SELECT id FROM t;
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET @done = 1;
+  CLOSE cur;
+END //
+DELIMITER ;
+SQL
+
+case cursor-syntax-select-into-in-declare-invalid routine-error InvalidQueryShape <<SQL
+DELIMITER //
+CREATE PROCEDURE cur_bad_select_into()
+BEGIN
+  DECLARE v_id INT;
+  DECLARE cur CURSOR FOR SELECT id INTO v_id FROM t;
+END //
+DELIMITER ;
+SQL
+
+case cursor-syntax-duplicate-name-invalid routine-error DuplicateAlias <<SQL
+DELIMITER //
+CREATE PROCEDURE cur_bad_dup()
+BEGIN
+  DECLARE v_id INT;
+  DECLARE cur CURSOR FOR SELECT id FROM t1;
+  DECLARE cur CURSOR FOR SELECT id FROM t2;
+END //
+DELIMITER ;
+SQL
+
+case cursor-no-handler-definition-valid routine-valid <<SQL
+DELIMITER //
+CREATE PROCEDURE cur_no_handler()
+BEGIN
+  DECLARE v_id INT;
+  DECLARE cur CURSOR FOR SELECT id FROM t1;
+  OPEN cur;
+  read_loop: LOOP
+    FETCH cur INTO v_id;
+  END LOOP;
+  CLOSE cur;
+END //
+DELIMITER ;
+SQL

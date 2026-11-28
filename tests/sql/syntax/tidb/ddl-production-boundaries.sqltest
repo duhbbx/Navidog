@@ -1,0 +1,134 @@
+# Independently authored TiDB 8.5 column/constraint cases; pinned native parser checked.
+# Native parser actions can enforce semantic rules; those are not syntax failures.
+
+case unknown-bytes-type syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (item_id BYTES);
+SQL
+
+case unknown-custom-type syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (item_id custom_type);
+SQL
+
+case quoted-type syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (item_id `INT`);
+SQL
+
+case qualified-type syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (item_id owned.INT);
+SQL
+
+case enum-list-required syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (label ENUM);
+SQL
+
+case enum-string-list-required syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (label ENUM(17));
+SQL
+
+case enum-values valid <<SQL
+CREATE TABLE audit_items (label ENUM('item','other'));
+SQL
+
+case set-values valid <<SQL
+CREATE TABLE audit_items (label SET('item','other'));
+SQL
+
+case varchar-length-required syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (label VARCHAR);
+SQL
+
+case varbinary-length-required syntax-error ExpectedToken <<SQL
+ALTER TABLE audit_items ADD label VARBINARY;
+SQL
+
+case integer-one-length valid <<SQL
+CREATE TABLE audit_items (item_id INT(17));
+SQL
+
+case integer-two-lengths syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (item_id INT(17,2));
+SQL
+
+case integer-fractional-length syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (item_id INT(1.0));
+SQL
+
+case integer-signed-length syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (item_id INT(+1));
+SQL
+
+case boolean-no-length valid <<SQL
+CREATE TABLE audit_items (enabled BOOL);
+SQL
+
+case boolean-length syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (enabled BOOL(1));
+SQL
+
+case json-length syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (body JSON(17));
+SQL
+
+case date-length syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (created_on DATE(1));
+SQL
+
+case double-both-arguments valid <<SQL
+CREATE TABLE audit_items (amount DOUBLE(17,2));
+SQL
+
+case double-one-argument syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (amount DOUBLE(17));
+SQL
+
+case year-four valid <<SQL
+CREATE TABLE audit_items (created_year YEAR(4));
+SQL
+
+case year-one semantic-error InvalidQueryShape <<SQL
+CREATE TABLE audit_items (created_year YEAR(1));
+SQL
+
+case ssl-reserved-name syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (ssl INT);
+SQL
+
+case require-reserved-name syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (require INT);
+SQL
+
+case quoted-reserved-names valid <<SQL
+CREATE TABLE audit_items (`ssl` INT,`require` INT);
+SQL
+
+case named-inline-primary syntax-error ExpectedToken <<SQL
+ALTER TABLE audit_items ADD item_id INT CONSTRAINT audit_key PRIMARY KEY;
+SQL
+
+case named-inline-unique syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (item_id INT CONSTRAINT audit_key UNIQUE);
+SQL
+
+case named-inline-check valid <<SQL
+CREATE TABLE audit_items (item_id INT CONSTRAINT audit_check CHECK(item_id>0));
+SQL
+
+case unnamed-inline-constraint-check valid <<SQL
+CREATE TABLE audit_items (item_id INT CONSTRAINT CHECK(item_id>0));
+SQL
+
+case unnamed-table-constraint-primary valid <<SQL
+CREATE TABLE audit_items (item_id INT,CONSTRAINT PRIMARY KEY(item_id));
+SQL
+
+case generated-auto-increment semantic-error InvalidQueryShape <<SQL
+CREATE TABLE audit_items (item_id BIGINT,next_id BIGINT AS(item_id+1) PRIMARY KEY AUTO_INCREMENT);
+SQL
+
+case alter-generated-auto-increment semantic-error InvalidQueryShape <<SQL
+ALTER TABLE audit_items ADD next_id BIGINT AS(item_id+1) PRIMARY KEY AUTO_INCREMENT;
+SQL
+
+case generated-without-auto-increment valid <<SQL
+CREATE TABLE audit_items (item_id BIGINT,next_id BIGINT AS(item_id+1));
+SQL

@@ -1,0 +1,33 @@
+# Independently authored; MariaDB 11.4 sql_yacc.yy precedence differs from MySQL.
+
+case compare-like valid <<SQL
+SELECT 2=0 LIKE '0';
+SQL
+
+case compare-regexp valid <<SQL
+SELECT 2=0 REGEXP '^0$';
+SQL
+
+case compare-in valid <<SQL
+SELECT 2=0 IN (0);
+SQL
+
+case compare-null valid <<SQL
+SELECT 2=0 IS NULL;
+SQL
+
+case compare-between valid <<SQL
+SELECT 2=0 BETWEEN 0 AND 1;
+SQL
+
+case explicit-left valid <<SQL
+SELECT (2=0) LIKE '0';
+SQL
+
+case explicit-right valid <<SQL
+SELECT 2=(0 LIKE '0');
+SQL
+
+case not-like-and valid <<SQL
+SELECT item_id FROM audit_items WHERE NOT label LIKE 'item%' AND item_id=17;
+SQL

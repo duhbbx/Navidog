@@ -1,0 +1,125 @@
+# Independently authored; PostgreSQL kwlist.h BARE_LABEL / AS_LABEL and gram.y.
+
+case bare-and valid <<SQL
+SELECT 17 AND;
+SQL
+
+case bare-or valid <<SQL
+SELECT 17 OR;
+SQL
+
+case bare-is valid <<SQL
+SELECT 17 IS;
+SQL
+
+case bare-in valid <<SQL
+SELECT 17 IN;
+SQL
+
+case bare-between valid <<SQL
+SELECT 17 BETWEEN;
+SQL
+
+case bare-like valid <<SQL
+SELECT 17 LIKE;
+SQL
+
+case bare-not valid <<SQL
+SELECT 17 NOT;
+SQL
+
+case bare-null valid <<SQL
+SELECT 17 NULL;
+SQL
+
+case bare-all valid <<SQL
+SELECT 17 ALL;
+SQL
+
+case bare-select valid <<SQL
+SELECT 17 SELECT;
+SQL
+
+case bare-case valid <<SQL
+SELECT 17 CASE;
+SQL
+
+case bare-escape valid <<SQL
+SELECT 17 ESCAPE;
+SQL
+
+case alias-before-from valid <<SQL
+SELECT item_id AND FROM audit_items;
+SQL
+
+case alias-before-comma valid <<SQL
+SELECT 17 OR,23 AND;
+SQL
+
+case alias-with-operators valid <<SQL
+SELECT 17+23 AND,17=23 OR;
+SQL
+
+case alias-after-complete-boolean valid <<SQL
+SELECT (17=17) AND (23=23) OR;
+SQL
+
+case alias-in-nested-select valid <<SQL
+SELECT (SELECT 17 AND);
+SQL
+
+case reserved-label-with-as valid <<SQL
+SELECT 17 AS FROM,23 AS WHERE,31 AS AND;
+SQL
+
+case needs-as-label valid <<SQL
+SELECT 17 AS DAY,23 AS ISNULL,31 AS FILTER;
+SQL
+
+case escape-column valid <<SQL
+SELECT escape FROM audit_items;
+SQL
+
+case escape-type-literal valid <<SQL
+SELECT ESCAPE 'audit';
+SQL
+
+case alias-is-not-function-argument syntax-error ExpectedToken <<SQL
+SELECT ABS(17 AND);
+SQL
+
+case alias-is-not-parenthesized-operand syntax-error ExpectedToken <<SQL
+SELECT (17 AND);
+SQL
+
+case alias-is-not-where-operand syntax-error ExpectedToken <<SQL
+SELECT 17 WHERE 17=17 AND;
+SQL
+
+case alias-is-not-having-operand syntax-error ExpectedToken <<SQL
+SELECT COUNT(*) FROM audit_items HAVING COUNT(*)>17 OR;
+SQL
+
+case alias-is-not-order-operand syntax-error ExpectedToken <<SQL
+SELECT 17 ORDER BY 17 AND;
+SQL
+
+case alias-is-not-nested-filter syntax-error ExpectedToken <<SQL
+SELECT (SELECT 17 WHERE 17=17 AND);
+SQL
+
+case needs-as-day syntax-error ExpectedToken <<SQL
+SELECT 17 DAY;
+SQL
+
+case needs-as-filter syntax-error ExpectedToken <<SQL
+SELECT 17 FILTER;
+SQL
+
+case wildcard-no-bare-alias syntax-error ExpectedToken <<SQL
+SELECT * AND FROM audit_items;
+SQL
+
+case missing-real-pattern syntax-error ExpectedToken <<SQL
+SELECT label FROM audit_items WHERE label LIKE;
+SQL

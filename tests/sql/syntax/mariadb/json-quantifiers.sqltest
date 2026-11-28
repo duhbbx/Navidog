@@ -1,0 +1,22 @@
+# Independently authored; MariaDB JSON aggregate productions use opt_distinct
+# / expr, unlike in_sum_expr's optional ALL. Checked on owned MariaDB 11.4.
+
+case json-array-default valid <<SQL
+SELECT JSON_ARRAYAGG(17);
+SQL
+
+case json-array-distinct valid <<SQL
+SELECT JSON_ARRAYAGG(DISTINCT 17);
+SQL
+
+case json-array-all syntax-error ExpectedToken <<SQL
+SELECT JSON_ARRAYAGG(ALL 17);
+SQL
+
+case json-object-default valid <<SQL
+SELECT JSON_OBJECTAGG('item',17);
+SQL
+
+case json-object-all syntax-error ExpectedToken <<SQL
+SELECT JSON_OBJECTAGG(ALL 'item',17);
+SQL

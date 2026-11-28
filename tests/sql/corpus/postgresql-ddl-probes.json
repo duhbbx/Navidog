@@ -1,0 +1,289 @@
+{
+  "schema_version": 1,
+  "note": "Independently authored DDL; each original/generated statement runs in its own transaction in a disposable local PostgreSQL cluster and rolls back. Inspection reads only owned catalog objects.",
+  "cases": [
+    {
+      "engine": "postgresql",
+      "id": "empty",
+      "sql": "CREATE TABLE audit_empty();",
+      "expect": "accept",
+      "inspection_sql": "SELECT c.relpersistence,count(a.attnum) FROM pg_class c LEFT JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped WHERE c.oid='audit_empty'::regclass GROUP BY c.relpersistence;",
+      "stdout": "p|0\n",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "temp-empty",
+      "sql": "CREATE TEMP TABLE audit_empty();",
+      "expect": "accept",
+      "inspection_sql": "SELECT c.relpersistence,count(a.attnum) FROM pg_class c LEFT JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped WHERE c.oid='audit_empty'::regclass GROUP BY c.relpersistence;",
+      "stdout": "t|0\n",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "unlogged-empty",
+      "sql": "CREATE UNLOGGED TABLE audit_empty();",
+      "expect": "accept",
+      "inspection_sql": "SELECT c.relpersistence,count(a.attnum) FROM pg_class c LEFT JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped WHERE c.oid='audit_empty'::regclass GROUP BY c.relpersistence;",
+      "stdout": "u|0\n",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "if-not-exists-empty",
+      "sql": "CREATE TABLE IF NOT EXISTS audit_empty();",
+      "expect": "accept",
+      "inspection_sql": "SELECT c.relpersistence,count(a.attnum) FROM pg_class c LEFT JOIN pg_attribute a ON a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped WHERE c.oid='audit_empty'::regclass GROUP BY c.relpersistence;",
+      "stdout": "p|0\n",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "index",
+      "sql": "CREATE INDEX ON audit_items(item_id);",
+      "setup_sql": "CREATE TABLE audit_items(item_id INT,cost INT);",
+      "expect": "accept",
+      "inspection_sql": "SELECT c.relname,i.indisunique,am.amname,pg_get_expr(i.indpred,i.indrelid) FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid JOIN pg_am am ON am.oid=c.relam WHERE i.indrelid='audit_items'::regclass ORDER BY c.relname;",
+      "stdout": "audit_items_item_id_idx|f|btree|\n",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "unique-index",
+      "sql": "CREATE UNIQUE INDEX ON audit_items(item_id);",
+      "setup_sql": "CREATE TABLE audit_items(item_id INT,cost INT);",
+      "expect": "accept",
+      "inspection_sql": "SELECT c.relname,i.indisunique,am.amname,pg_get_expr(i.indpred,i.indrelid) FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid JOIN pg_am am ON am.oid=c.relam WHERE i.indrelid='audit_items'::regclass ORDER BY c.relname;",
+      "stdout": "audit_items_item_id_idx|t|btree|\n",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "method-index",
+      "sql": "CREATE INDEX ON owned.audit_items USING btree(item_id);",
+      "setup_sql": "CREATE SCHEMA owned;CREATE TABLE owned.audit_items(item_id INT,cost INT);",
+      "expect": "accept",
+      "inspection_sql": "SELECT c.relname,i.indisunique,am.amname,pg_get_expr(i.indpred,i.indrelid) FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid JOIN pg_am am ON am.oid=c.relam WHERE i.indrelid='owned.audit_items'::regclass ORDER BY c.relname;",
+      "stdout": "audit_items_item_id_idx|f|btree|\n",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "partial-index",
+      "sql": "CREATE INDEX ON audit_items(item_id DESC) WHERE item_id>17;",
+      "setup_sql": "CREATE TABLE audit_items(item_id INT,cost INT);",
+      "expect": "accept",
+      "inspection_sql": "SELECT c.relname,i.indisunique,am.amname,pg_get_expr(i.indpred,i.indrelid) FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid JOIN pg_am am ON am.oid=c.relam WHERE i.indrelid='audit_items'::regclass ORDER BY c.relname;",
+      "stdout": "audit_items_item_id_idx|f|btree|(item_id > 17)\n",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "missing-definitions",
+      "sql": "CREATE TABLE audit_empty;",
+      "setup_sql": "CREATE TABLE audit_items(item_id INT);",
+      "expect": "reject",
+      "error_contains": "42601",
+      "stage": "syntax"
+    },
+    {
+      "engine": "postgresql",
+      "id": "empty-ctas",
+      "sql": "CREATE TABLE audit_empty() AS SELECT 17;",
+      "setup_sql": "CREATE TABLE audit_items(item_id INT);",
+      "expect": "reject",
+      "error_contains": "42601",
+      "stage": "syntax"
+    },
+    {
+      "engine": "postgresql",
+      "id": "typed-ctas",
+      "sql": "CREATE TABLE audit_items(item_id INT) AS SELECT 17;",
+      "setup_sql": "CREATE TABLE audit_items(item_id INT);",
+      "expect": "reject",
+      "error_contains": "42601",
+      "stage": "syntax"
+    },
+    {
+      "engine": "postgresql",
+      "id": "missing-if-not-exists-name",
+      "sql": "CREATE INDEX IF NOT EXISTS ON audit_items(item_id);",
+      "setup_sql": "CREATE TABLE audit_items(item_id INT);",
+      "expect": "reject",
+      "error_contains": "42601",
+      "stage": "syntax"
+    },
+    {
+      "engine": "postgresql",
+      "id": "qualified-index-name",
+      "sql": "CREATE INDEX owned.audit_idx ON audit_items(item_id);",
+      "setup_sql": "CREATE TABLE audit_items(item_id INT);",
+      "expect": "reject",
+      "error_contains": "42601",
+      "stage": "syntax"
+    },
+    {
+      "engine": "postgresql",
+      "id": "constant-expression",
+      "sql": "CREATE INDEX ON audit_items((17));",
+      "setup_sql": "CREATE TABLE audit_items(item_id INT);",
+      "expect": "accept",
+      "inspection_sql": "SELECT pg_get_expr(i.indexprs,i.indrelid),i.indisvalid,i.indisready FROM pg_index i WHERE i.indrelid='audit_items'::regclass;",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "arithmetic-expression",
+      "sql": "CREATE INDEX ON audit_items((item_id+17));",
+      "setup_sql": "CREATE TABLE audit_items(item_id INT);",
+      "expect": "accept",
+      "inspection_sql": "SELECT pg_get_expr(i.indexprs,i.indrelid),i.indisvalid,i.indisready FROM pg_index i WHERE i.indrelid='audit_items'::regclass;",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "function-expression",
+      "sql": "CREATE INDEX ON audit_items(ABS(item_id));",
+      "setup_sql": "CREATE TABLE audit_items(item_id INT);",
+      "expect": "accept",
+      "inspection_sql": "SELECT pg_get_expr(i.indexprs,i.indrelid),i.indisvalid,i.indisready FROM pg_index i WHERE i.indrelid='audit_items'::regclass;",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "cast-expression",
+      "sql": "CREATE INDEX ON audit_items(CAST(item_id AS INT));",
+      "setup_sql": "CREATE TABLE audit_items(item_id INT);",
+      "expect": "accept",
+      "inspection_sql": "SELECT pg_get_expr(i.indexprs,i.indrelid),i.indisvalid,i.indisready FROM pg_index i WHERE i.indrelid='audit_items'::regclass;",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "stable-date-index",
+      "sql": "CREATE INDEX ON audit_items(CURRENT_DATE);",
+      "setup_sql": "CREATE TABLE audit_items(item_id INT);",
+      "expect": "reject",
+      "error_contains": "42P17",
+      "stage": "semantic"
+    },
+    {
+      "engine": "postgresql",
+      "id": "volatile-random-index",
+      "sql": "CREATE INDEX ON audit_items(random());",
+      "setup_sql": "CREATE TABLE audit_items(item_id INT);",
+      "expect": "reject",
+      "error_contains": "42P17",
+      "stage": "semantic"
+    },
+    {
+      "engine": "postgresql",
+      "id": "nested-volatile-index",
+      "sql": "CREATE INDEX ON audit_items((item_id+random()));",
+      "setup_sql": "CREATE TABLE audit_items(item_id INT);",
+      "expect": "reject",
+      "error_contains": "42P17",
+      "stage": "semantic"
+    },
+    {
+      "engine": "postgresql",
+      "id": "stable-index-predicate",
+      "sql": "CREATE INDEX ON audit_items(item_id) WHERE CURRENT_DATE>DATE '2020-01-01';",
+      "setup_sql": "CREATE TABLE audit_items(item_id INT);",
+      "expect": "reject",
+      "error_contains": "42P17",
+      "stage": "semantic"
+    },
+    {
+      "engine": "postgresql",
+      "id": "ordered-pk-not-null",
+      "sql": "CREATE TABLE audit_items(item_id INT PRIMARY KEY NOT NULL,cost INT);",
+      "setup_sql": "",
+      "expect": "accept",
+      "inspection_sql": "SELECT a.attnum,a.attname,format_type(a.atttypid,a.atttypmod),a.attnotnull,pg_get_expr(d.adbin,d.adrelid) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid='audit_items'::regclass AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum; SELECT conname,contype,pg_get_constraintdef(oid),convalidated FROM pg_constraint WHERE conrelid='audit_items'::regclass ORDER BY conname; SELECT * FROM audit_items ORDER BY item_id;",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "ordered-default-not-null",
+      "sql": "ALTER TABLE audit_items ADD COLUMN cost INT NOT NULL DEFAULT 17;",
+      "setup_sql": "CREATE TABLE audit_items(item_id INT); INSERT INTO audit_items VALUES(31),(43);",
+      "expect": "accept",
+      "inspection_sql": "SELECT a.attnum,a.attname,format_type(a.atttypid,a.atttypmod),a.attnotnull,pg_get_expr(d.adbin,d.adrelid) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid='audit_items'::regclass AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum; SELECT conname,contype,pg_get_constraintdef(oid),convalidated FROM pg_constraint WHERE conrelid='audit_items'::regclass ORDER BY conname; SELECT * FROM audit_items ORDER BY item_id;",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "interspersed-table-constraint",
+      "sql": "CREATE TABLE audit_items(item_id INT,cost INT,UNIQUE(item_id,cost),note TEXT);",
+      "setup_sql": "",
+      "expect": "accept",
+      "inspection_sql": "SELECT a.attnum,a.attname,format_type(a.atttypid,a.atttypmod),a.attnotnull,pg_get_expr(d.adbin,d.adrelid) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid='audit_items'::regclass AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum; SELECT conname,contype,pg_get_constraintdef(oid),convalidated FROM pg_constraint WHERE conrelid='audit_items'::regclass ORDER BY conname; SELECT * FROM audit_items ORDER BY item_id;",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "window-volatile-sort",
+      "sql": "CREATE VIEW audit_view AS SELECT item_id,SUM(cost)OVER w AS total_cost,COUNT(*)OVER w AS row_count FROM(VALUES(1,11),(2,7),(3,19),(4,5))AS audit_items(item_id,cost) WINDOW w AS(ORDER BY nextval('audit_counter') ROWS BETWEEN 1 PRECEDING AND CURRENT ROW);",
+      "setup_sql": "CREATE SEQUENCE audit_counter;",
+      "expect": "accept",
+      "inspection_sql": "SELECT * FROM audit_view ORDER BY item_id; SELECT last_value,is_called FROM audit_counter;",
+      "stdout": "1|11|1\n2|18|2\n3|26|2\n4|24|2\n4|t\n",
+      "round_trip": true,
+      "expected_sequence_invocations": 4
+    },
+    {
+      "engine": "postgresql",
+      "id": "window-volatile-frame",
+      "sql": "CREATE VIEW audit_view AS SELECT item_id,SUM(cost)OVER w AS total_cost,COUNT(*)OVER w AS row_count FROM(VALUES(1,11),(2,7),(3,19),(4,5))AS audit_items(item_id,cost) WINDOW w AS(ORDER BY item_id ROWS BETWEEN nextval('audit_counter') PRECEDING AND CURRENT ROW);",
+      "setup_sql": "CREATE SEQUENCE audit_counter;",
+      "expect": "accept",
+      "inspection_sql": "SELECT * FROM audit_view ORDER BY item_id; SELECT last_value,is_called FROM audit_counter;",
+      "stdout": "1|11|1\n2|18|2\n3|26|2\n4|24|2\n1|t\n",
+      "round_trip": true,
+      "expected_sequence_invocations": 1
+    },
+    {
+      "engine": "postgresql",
+      "id": "null-before-default",
+      "sql": "CREATE TABLE audit_items(item_id INT NOT NULL DEFAULT 17);",
+      "expect": "accept",
+      "inspection_sql": "SELECT a.attname,a.attnotnull,pg_get_expr(d.adbin,d.adrelid) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid='audit_items'::regclass AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum;",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "default-before-null",
+      "sql": "CREATE TABLE audit_items(item_id INT DEFAULT 17 NOT NULL);",
+      "expect": "accept",
+      "inspection_sql": "SELECT a.attname,a.attnotnull,pg_get_expr(d.adbin,d.adrelid) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid='audit_items'::regclass AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum;",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "interspersed-unique",
+      "sql": "CREATE TABLE audit_items(item_id INT,UNIQUE(item_id),cost INT);",
+      "expect": "accept",
+      "inspection_sql": "SELECT a.attname,a.attnotnull,pg_get_expr(d.adbin,d.adrelid) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid='audit_items'::regclass AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum;SELECT conname,contype,pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='audit_items'::regclass ORDER BY conname;",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "serial-primary-before-null",
+      "sql": "CREATE TABLE audit_items(item_id SERIAL PRIMARY KEY NOT NULL,code INT);",
+      "expect": "accept",
+      "inspection_sql": "SELECT a.attname,a.attnotnull,pg_get_expr(d.adbin,d.adrelid) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid='audit_items'::regclass AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum;",
+      "round_trip": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "alter-null-before-default",
+      "sql": "ALTER TABLE audit_items ADD cost INT NOT NULL DEFAULT 17;",
+      "expect": "accept",
+      "inspection_sql": "SELECT a.attname,a.attnotnull,pg_get_expr(d.adbin,d.adrelid) FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid='audit_items'::regclass AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum;",
+      "round_trip": true,
+      "setup_sql": "CREATE TABLE audit_items(item_id INT);"
+    }
+  ]
+}

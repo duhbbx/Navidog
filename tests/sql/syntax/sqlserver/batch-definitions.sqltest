@@ -1,0 +1,44 @@
+# Independently authored T-SQL cases; ScriptDOM TSql160 and official docs checked.
+# Unsupported cases retain explicit owning-model/scope gaps.
+
+case standalone-schema valid <<SQL
+CREATE SCHEMA audit;
+SQL
+
+case standalone-view valid <<SQL
+CREATE VIEW audit_v AS SELECT 17 AS item_id;
+SQL
+
+case table-then-select valid <<SQL
+CREATE TABLE audit_items(item_id INT); SELECT item_id FROM audit_items;
+SQL
+
+case schema-then-select syntax-error ExpectedToken <<SQL
+CREATE SCHEMA audit; SELECT 17;
+SQL
+
+case select-then-schema syntax-error ExpectedToken <<SQL
+SELECT 17; CREATE SCHEMA audit;
+SQL
+
+case schema-then-table syntax-error ExpectedToken <<SQL
+CREATE SCHEMA audit; CREATE TABLE audit.items(item_id INT);
+SQL
+
+case view-then-select syntax-error ExpectedToken <<SQL
+CREATE VIEW audit_v AS SELECT 17 AS item_id; SELECT 23;
+SQL
+
+case select-then-view syntax-error ExpectedToken <<SQL
+SELECT 17; CREATE VIEW audit_v AS SELECT 23 AS item_id;
+SQL
+
+case nested-schema-elements-gap unsupported <<SQL
+CREATE SCHEMA audit CREATE TABLE audit.items(item_id INT);
+SQL
+
+case client-go-boundary-gap unsupported <<SQL
+CREATE SCHEMA audit;
+GO
+SELECT 17;
+SQL

@@ -1,0 +1,100 @@
+catalog orders <<DDL
+CREATE TABLE orders (id integer, status varchar(16));
+CREATE TABLE archived_orders (id integer, closed_at timestamp);
+DDL
+
+case existing-column valid catalog=orders <<SQL
+-- Top-level SQL comments stay part of the original input.
+SELECT id FROM orders;
+SQL
+
+case missing-table semantic-error UnknownTable catalog=orders <<SQL
+SELECT id FROM missing_orders;
+SQL
+
+case missing-column semantic-error UnknownColumn catalog=orders <<SQL
+SELECT o.missing_column FROM orders AS o; -- Ordinary inline comment.
+SQL
+
+case ambiguous-column semantic-error AmbiguousColumn catalog=orders <<SQL
+SELECT id FROM orders AS o JOIN archived_orders AS a ON o.id = a.id;
+SQL
+
+case vacuum-options valid catalog=orders <<SQL
+VACUUM (ANALYZE, INDEX_CLEANUP AUTO, PARALLEL 0, SKIP_LOCKED OFF) orders (id), archived_orders;
+SQL
+
+case vacuum-missing-column semantic-error UnknownColumn catalog=orders <<SQL
+VACUUM (ANALYZE true) orders (missing_column);
+SQL
+
+case vacuum-columns-need-analyze semantic-error InvalidQueryShape catalog=orders <<SQL
+VACUUM (ANALYZE, ANALYZE FALSE) orders (id);
+SQL
+
+case copy-input-where valid catalog=orders <<SQL
+COPY orders (id, status) FROM STDIN WITH (FORMAT CSV, HEADER MATCH, DELIMITER '|') WHERE id > 5;
+SQL
+
+case copy-output-query valid catalog=orders <<SQL
+COPY (SELECT id, status FROM orders ORDER BY id) TO STDOUT (FORMAT csv, FORCE_QUOTE (status));
+SQL
+
+case copy-missing-column semantic-error UnknownColumn catalog=orders <<SQL
+COPY orders (missing_column) FROM STDIN;
+SQL
+
+case copy-binary-header semantic-error InvalidQueryShape catalog=orders <<SQL
+COPY orders TO STDOUT WITH (FORMAT binary, HEADER TRUE);
+SQL
+
+case invalid-grouping semantic-error InvalidQueryShape catalog=orders <<SQL
+SELECT id, COUNT(*) FROM orders;
+SQL
+
+case routine-comments routine-valid catalog=orders <<SQL
+CREATE FUNCTION catalog_example(n integer) RETURNS integer LANGUAGE plpgsql AS $body$
+DECLARE result integer := n;
+BEGIN
+  -- expect: bogus; this is an ordinary comment inside the function.
+  /* The semicolon in this comment remains part of the function. ; */
+  RETURN result;
+END;
+$body$;
+SQL
+
+case duplicate-table-alias semantic-error DuplicateAlias <<SQL
+SELECT 1 FROM orders AS o JOIN archived_orders AS o ON 1 = 1;
+SQL
+
+case function-local-variable routine-valid <<SQL
+CREATE FUNCTION plus_one(n integer) RETURNS integer LANGUAGE plpgsql AS $$
+DECLARE answer integer := n + 1;
+BEGIN
+  RETURN answer;
+END;
+$$;
+SQL
+
+case recursive-cte valid <<SQL
+WITH RECURSIVE seq(n) AS (
+  VALUES (1) UNION ALL SELECT n + 1 FROM seq WHERE n < 5
+)
+SELECT n FROM seq;
+SQL
+
+case values-unequal-width semantic-error InvalidQueryShape <<SQL
+VALUES (1), (2, 3);
+SQL
+
+case values-incompatible-types semantic-error InvalidQueryShape <<SQL
+VALUES (1), (CAST('text' AS text));
+SQL
+
+case values-untyped-literal valid <<SQL
+VALUES (1), ('2');
+SQL
+
+case update-returning valid <<SQL
+UPDATE orders SET status = 'closed' WHERE id = 1 RETURNING id;
+SQL

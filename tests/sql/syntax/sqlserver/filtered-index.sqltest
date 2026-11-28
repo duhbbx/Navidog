@@ -1,0 +1,114 @@
+# Independently authored against pinned ScriptDOM TSql160 filterExpression and
+# TSql100ParserBaseInternal.CheckComparisonOperandForIndexFilter; native-checked.
+
+case filter-literal-conjunction valid <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id >= 17 AND label IS NOT NULL;
+SQL
+
+case filter-parentheses valid <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE (item_id > -17 AND (label IS NULL));
+SQL
+
+case filter-in-literals valid <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id IN (17,+23,NULL);
+SQL
+
+case filter-cast-constant valid <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id < CAST((17) AS INT);
+SQL
+
+case filter-convert-constant valid <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id < CONVERT(INT,23);
+SQL
+
+case filter-convert-style valid <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE stamp > CONVERT(DATETIME,'2026-11-27',23);
+SQL
+
+case filter-in-conversions valid <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id IN (CAST(17 AS INT),CONVERT(INT,23));
+SQL
+
+case filter-distinct-general-right valid <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id IS DISTINCT FROM ABS(other_id);
+SQL
+
+case filter-not-distinct-null valid <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id IS NOT DISTINCT FROM NULL;
+SQL
+
+case distinct-predicate-where valid <<SQL
+SELECT item_id FROM audit_items WHERE item_id IS NOT DISTINCT FROM other_id;
+SQL
+
+case filter-nested-cast syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id < CAST(CAST(17 AS INT) AS INT);
+SQL
+
+case filter-nested-convert syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id < CONVERT(INT,CONVERT(INT,23));
+SQL
+
+case filter-mixed-conversion syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id < CAST(CONVERT(INT,17) AS INT);
+SQL
+
+case filter-in-nested-conversion syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id IN (17,CONVERT(INT,CAST(23 AS INT)));
+SQL
+
+case filter-function-right syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id > ABS(17);
+SQL
+
+case filter-column-right syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id > other_id;
+SQL
+
+case filter-arithmetic-right syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id > 17+23;
+SQL
+
+case filter-arithmetic-left syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id+1 > 17;
+SQL
+
+case filter-reversed-comparison syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE 17 < item_id;
+SQL
+
+case filter-or syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id > 17 OR item_id IS NULL;
+SQL
+
+case filter-not syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE NOT(item_id > 17);
+SQL
+
+case filter-not-in syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id NOT IN (17,23);
+SQL
+
+case filter-between syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id BETWEEN 17 AND 23;
+SQL
+
+case filter-like syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE label LIKE 'audit%';
+SQL
+
+case filter-subquery syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id IN (SELECT other_id FROM other_items);
+SQL
+
+case filter-parameter syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id > @minimum;
+SQL
+
+case filter-distinct-missing-from syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id IS DISTINCT 17;
+SQL
+
+case filter-distinct-missing-value syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id IS DISTINCT FROM;
+SQL

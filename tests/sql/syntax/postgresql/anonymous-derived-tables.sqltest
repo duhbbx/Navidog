@@ -1,0 +1,66 @@
+# Independently authored; PostgreSQL 16+ alias-optional FROM subqueries.
+# Checked with the pinned PostgreSQL 18 raw parser, not the local PG15 server.
+
+case anonymous-select valid <<SQL
+SELECT item_id FROM (SELECT 17 AS item_id);
+SQL
+
+case anonymous-star valid <<SQL
+SELECT * FROM (SELECT 17 AS item_id);
+SQL
+
+case anonymous-values valid <<SQL
+SELECT column1 FROM (VALUES(17),(23));
+SQL
+
+case nested-anonymous valid <<SQL
+SELECT item_id FROM (SELECT item_id FROM (SELECT 17 AS item_id));
+SQL
+
+case anonymous-set valid <<SQL
+SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23);
+SQL
+
+case anonymous-cross-join valid <<SQL
+SELECT first_id,second_id FROM (SELECT 17 AS first_id) CROSS JOIN (SELECT 23 AS second_id);
+SQL
+
+case anonymous-using-join valid <<SQL
+SELECT item_id FROM (SELECT 17 AS item_id) JOIN (SELECT 17 AS item_id) USING(item_id);
+SQL
+
+case anonymous-cte valid <<SQL
+SELECT item_id FROM (WITH audit_items AS (SELECT 17 AS item_id) SELECT item_id FROM audit_items);
+SQL
+
+case anonymous-lateral valid <<SQL
+SELECT next_id FROM (SELECT 17 AS item_id) items CROSS JOIN LATERAL (SELECT items.item_id+1 AS next_id);
+SQL
+
+case explicit-alias-still-valid valid <<SQL
+SELECT items.item_id FROM (SELECT 17 AS item_id) AS items;
+SQL
+
+case anonymous-ambiguous-column semantic-error AmbiguousColumn <<SQL
+SELECT item_id FROM (SELECT 17 AS item_id),(SELECT 23 AS item_id);
+SQL
+
+case anonymous-missing-column semantic-error UnknownColumn <<SQL
+SELECT absent_id FROM (SELECT 17 AS item_id);
+SQL
+
+case anonymous-no-invented-qualifier semantic-error UnknownColumn <<SQL
+SELECT items.item_id FROM (SELECT 17 AS item_id);
+SQL
+
+case anonymous-nonlateral-correlation semantic-error UnknownColumn <<SQL
+SELECT next_id FROM (SELECT 17 AS item_id) items CROSS JOIN (SELECT items.item_id+1 AS next_id);
+SQL
+
+case column-list-needs-table-alias syntax-error ExpectedToken <<SQL
+SELECT item_id FROM (SELECT 17)(item_id);
+SQL
+
+case values-column-list-needs-table-alias syntax-error ExpectedToken <<SQL
+SELECT item_id FROM (VALUES(17))(item_id);
+SQL

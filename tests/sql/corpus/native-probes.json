@@ -1,0 +1,2081 @@
+{
+  "schema_version": 1,
+  "note": "Independently authored probes. Stage annotations describe native boundaries; engine versions are captured per run.",
+  "cases": [
+    {
+      "engine": "mysql",
+      "id": "like-explicit-escape",
+      "sql": "SELECT 'item_17' LIKE 'item!_17' ESCAPE '!';",
+      "expect": "accept"
+    },
+    {
+      "engine": "mysql",
+      "id": "like-unicode-escape",
+      "sql": "SELECT 'item_17' LIKE 'item§_17' ESCAPE '§';",
+      "expect": "accept"
+    },
+    {
+      "engine": "mysql",
+      "id": "like-too-long-escape",
+      "sql": "SELECT 'item_17' LIKE 'item_17' ESCAPE '!!';",
+      "expect": "reject",
+      "stage": "semantic-or-runtime"
+    },
+    {
+      "engine": "mysql",
+      "id": "like-null-escape",
+      "sql": "SELECT 'item' LIKE 'i%' ESCAPE NULL;",
+      "expect": "accept"
+    },
+    {
+      "engine": "postgresql",
+      "id": "like-explicit-escape",
+      "sql": "SELECT 'item_17' LIKE 'item!_17' ESCAPE '!';",
+      "expect": "accept"
+    },
+    {
+      "engine": "postgresql",
+      "id": "like-unicode-escape",
+      "sql": "SELECT 'item_17' LIKE 'item§_17' ESCAPE '§';",
+      "expect": "accept"
+    },
+    {
+      "engine": "postgresql",
+      "id": "like-too-long-escape",
+      "sql": "SELECT 'item_17' LIKE 'item_17' ESCAPE '!!';",
+      "expect": "reject",
+      "stage": "semantic-or-runtime"
+    },
+    {
+      "engine": "postgresql",
+      "id": "like-null-escape",
+      "sql": "SELECT 'item' LIKE 'i%' ESCAPE NULL;",
+      "expect": "accept"
+    },
+    {
+      "engine": "sqlite",
+      "id": "like-explicit-escape",
+      "sql": "SELECT 'item_17' LIKE 'item!_17' ESCAPE '!';",
+      "expect": "accept"
+    },
+    {
+      "engine": "sqlite",
+      "id": "like-unicode-escape",
+      "sql": "SELECT 'item_17' LIKE 'item§_17' ESCAPE '§';",
+      "expect": "accept"
+    },
+    {
+      "engine": "sqlite",
+      "id": "like-too-long-escape",
+      "sql": "SELECT 'item_17' LIKE 'item_17' ESCAPE '!!';",
+      "expect": "reject",
+      "stage": "semantic-or-runtime"
+    },
+    {
+      "engine": "sqlite",
+      "id": "like-null-escape",
+      "sql": "SELECT 'item' LIKE 'i%' ESCAPE NULL;",
+      "expect": "accept"
+    },
+    {
+      "engine": "mysql",
+      "id": "curdate-bare",
+      "sql": "SELECT CURDATE IS NOT NULL;",
+      "expect": "reject",
+      "error_contains": "1054",
+      "stage": "binding"
+    },
+    {
+      "engine": "mysql",
+      "id": "curdate-call",
+      "sql": "SELECT CURDATE() IS NOT NULL;",
+      "expect": "accept",
+      "stdout": "1\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "curtime-bare",
+      "sql": "SELECT CURTIME IS NOT NULL;",
+      "expect": "reject",
+      "error_contains": "1054",
+      "stage": "binding"
+    },
+    {
+      "engine": "mysql",
+      "id": "curtime-call",
+      "sql": "SELECT CURTIME() IS NOT NULL;",
+      "expect": "accept",
+      "stdout": "1\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_date-bare",
+      "sql": "SELECT UTC_DATE IS NOT NULL;",
+      "expect": "accept",
+      "stdout": "1\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_date-call",
+      "sql": "SELECT UTC_DATE() IS NOT NULL;",
+      "expect": "accept",
+      "stdout": "1\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_time-bare",
+      "sql": "SELECT UTC_TIME IS NOT NULL;",
+      "expect": "accept",
+      "stdout": "1\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_time-call",
+      "sql": "SELECT UTC_TIME() IS NOT NULL;",
+      "expect": "accept",
+      "stdout": "1\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_timestamp-bare",
+      "sql": "SELECT UTC_TIMESTAMP IS NOT NULL;",
+      "expect": "accept",
+      "stdout": "1\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_timestamp-call",
+      "sql": "SELECT UTC_TIMESTAMP() IS NOT NULL;",
+      "expect": "accept",
+      "stdout": "1\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "now-bare",
+      "sql": "SELECT NOW IS NOT NULL;",
+      "expect": "reject",
+      "error_contains": "1054",
+      "stage": "binding"
+    },
+    {
+      "engine": "mysql",
+      "id": "now-call",
+      "sql": "SELECT NOW() IS NOT NULL;",
+      "expect": "accept",
+      "stdout": "1\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "curtime-fraction",
+      "sql": "SELECT CURTIME(1.0);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "curtime-string",
+      "sql": "SELECT CURTIME('3');",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "curtime-negative",
+      "sql": "SELECT CURTIME(-1);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "curtime-null",
+      "sql": "SELECT CURTIME(NULL);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "curtime-expression",
+      "sql": "SELECT CURTIME(1+1);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "curtime-too-many",
+      "sql": "SELECT CURTIME(1,2);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "curtime-precision-six",
+      "sql": "SELECT CURTIME(6) IS NOT NULL;",
+      "expect": "accept",
+      "stdout": "1\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "curtime-precision-seven",
+      "sql": "SELECT CURTIME(7);",
+      "expect": "reject",
+      "stage": "semantic-or-runtime"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_time-fraction",
+      "sql": "SELECT UTC_TIME(1.0);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_time-string",
+      "sql": "SELECT UTC_TIME('3');",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_time-negative",
+      "sql": "SELECT UTC_TIME(-1);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_time-null",
+      "sql": "SELECT UTC_TIME(NULL);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_time-expression",
+      "sql": "SELECT UTC_TIME(1+1);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_time-too-many",
+      "sql": "SELECT UTC_TIME(1,2);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_time-precision-six",
+      "sql": "SELECT UTC_TIME(6) IS NOT NULL;",
+      "expect": "accept",
+      "stdout": "1\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_time-precision-seven",
+      "sql": "SELECT UTC_TIME(7);",
+      "expect": "reject",
+      "stage": "semantic-or-runtime"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_timestamp-fraction",
+      "sql": "SELECT UTC_TIMESTAMP(1.0);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_timestamp-string",
+      "sql": "SELECT UTC_TIMESTAMP('3');",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_timestamp-negative",
+      "sql": "SELECT UTC_TIMESTAMP(-1);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_timestamp-null",
+      "sql": "SELECT UTC_TIMESTAMP(NULL);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_timestamp-expression",
+      "sql": "SELECT UTC_TIMESTAMP(1+1);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_timestamp-too-many",
+      "sql": "SELECT UTC_TIMESTAMP(1,2);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_timestamp-precision-six",
+      "sql": "SELECT UTC_TIMESTAMP(6) IS NOT NULL;",
+      "expect": "accept",
+      "stdout": "1\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_timestamp-precision-seven",
+      "sql": "SELECT UTC_TIMESTAMP(7);",
+      "expect": "reject",
+      "stage": "semantic-or-runtime"
+    },
+    {
+      "engine": "mysql",
+      "id": "now-fraction",
+      "sql": "SELECT NOW(1.0);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "now-string",
+      "sql": "SELECT NOW('3');",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "now-negative",
+      "sql": "SELECT NOW(-1);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "now-null",
+      "sql": "SELECT NOW(NULL);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "now-expression",
+      "sql": "SELECT NOW(1+1);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "now-too-many",
+      "sql": "SELECT NOW(1,2);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "now-precision-six",
+      "sql": "SELECT NOW(6) IS NOT NULL;",
+      "expect": "accept",
+      "stdout": "1\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "now-precision-seven",
+      "sql": "SELECT NOW(7);",
+      "expect": "reject",
+      "stage": "semantic-or-runtime"
+    },
+    {
+      "engine": "mysql",
+      "id": "curdate-unexpected-argument",
+      "sql": "SELECT CURDATE(1);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "utc_date-unexpected-argument",
+      "sql": "SELECT UTC_DATE(1);",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "1064"
+    },
+    {
+      "engine": "mysql",
+      "id": "regexp-positive",
+      "sql": "SELECT 'item_17' REGEXP '^item_[0-9]+$', 'item_17' RLIKE '^i';",
+      "expect": "accept",
+      "stdout": "1\t1\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "regexp-negative",
+      "sql": "SELECT 'item_17' NOT REGEXP '^other', 'item_17' NOT RLIKE '^other';",
+      "expect": "accept",
+      "stdout": "1\t1\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "regexp-null",
+      "sql": "SELECT NULL REGEXP '^i', 'item' NOT REGEXP NULL;",
+      "expect": "accept",
+      "stdout": "NULL\tNULL\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "regexp-invalid-pattern",
+      "sql": "SELECT 'item' REGEXP '[';",
+      "expect": "reject",
+      "stage": "runtime"
+    },
+    {
+      "engine": "mysql",
+      "id": "escape-null-result",
+      "sql": "SELECT 'item' LIKE 'i%' ESCAPE NULL;",
+      "expect": "accept",
+      "stdout": "1\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "escape-empty-default",
+      "sql": "SELECT 'item' LIKE 'i%' ESCAPE '';",
+      "expect": "accept",
+      "stdout": "1\n",
+      "mysql_sql_mode": ""
+    },
+    {
+      "engine": "mysql",
+      "id": "escape-empty-no-backslash",
+      "sql": "SELECT 'item' LIKE 'i%' ESCAPE '';",
+      "expect": "reject",
+      "stage": "semantic-or-runtime",
+      "mysql_sql_mode": "NO_BACKSLASH_ESCAPES"
+    },
+    {
+      "engine": "mysql",
+      "id": "xor-binding",
+      "sql": "SELECT 1 XOR 0 AND 0, 1 OR 0 XOR 1, NULL XOR 1;",
+      "expect": "accept",
+      "stdout": "1\t1\tNULL\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "zero-target",
+      "sql": "SELECT;",
+      "expect": "accept"
+    },
+    {
+      "engine": "postgresql",
+      "id": "zero-target-from",
+      "sql": "SELECT FROM (SELECT 17 AS id) q;",
+      "expect": "accept"
+    },
+    {
+      "engine": "postgresql",
+      "id": "zero-target-filter",
+      "sql": "SELECT WHERE false;",
+      "expect": "accept"
+    },
+    {
+      "engine": "postgresql",
+      "id": "distinct-requires-target",
+      "sql": "SELECT DISTINCT;",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "42601"
+    },
+    {
+      "engine": "postgresql",
+      "id": "compact-null-binding",
+      "sql": "SELECT 3+NULL ISNULL, 3+5 NOTNULL, NOT NULL ISNULL;",
+      "expect": "accept",
+      "stdout": "t|t|f\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "empty-in-rejected",
+      "sql": "SELECT 17 IN ();",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "42601"
+    },
+    {
+      "engine": "postgresql",
+      "id": "escape-empty",
+      "sql": "SELECT 'item' LIKE 'i%' ESCAPE '';",
+      "expect": "accept",
+      "stdout": "t\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "escape-null-result",
+      "sql": "SELECT ('item' LIKE 'i%' ESCAPE NULL) IS NULL;",
+      "expect": "accept",
+      "stdout": "t\n"
+    },
+    {
+      "engine": "sqlite",
+      "id": "empty-in-null",
+      "sql": "SELECT NULL IN (), NULL NOT IN ();",
+      "expect": "accept",
+      "rows": [
+        [
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "compact-null-binding",
+      "sql": "SELECT 3+NULL ISNULL, 3+5 NOTNULL, NOT NULL ISNULL;",
+      "expect": "accept",
+      "rows": [
+        [
+          1,
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "anonymous-derived",
+      "sql": "SELECT id FROM (SELECT 17 AS id);",
+      "expect": "accept",
+      "rows": [
+        [
+          17
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "escape-empty",
+      "sql": "SELECT 'item' LIKE 'i%' ESCAPE '';",
+      "expect": "reject",
+      "stage": "runtime"
+    },
+    {
+      "engine": "sqlite",
+      "id": "escape-null-result",
+      "sql": "SELECT 'item' LIKE 'i%' ESCAPE NULL;",
+      "expect": "accept",
+      "rows": [
+        [
+          null
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "precedence-comparison-before-like",
+      "sql": "SELECT 2=0 LIKE '0';",
+      "expect": "accept",
+      "rows": [
+        [
+          1
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "precedence-comparison-before-in",
+      "sql": "SELECT 2=0 IN (0);",
+      "expect": "accept",
+      "rows": [
+        [
+          1
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "precedence-between-low-equality",
+      "sql": "SELECT 2 BETWEEN 0=0 AND 3;",
+      "expect": "accept",
+      "rows": [
+        [
+          1
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "precedence-between-high-equality",
+      "sql": "SELECT 2 BETWEEN 0 AND 3=1;",
+      "expect": "accept",
+      "rows": [
+        [
+          1
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "precedence-between-high-in",
+      "sql": "SELECT 2 BETWEEN 0 AND 3 IN (1);",
+      "expect": "accept",
+      "rows": [
+        [
+          1
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "precedence-between-high-relational",
+      "sql": "SELECT 2 BETWEEN 0 AND 3 < 1;",
+      "expect": "accept",
+      "rows": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "precedence-between-chained",
+      "sql": "SELECT 2 BETWEEN 0 AND 3 BETWEEN 0 AND 1;",
+      "expect": "accept",
+      "rows": [
+        [
+          1
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "precedence-between-parenthesized-high",
+      "sql": "SELECT 2 BETWEEN 0 AND (3=1);",
+      "expect": "accept",
+      "rows": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "precedence-between-low-boolean-not",
+      "sql": "SELECT 2 BETWEEN NOT 0 AND 3;",
+      "expect": "accept",
+      "rows": [
+        [
+          1
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "precedence-between-high-null",
+      "sql": "SELECT 2 BETWEEN 0 AND NULL;",
+      "expect": "accept",
+      "rows": [
+        [
+          null
+        ]
+      ]
+    },
+    {
+      "engine": "mysql",
+      "id": "all-count-star",
+      "sql": "SELECT COUNT(ALL *);",
+      "expect": "accept",
+      "stdout": "1\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "all-aggregate-default",
+      "sql": "SELECT SUM(ALL 17),BIT_AND(ALL 17),STD(ALL 17);",
+      "expect": "accept",
+      "stdout": "17\t17\t0\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "all-json-array",
+      "sql": "SELECT JSON_ARRAYAGG(ALL 17);",
+      "expect": "accept",
+      "stdout": "[17]\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "bit-distinct",
+      "sql": "SELECT BIT_AND(DISTINCT 17);",
+      "expect": "reject",
+      "error_contains": "1064",
+      "stage": "syntax"
+    },
+    {
+      "engine": "mysql",
+      "id": "std-distinct",
+      "sql": "SELECT STD(DISTINCT 17);",
+      "expect": "reject",
+      "error_contains": "1064",
+      "stage": "syntax"
+    },
+    {
+      "engine": "mysql",
+      "id": "std-two",
+      "sql": "SELECT STD(17,23);",
+      "expect": "reject",
+      "error_contains": "1064",
+      "stage": "syntax"
+    },
+    {
+      "engine": "mysql",
+      "id": "json-array-two",
+      "sql": "SELECT JSON_ARRAYAGG(17,23);",
+      "expect": "reject",
+      "error_contains": "1064",
+      "stage": "syntax"
+    },
+    {
+      "engine": "mysql",
+      "id": "json-array-distinct",
+      "sql": "SELECT JSON_ARRAYAGG(DISTINCT 17);",
+      "expect": "reject",
+      "error_contains": "1064",
+      "stage": "syntax"
+    },
+    {
+      "engine": "mysql",
+      "id": "json-object-distinct",
+      "sql": "SELECT JSON_OBJECTAGG(DISTINCT 'item',17);",
+      "expect": "reject",
+      "error_contains": "1064",
+      "stage": "syntax"
+    },
+    {
+      "engine": "mysql",
+      "id": "space-native-default",
+      "sql": "SELECT SUM (17);",
+      "expect": "reject",
+      "error_contains": "1046",
+      "stage": "binding"
+    },
+    {
+      "engine": "mysql",
+      "id": "space-native-mode",
+      "sql": "SELECT SUM (ALL 17);",
+      "expect": "accept",
+      "stdout": "17\n",
+      "mysql_sql_mode": "IGNORE_SPACE"
+    },
+    {
+      "engine": "mysql",
+      "id": "space-cast-mode",
+      "sql": "SELECT CAST (17 AS SIGNED);",
+      "expect": "accept",
+      "stdout": "17\n",
+      "mysql_sql_mode": "IGNORE_SPACE"
+    },
+    {
+      "engine": "mysql",
+      "id": "comment-not-space-mode",
+      "sql": "SELECT SUM/**/(ALL 17);",
+      "expect": "reject",
+      "error_contains": "1064",
+      "stage": "syntax",
+      "mysql_sql_mode": "IGNORE_SPACE"
+    },
+    {
+      "engine": "postgresql",
+      "id": "all-aggregate-and-scalar",
+      "sql": "SELECT SUM(ALL 17),COUNT(ALL 17),ABS(ALL -23);",
+      "expect": "accept",
+      "stdout": "17|1|23\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "all-count-empty",
+      "sql": "SELECT COUNT(ALL);",
+      "expect": "reject",
+      "error_contains": "42601",
+      "stage": "syntax"
+    },
+    {
+      "engine": "postgresql",
+      "id": "all-count-star",
+      "sql": "SELECT COUNT(ALL *);",
+      "expect": "reject",
+      "error_contains": "42601",
+      "stage": "syntax"
+    },
+    {
+      "engine": "sqlite",
+      "id": "all-aggregate-and-scalar",
+      "sql": "SELECT SUM(ALL 17),COUNT(ALL),ABS(ALL -23);",
+      "expect": "accept",
+      "rows": [
+        [
+          17,
+          1,
+          23
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "empty-count-rows",
+      "sql": "SELECT COUNT(),COUNT(ALL) FROM (VALUES(17),(23),(NULL));",
+      "expect": "accept",
+      "rows": [
+        [
+          3,
+          3
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "empty-count-filter",
+      "sql": "SELECT COUNT() FILTER(WHERE id>17) FROM (SELECT 17 AS id UNION ALL SELECT 23);",
+      "expect": "accept",
+      "rows": [
+        [
+          1
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "empty-count-window",
+      "sql": "SELECT COUNT() OVER (ORDER BY id) FROM (SELECT 17 AS id UNION ALL SELECT 23);",
+      "expect": "accept",
+      "rows": [
+        [
+          1
+        ],
+        [
+          2
+        ]
+      ]
+    },
+    {
+      "engine": "mysql",
+      "id": "sum-distinct-all",
+      "sql": "SELECT SUM(DISTINCT ALL 17);",
+      "expect": "accept",
+      "stdout": "17\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "avg-distinct-all",
+      "sql": "SELECT AVG(DISTINCT ALL 17);",
+      "expect": "accept"
+    },
+    {
+      "engine": "mysql",
+      "id": "min-distinctrow-all",
+      "sql": "SELECT MIN(DISTINCTROW ALL 17);",
+      "expect": "accept",
+      "stdout": "17\n"
+    },
+    {
+      "engine": "mysql",
+      "id": "count-distinct-all",
+      "sql": "SELECT COUNT(DISTINCT ALL 17);",
+      "expect": "reject",
+      "error_contains": "1064",
+      "stage": "syntax"
+    },
+    {
+      "engine": "mysql",
+      "id": "scalar-distinct",
+      "sql": "SELECT ABS(DISTINCT 17);",
+      "expect": "reject",
+      "error_contains": "1064",
+      "stage": "syntax"
+    },
+    {
+      "engine": "postgresql",
+      "id": "scalar-distinct",
+      "sql": "SELECT ABS(DISTINCT 17);",
+      "expect": "reject",
+      "error_contains": "42809",
+      "stage": "semantic"
+    },
+    {
+      "engine": "sqlite",
+      "id": "scalar-distinct",
+      "sql": "SELECT ABS(DISTINCT -17);",
+      "expect": "accept",
+      "rows": [
+        [
+          17
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "projection-bare-and",
+      "sql": "SELECT 17 AND;",
+      "expect": "accept",
+      "stdout": "17\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "projection-null-test-bare-and",
+      "sql": "SELECT NULL ISNULL AND;",
+      "expect": "accept",
+      "stdout": "t\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "projection-bare-is",
+      "sql": "SELECT 23 IS;",
+      "expect": "accept",
+      "stdout": "23\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "projection-where-dangling-and",
+      "sql": "SELECT 17 WHERE 17=17 AND;",
+      "expect": "reject",
+      "error_contains": "42601"
+    },
+    {
+      "engine": "postgresql",
+      "id": "projection-argument-dangling-and",
+      "sql": "SELECT ABS(17 AND);",
+      "expect": "reject",
+      "error_contains": "42601"
+    },
+    {
+      "engine": "postgresql",
+      "id": "escape-named-type-binding",
+      "sql": "SELECT ESCAPE 'audit';",
+      "expect": "reject",
+      "stage": "semantic-binding",
+      "error_contains": "42704"
+    },
+    {
+      "engine": "postgresql",
+      "id": "limit-decimal-rounding",
+      "sql": "SELECT item_id FROM (VALUES(17),(23),(31)) AS audit_items(item_id) ORDER BY item_id LIMIT 1.5;",
+      "expect": "accept",
+      "stdout": "17\n23\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "limit-null-unlimited",
+      "sql": "SELECT item_id FROM (VALUES(17),(23),(31)) AS audit_items(item_id) ORDER BY item_id LIMIT NULL;",
+      "expect": "accept",
+      "stdout": "17\n23\n31\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "offset-null-zero",
+      "sql": "SELECT item_id FROM (VALUES(17),(23),(31)) AS audit_items(item_id) ORDER BY item_id LIMIT 1 OFFSET NULL;",
+      "expect": "accept",
+      "stdout": "17\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "limit-offset-numeric-strings",
+      "sql": "SELECT item_id FROM (VALUES(17),(23),(31)) AS audit_items(item_id) ORDER BY item_id LIMIT '2' OFFSET '1';",
+      "expect": "accept",
+      "stdout": "23\n31\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "fetch-parenthesized-expression",
+      "sql": "SELECT item_id FROM (VALUES(17),(23),(31)) AS audit_items(item_id) ORDER BY item_id FETCH FIRST (1+1) ROWS ONLY;",
+      "expect": "accept",
+      "stdout": "17\n23\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "fetch-scalar-function",
+      "sql": "SELECT item_id FROM (VALUES(17),(23),(31)) AS audit_items(item_id) ORDER BY item_id OFFSET (1-1) ROWS FETCH NEXT ABS(-1) ROW ONLY;",
+      "expect": "accept",
+      "stdout": "17\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "fetch-null-unlimited",
+      "sql": "SELECT item_id FROM (VALUES(17),(23),(31)) AS audit_items(item_id) ORDER BY item_id FETCH FIRST NULL ROWS ONLY;",
+      "expect": "accept",
+      "stdout": "17\n23\n31\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "limit-case-expression",
+      "sql": "SELECT item_id FROM (VALUES(17),(23),(31)) AS audit_items(item_id) ORDER BY item_id LIMIT CASE WHEN 17=17 THEN 2 ELSE 1 END;",
+      "expect": "accept",
+      "stdout": "17\n23\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "limit-correlated-outer-column",
+      "sql": "SELECT (SELECT 17 LIMIT audit_items.item_id) FROM (VALUES(0),(1)) AS audit_items(item_id) ORDER BY item_id;",
+      "expect": "accept",
+      "stdout": "\n17\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "limit-boolean-type",
+      "sql": "SELECT 17 LIMIT TRUE;",
+      "expect": "reject",
+      "error_contains": "42804",
+      "stage": "semantic-binding"
+    },
+    {
+      "engine": "postgresql",
+      "id": "limit-date-type",
+      "sql": "SELECT 17 LIMIT CURRENT_DATE;",
+      "expect": "reject",
+      "error_contains": "42804",
+      "stage": "semantic-binding"
+    },
+    {
+      "engine": "postgresql",
+      "id": "limit-typed-text",
+      "sql": "SELECT 17 LIMIT VARCHAR '1';",
+      "expect": "reject",
+      "error_contains": "42804",
+      "stage": "semantic-binding"
+    },
+    {
+      "engine": "postgresql",
+      "id": "limit-current-query-column",
+      "sql": "SELECT item_id FROM (VALUES(17),(23),(31)) AS audit_items(item_id) ORDER BY item_id LIMIT item_id;",
+      "expect": "reject",
+      "error_contains": "42P10",
+      "stage": "semantic-binding"
+    },
+    {
+      "engine": "postgresql",
+      "id": "limit-aggregate-forbidden",
+      "sql": "SELECT 17 LIMIT COUNT(*);",
+      "expect": "reject",
+      "error_contains": "42803",
+      "stage": "semantic-binding"
+    },
+    {
+      "engine": "postgresql",
+      "id": "limit-window-forbidden",
+      "sql": "SELECT 17 LIMIT ROW_NUMBER() OVER();",
+      "expect": "reject",
+      "error_contains": "42P20",
+      "stage": "semantic-binding"
+    },
+    {
+      "engine": "postgresql",
+      "id": "limit-negative-integer",
+      "sql": "SELECT 17 LIMIT -1;",
+      "expect": "reject",
+      "error_contains": "2201W",
+      "stage": "runtime"
+    },
+    {
+      "engine": "postgresql",
+      "id": "offset-negative-integer",
+      "sql": "SELECT 17 OFFSET -1;",
+      "expect": "reject",
+      "error_contains": "2201X",
+      "stage": "runtime"
+    },
+    {
+      "engine": "postgresql",
+      "id": "fetch-bare-arithmetic",
+      "sql": "SELECT 17 FETCH FIRST 1+1 ROWS ONLY;",
+      "expect": "reject",
+      "error_contains": "42601",
+      "stage": "syntax"
+    },
+    {
+      "engine": "postgresql",
+      "id": "offset-rows-bare-arithmetic",
+      "sql": "SELECT 17 OFFSET 1-1 ROWS;",
+      "expect": "reject",
+      "error_contains": "42601",
+      "stage": "syntax"
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-negative-unlimited",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT -1;",
+      "expect": "accept",
+      "rows": [
+        [
+          17
+        ],
+        [
+          23
+        ],
+        [
+          31
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "offset-negative-zero",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT 1 OFFSET -17;",
+      "expect": "accept",
+      "rows": [
+        [
+          17
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-real-integer",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT 2.0;",
+      "expect": "accept",
+      "rows": [
+        [
+          17
+        ],
+        [
+          23
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-exponent-integer",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT 2e0;",
+      "expect": "accept",
+      "rows": [
+        [
+          17
+        ],
+        [
+          23
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-integer-string",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT '2';",
+      "expect": "accept",
+      "rows": [
+        [
+          17
+        ],
+        [
+          23
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-true",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT TRUE;",
+      "expect": "accept",
+      "rows": [
+        [
+          17
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-false",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT FALSE;",
+      "expect": "accept",
+      "rows": []
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-abs",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT ABS(-1);",
+      "expect": "accept",
+      "rows": [
+        [
+          17
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-scalar-min",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT MIN(1,2);",
+      "expect": "accept",
+      "rows": [
+        [
+          17
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-case",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT CASE WHEN 17=17 THEN 2 ELSE 1 END;",
+      "expect": "accept",
+      "rows": [
+        [
+          17
+        ],
+        [
+          23
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-subquery",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT (SELECT 2);",
+      "expect": "accept",
+      "rows": [
+        [
+          17
+        ],
+        [
+          23
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-comma-offset-first",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT 1,2;",
+      "expect": "accept",
+      "rows": [
+        [
+          23
+        ],
+        [
+          31
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-comma-negative-count",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT 1,-1;",
+      "expect": "accept",
+      "rows": [
+        [
+          23
+        ],
+        [
+          31
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-comma-negative-offset",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT -1,2;",
+      "expect": "accept",
+      "rows": [
+        [
+          17
+        ],
+        [
+          23
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-true-independent-scope",
+      "sql": "SELECT 17 FROM (SELECT 0 AS true) AS audit_items LIMIT TRUE;",
+      "expect": "accept",
+      "rows": [
+        [
+          17
+        ]
+      ]
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-null-mismatch",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT NULL;",
+      "expect": "reject",
+      "error_contains": "datatype mismatch",
+      "stage": "runtime"
+    },
+    {
+      "engine": "sqlite",
+      "id": "offset-null-mismatch",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT 1 OFFSET NULL;",
+      "expect": "reject",
+      "error_contains": "datatype mismatch",
+      "stage": "runtime"
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-fraction-mismatch",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT 1.5;",
+      "expect": "reject",
+      "error_contains": "datatype mismatch",
+      "stage": "runtime"
+    },
+    {
+      "engine": "sqlite",
+      "id": "offset-fraction-mismatch",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT 1 OFFSET -1.5;",
+      "expect": "reject",
+      "error_contains": "datatype mismatch",
+      "stage": "runtime"
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-aggregate-forbidden",
+      "sql": "SELECT 17 LIMIT COUNT(*);",
+      "expect": "reject",
+      "error_contains": "misuse of aggregate",
+      "stage": "semantic-binding"
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-window-forbidden",
+      "sql": "SELECT 17 LIMIT ROW_NUMBER() OVER();",
+      "expect": "reject",
+      "error_contains": "misuse of window",
+      "stage": "semantic-binding"
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-local-column",
+      "sql": "SELECT item_id FROM (SELECT 17 AS item_id UNION ALL SELECT 23 UNION ALL SELECT 31) ORDER BY item_id LIMIT item_id;",
+      "expect": "reject",
+      "error_contains": "no such column",
+      "stage": "semantic-binding"
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-outer-column",
+      "sql": "SELECT (SELECT 17 LIMIT audit_items.item_id) FROM (SELECT 1 AS item_id) AS audit_items;",
+      "expect": "reject",
+      "error_contains": "no such column",
+      "stage": "semantic-binding"
+    },
+    {
+      "engine": "sqlite",
+      "id": "offset-without-limit",
+      "sql": "SELECT 17 OFFSET 1;",
+      "expect": "reject",
+      "error_contains": "syntax error",
+      "stage": "syntax"
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-all-not-keyword",
+      "sql": "SELECT 17 LIMIT ALL;",
+      "expect": "reject",
+      "error_contains": "syntax error",
+      "stage": "syntax"
+    },
+    {
+      "engine": "sqlite",
+      "id": "limit-comma-extra-offset",
+      "sql": "SELECT 17 LIMIT 0,1 OFFSET 0;",
+      "expect": "reject",
+      "error_contains": "syntax error",
+      "stage": "syntax"
+    },
+    {
+      "engine": "postgresql",
+      "id": "between-lower-comparison",
+      "sql": "SELECT TRUE BETWEEN 17=17 AND TRUE;",
+      "expect": "accept",
+      "stdout": "t\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "between-lower-distinct",
+      "sql": "SELECT TRUE BETWEEN 17 IS DISTINCT FROM 23 AND TRUE;",
+      "expect": "accept",
+      "stdout": "t\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "between-lower-parenthesized-in",
+      "sql": "SELECT TRUE BETWEEN (17 IN(17)) AND TRUE;",
+      "expect": "accept",
+      "stdout": "t\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "fixed-token-predicate-chains",
+      "sql": "SELECT TRUE IS TRUE IS TRUE, NULL ISNULL ISNULL, 17=ANY(ARRAY[17])=TRUE;",
+      "expect": "accept",
+      "stdout": "t|f|t\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "explicit-asc-canonicalization",
+      "sql": "SELECT amount,item_id FROM (VALUES(17,2),(17,1),(NULL,3)) AS audit_items(amount,item_id) ORDER BY amount+1 DESC,item_id ASC;",
+      "expect": "accept",
+      "stdout": "|3\n17|1\n17|2\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "default-asc-canonicalization",
+      "sql": "SELECT amount,item_id FROM (VALUES(17,2),(17,1),(NULL,3)) AS audit_items(amount,item_id) ORDER BY amount+1 DESC,item_id;",
+      "expect": "accept",
+      "stdout": "|3\n17|1\n17|2\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "empty-named-window",
+      "sql": "SELECT SUM(item_id) OVER(\"partition\") FROM (VALUES(17),(23)) AS audit_items(item_id) WINDOW \"partition\" AS ();",
+      "expect": "accept",
+      "stdout": "40\n40\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "empty-inline-window",
+      "sql": "SELECT SUM(item_id) OVER() FROM (VALUES(17),(23)) AS audit_items(item_id);",
+      "expect": "accept",
+      "stdout": "40\n40\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "non-associative-comparison",
+      "sql": "SELECT 17=23=29;",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "42601"
+    },
+    {
+      "engine": "postgresql",
+      "id": "non-associative-between",
+      "sql": "SELECT 17 BETWEEN 0 AND 23 BETWEEN 0 AND 29;",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "42601"
+    },
+    {
+      "engine": "postgresql",
+      "id": "between-lower-null-unparenthesized",
+      "sql": "SELECT TRUE BETWEEN TRUE IS NULL AND TRUE;",
+      "expect": "reject",
+      "stage": "syntax",
+      "error_contains": "42601"
+    },
+    {
+      "engine": "postgresql",
+      "id": "window-roundtrip-named-rows",
+      "sql": "SELECT site_id,row_id,SUM(cost) OVER w AS measured FROM (VALUES(1,1,11,7),(1,1,15,5),(1,2,20,NULL),(1,3,25,9),(2,1,31,3),(2,2,39,11)) AS audit_items(site_id,slot_id,row_id,cost) WINDOW w AS(PARTITION BY site_id ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) ORDER BY site_id,row_id;",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "columns": [
+        [
+          "site_id",
+          "integer"
+        ],
+        [
+          "row_id",
+          "integer"
+        ],
+        [
+          "measured",
+          "bigint"
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "window-roundtrip-copied-window",
+      "sql": "SELECT site_id,row_id,SUM(cost) OVER(base ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS measured FROM (VALUES(1,1,11,7),(1,1,15,5),(1,2,20,NULL),(1,3,25,9),(2,1,31,3),(2,2,39,11)) AS audit_items(site_id,slot_id,row_id,cost) WINDOW base AS(PARTITION BY site_id) ORDER BY site_id,row_id;",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "columns": [
+        [
+          "site_id",
+          "integer"
+        ],
+        [
+          "row_id",
+          "integer"
+        ],
+        [
+          "measured",
+          "bigint"
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "window-roundtrip-inherited-last-value",
+      "sql": "SELECT site_id,row_id,LAST_VALUE(cost) OVER framed AS measured FROM (VALUES(1,1,11,7),(1,1,15,5),(1,2,20,NULL),(1,3,25,9),(2,1,31,3),(2,2,39,11)) AS audit_items(site_id,slot_id,row_id,cost) WINDOW base AS(PARTITION BY site_id),ordered AS(base ORDER BY row_id),framed AS(ordered ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) ORDER BY site_id,row_id;",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "columns": [
+        [
+          "site_id",
+          "integer"
+        ],
+        [
+          "row_id",
+          "integer"
+        ],
+        [
+          "measured",
+          "integer"
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "window-roundtrip-default-range-peers",
+      "sql": "SELECT site_id,row_id,SUM(cost) OVER w AS measured FROM (VALUES(1,1,11,7),(1,1,15,5),(1,2,20,NULL),(1,3,25,9),(2,1,31,3),(2,2,39,11)) AS audit_items(site_id,slot_id,row_id,cost) WINDOW w AS(PARTITION BY site_id ORDER BY slot_id) ORDER BY site_id,row_id;",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "columns": [
+        [
+          "site_id",
+          "integer"
+        ],
+        [
+          "row_id",
+          "integer"
+        ],
+        [
+          "measured",
+          "bigint"
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "window-roundtrip-numeric-range-gaps",
+      "sql": "SELECT site_id,row_id,SUM(cost) OVER w AS measured FROM (VALUES(1,1,11,7),(1,1,15,5),(1,2,20,NULL),(1,3,25,9),(2,1,31,3),(2,2,39,11)) AS audit_items(site_id,slot_id,row_id,cost) WINDOW w AS(PARTITION BY site_id ORDER BY row_id RANGE BETWEEN 1 PRECEDING AND CURRENT ROW) ORDER BY site_id,row_id;",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "columns": [
+        [
+          "site_id",
+          "integer"
+        ],
+        [
+          "row_id",
+          "integer"
+        ],
+        [
+          "measured",
+          "bigint"
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "window-roundtrip-groups-exclude-ties",
+      "sql": "SELECT site_id,row_id,SUM(cost) OVER w AS measured FROM (VALUES(1,1,11,7),(1,1,15,5),(1,2,20,NULL),(1,3,25,9),(2,1,31,3),(2,2,39,11)) AS audit_items(site_id,slot_id,row_id,cost) WINDOW w AS(PARTITION BY site_id ORDER BY slot_id GROUPS BETWEEN 1 PRECEDING AND CURRENT ROW EXCLUDE TIES) ORDER BY site_id,row_id;",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "columns": [
+        [
+          "site_id",
+          "integer"
+        ],
+        [
+          "row_id",
+          "integer"
+        ],
+        [
+          "measured",
+          "bigint"
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "window-roundtrip-filtered-window",
+      "sql": "SELECT site_id,row_id,SUM(cost) FILTER(WHERE cost>=7) OVER w AS measured FROM (VALUES(1,1,11,7),(1,1,15,5),(1,2,20,NULL),(1,3,25,9),(2,1,31,3),(2,2,39,11)) AS audit_items(site_id,slot_id,row_id,cost) WINDOW w AS(PARTITION BY site_id ORDER BY row_id ROWS UNBOUNDED PRECEDING) ORDER BY site_id,row_id;",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "columns": [
+        [
+          "site_id",
+          "integer"
+        ],
+        [
+          "row_id",
+          "integer"
+        ],
+        [
+          "measured",
+          "bigint"
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "window-roundtrip-empty-named-window",
+      "sql": "SELECT site_id,row_id,COUNT(*) OVER w AS measured FROM (VALUES(1,1,11,7),(1,1,15,5),(1,2,20,NULL),(1,3,25,9),(2,1,31,3),(2,2,39,11)) AS audit_items(site_id,slot_id,row_id,cost) WINDOW w AS() ORDER BY site_id,row_id;",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "columns": [
+        [
+          "site_id",
+          "integer"
+        ],
+        [
+          "row_id",
+          "integer"
+        ],
+        [
+          "measured",
+          "bigint"
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "window-framed-copy-rejected",
+      "sql": "SELECT SUM(cost) OVER(w) FROM (VALUES(1,1,11,7),(1,1,15,5),(1,2,20,NULL),(1,3,25,9),(2,1,31,3),(2,2,39,11)) AS audit_items(site_id,slot_id,row_id,cost) WINDOW w AS(ORDER BY row_id ROWS UNBOUNDED PRECEDING);",
+      "expect": "reject",
+      "stage": "semantic-window",
+      "error_contains": "42P20"
+    },
+    {
+      "engine": "postgresql",
+      "id": "columns-constructed-array",
+      "sql": "SELECT ARRAY[17,NULL,29];",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "columns": [
+        [
+          "array",
+          "integer[]"
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "columns-array-indirection",
+      "sql": "SELECT a[2],a[1:2] FROM(VALUES(ARRAY[17,NULL,29]))AS v(a);",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "columns": [
+        [
+          "a",
+          "integer"
+        ],
+        [
+          "a",
+          "integer[]"
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "columns-scalar-subselect-array",
+      "sql": "SELECT (SELECT ARRAY[17,29])[1];",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "columns": [
+        [
+          "array",
+          "integer"
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "columns-series-implicit",
+      "sql": "SELECT * FROM generate_series(17,19);",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "columns": [
+        [
+          "generate_series",
+          "integer"
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "columns-series-alias",
+      "sql": "SELECT * FROM generate_series(17,19)AS s;",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "columns": [
+        [
+          "s",
+          "integer"
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "columns-lateral-comma",
+      "sql": "SELECT row_id,item FROM(VALUES(1,ARRAY[17,NULL]),(2,ARRAY[29]))AS base(row_id,parts),unnest(parts)AS item ORDER BY row_id,item NULLS LAST;",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "columns": [
+        [
+          "row_id",
+          "integer"
+        ],
+        [
+          "item",
+          "integer"
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "columns-full-join-using",
+      "sql": "SELECT * FROM(VALUES(1,17),(2,29))AS l(row_id,left_cost) FULL JOIN(VALUES(2,31),(3,37))AS r(row_id,right_cost)USING(row_id) ORDER BY row_id;",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "columns": [
+        [
+          "row_id",
+          "integer"
+        ],
+        [
+          "left_cost",
+          "integer"
+        ],
+        [
+          "right_cost",
+          "integer"
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "columns-natural-left-join",
+      "sql": "SELECT * FROM(VALUES(1,17),(2,29))AS l(row_id,cost) NATURAL LEFT JOIN(VALUES(2,31),(3,37))AS r(row_id,shipping) ORDER BY row_id;",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "columns": [
+        [
+          "row_id",
+          "integer"
+        ],
+        [
+          "cost",
+          "integer"
+        ],
+        [
+          "shipping",
+          "integer"
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "columns-project-set",
+      "sql": "SELECT generate_series(17,19),generate_series(31,32);",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "columns": [
+        [
+          "generate_series",
+          "integer"
+        ],
+        [
+          "generate_series",
+          "integer"
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "columns-quoted-array",
+      "sql": "SELECT v.\"Parts\"[1],v.\"Parts\"[2:] FROM(VALUES(ARRAY[17,29,31]))AS v(\"Parts\");",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "columns": [
+        [
+          "Parts",
+          "integer"
+        ],
+        [
+          "Parts",
+          "integer[]"
+        ]
+      ]
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-implicit-column-label",
+      "sql": "SELECT item_id FROM (VALUES(17),(23)) AS audit_items(item_id);",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-explicit-column-label",
+      "sql": "SELECT item_id AS item_id FROM (VALUES(17)) AS audit_items(item_id);",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-function-default-alias",
+      "sql": "SELECT generate_series FROM generate_series(2,4);",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-function-explicit-alias",
+      "sql": "SELECT g FROM generate_series(2,4) AS g;",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-function-one-column-alias",
+      "sql": "SELECT n FROM generate_series(2,4) AS g(n);",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-function-default-ordinality",
+      "sql": "SELECT generate_series,ordinality FROM generate_series(2,4) WITH ORDINALITY;",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-function-one-alias-ordinality",
+      "sql": "SELECT n,ordinality FROM generate_series(2,4) WITH ORDINALITY AS g(n);",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-function-two-aliases-ordinality",
+      "sql": "SELECT n,position FROM generate_series(2,4) WITH ORDINALITY AS g(n,position);",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-comma-and-explicit-join",
+      "sql": "SELECT a.n,b.n,c.n FROM (VALUES(1),(2)) AS a(n),(VALUES(3),(4)) AS b(n) JOIN (VALUES(3),(4)) AS c(n) ON b.n=c.n;",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-implicit-lateral-function",
+      "sql": "SELECT a.n,b.n FROM generate_series(1,2) AS a(n),generate_series(1,a.n) AS b(n);",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-explicit-lateral-function",
+      "sql": "SELECT a.n,b.n FROM generate_series(1,2) AS a(n) CROSS JOIN LATERAL generate_series(1,a.n) AS b(n);",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-inner-lateral-on-true",
+      "sql": "SELECT a.n,b.n FROM generate_series(1,2) AS a(n) JOIN LATERAL(SELECT a.n+7 AS n) AS b ON TRUE;",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-left-lateral-on-true",
+      "sql": "SELECT a.n,b.n FROM generate_series(1,2) AS a(n) LEFT JOIN LATERAL(SELECT a.n+7 AS n) AS b ON TRUE;",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-explicit-ascending",
+      "sql": "SELECT n FROM generate_series(2,4) AS g(n) ORDER BY n ASC;",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-implicit-case-else",
+      "sql": "SELECT CASE WHEN n=2 THEN 17 END FROM generate_series(2,4) AS g(n);",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-explicit-case-null",
+      "sql": "SELECT CASE WHEN n=2 THEN 17 ELSE NULL END FROM generate_series(2,4) AS g(n);",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-unused-window-definition",
+      "sql": "SELECT n FROM generate_series(2,4) AS g(n) WINDOW unused AS(ORDER BY n ASC);",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-quoted-window-inheritance",
+      "sql": "SELECT SUM(n) OVER \"Ordered\" FROM generate_series(2,4) AS g(n) WINDOW \"Base\" AS(),\"Ordered\" AS(\"Base\" ORDER BY n ASC);",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-bare-and-copied-window",
+      "sql": "SELECT SUM(n) OVER w,SUM(n) OVER(w) FROM generate_series(2,4) AS g(n) WINDOW w AS(ORDER BY n ASC);",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-unused-window-partition-grouping",
+      "sql": "SELECT COUNT(*) FROM (VALUES(17),(23)) AS audit_items(item_id) WINDOW unused AS(PARTITION BY item_id);",
+      "expect": "reject",
+      "stage": "semantic",
+      "error_contains": "42803"
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-unused-window-order-grouping",
+      "sql": "SELECT COUNT(*) FROM (VALUES(17),(23)) AS audit_items(item_id) WINDOW unused AS(ORDER BY item_id);",
+      "expect": "reject",
+      "stage": "semantic",
+      "error_contains": "42803"
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-unused-window-grouped",
+      "sql": "SELECT item_id,COUNT(*) FROM (VALUES(17),(23)) AS audit_items(item_id) GROUP BY item_id WINDOW unused AS(ORDER BY item_id);",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-unused-window-aggregate",
+      "sql": "SELECT 17 FROM (VALUES(17),(23)) AS audit_items(item_id) WINDOW unused AS(ORDER BY SUM(item_id));",
+      "expect": "accept",
+      "round_trip": true,
+      "compare_columns": true,
+      "stdout": "17\n"
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-missing-window-analysis",
+      "sql": "SELECT SUM(n) OVER missing FROM generate_series(2,4) AS g(n);",
+      "expect": "reject",
+      "stage": "semantic",
+      "error_contains": "42704"
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-duplicate-window-analysis",
+      "sql": "SELECT 17 WINDOW w AS(),w AS();",
+      "expect": "reject",
+      "stage": "semantic",
+      "error_contains": "42P20"
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-forward-window-analysis",
+      "sql": "SELECT 17 WINDOW child AS(parent),parent AS();",
+      "expect": "reject",
+      "stage": "semantic",
+      "error_contains": "42704"
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-cycle-window-analysis",
+      "sql": "SELECT 17 WINDOW a AS(b),b AS(a);",
+      "expect": "reject",
+      "stage": "semantic",
+      "error_contains": "42704"
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-partition-override-analysis",
+      "sql": "SELECT SUM(n) OVER(w PARTITION BY n) FROM generate_series(2,4) AS g(n) WINDOW w AS();",
+      "expect": "reject",
+      "stage": "semantic",
+      "error_contains": "42P20"
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-order-override-analysis",
+      "sql": "SELECT SUM(n) OVER(w ORDER BY n) FROM generate_series(2,4) AS g(n) WINDOW w AS(ORDER BY n);",
+      "expect": "reject",
+      "stage": "semantic",
+      "error_contains": "42P20"
+    },
+    {
+      "engine": "postgresql",
+      "id": "source-structure-nested-window-scope-analysis",
+      "sql": "SELECT (SELECT SUM(n) OVER w FROM generate_series(2,4) AS g(n)) WINDOW w AS();",
+      "expect": "reject",
+      "stage": "semantic",
+      "error_contains": "42704"
+    }
+  ]
+}

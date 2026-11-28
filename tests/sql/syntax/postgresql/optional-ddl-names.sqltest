@@ -1,0 +1,153 @@
+# Independently authored PostgreSQL empty definitions and optional index names.
+
+case zero-column-table valid <<SQL
+CREATE TABLE audit_empty();
+SQL
+
+case temporary-zero-column-table valid <<SQL
+CREATE TEMP TABLE audit_empty();
+SQL
+
+case unlogged-zero-column-table valid <<SQL
+CREATE UNLOGGED TABLE audit_empty();
+SQL
+
+case zero-column-table-if-not-exists valid <<SQL
+CREATE TABLE IF NOT EXISTS audit_empty();
+SQL
+
+case unnamed-index valid <<SQL
+CREATE INDEX ON audit_items(item_id);
+SQL
+
+case unnamed-unique-index valid <<SQL
+CREATE UNIQUE INDEX ON audit_items(item_id);
+SQL
+
+case unnamed-index-method valid <<SQL
+CREATE INDEX ON owned.audit_items USING btree(item_id);
+SQL
+
+case unnamed-partial-index valid <<SQL
+CREATE INDEX ON audit_items(item_id DESC) WHERE item_id>17;
+SQL
+
+case missing-definition-list syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_empty;
+SQL
+
+case comma-only-definition syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_empty(,);
+SQL
+
+case empty-definition-as-select syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_empty() AS SELECT 17;
+SQL
+
+case typed-definition-as-select syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items(item_id INT) AS SELECT 17;
+SQL
+
+case if-not-exists-needs-index-name syntax-error ExpectedToken <<SQL
+CREATE INDEX IF NOT EXISTS ON audit_items(item_id);
+SQL
+
+case qualified-created-index-name syntax-error ExpectedToken <<SQL
+CREATE INDEX owned.audit_idx ON audit_items(item_id);
+SQL
+
+case concurrent-index-deployment-gap unsupported <<SQL
+CREATE INDEX CONCURRENTLY ON audit_items(item_id);
+SQL
+
+case index-constant-expression valid <<SQL
+CREATE INDEX ON audit_items((17));
+SQL
+
+case index-arithmetic-expression valid <<SQL
+CREATE INDEX ON audit_items((item_id+17));
+SQL
+
+case index-function-expression valid <<SQL
+CREATE INDEX ON audit_items(ABS(item_id));
+SQL
+
+case index-cast-function valid <<SQL
+CREATE INDEX ON audit_items(CAST(item_id AS INT));
+SQL
+
+case index-parenthesized-cast valid <<SQL
+CREATE INDEX ON audit_items((item_id::INT));
+SQL
+
+case index-parenthesized-qualified-name valid <<SQL
+CREATE INDEX ON audit_items((audit_items.item_id));
+SQL
+
+case index-bare-number syntax-error ExpectedToken <<SQL
+CREATE INDEX ON audit_items(17);
+SQL
+
+case index-bare-null syntax-error ExpectedToken <<SQL
+CREATE INDEX ON audit_items(NULL);
+SQL
+
+case index-bare-true syntax-error ExpectedToken <<SQL
+CREATE INDEX ON audit_items(TRUE);
+SQL
+
+case index-bare-arithmetic syntax-error ExpectedToken <<SQL
+CREATE INDEX ON audit_items(item_id+17);
+SQL
+
+case index-arithmetic-outside-parens syntax-error ExpectedToken <<SQL
+CREATE INDEX ON audit_items((item_id)+17);
+SQL
+
+case index-function-arithmetic syntax-error ExpectedToken <<SQL
+CREATE INDEX ON audit_items(ABS(item_id)+17);
+SQL
+
+case index-bare-postfix-cast syntax-error ExpectedToken <<SQL
+CREATE INDEX ON audit_items(item_id::INT);
+SQL
+
+case index-bare-row syntax-error ExpectedToken <<SQL
+CREATE INDEX ON audit_items(ROW(item_id));
+SQL
+
+case index-bare-qualified-column syntax-error ExpectedToken <<SQL
+CREATE INDEX ON audit_items(audit_items.item_id);
+SQL
+
+case index-bare-filter syntax-error ExpectedToken <<SQL
+CREATE INDEX ON audit_items(SUM(item_id) FILTER(WHERE item_id>0));
+SQL
+
+case stable-date-index semantic-error InvalidQueryShape <<SQL
+CREATE INDEX ON audit_items(CURRENT_DATE);
+SQL
+
+case volatile-random-index semantic-error InvalidQueryShape <<SQL
+CREATE INDEX ON audit_items(random());
+SQL
+
+case nested-volatile-index semantic-error InvalidQueryShape <<SQL
+CREATE INDEX ON audit_items((item_id+random()));
+SQL
+
+case stable-index-predicate semantic-error InvalidQueryShape <<SQL
+CREATE INDEX ON audit_items(item_id) WHERE CURRENT_DATE>DATE '2020-01-01';
+SQL
+
+case index-unqualified-method valid <<SQL
+CREATE INDEX audit_idx ON audit_items USING btree(item_id);
+SQL
+
+case index-quoted-method valid <<SQL
+CREATE INDEX audit_idx ON audit_items USING "btree"(item_id);
+SQL
+
+case index-qualified-method syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items USING pg_catalog.btree(item_id);
+SQL

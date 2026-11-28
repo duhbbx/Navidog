@@ -1,0 +1,129 @@
+# Independently authored; SqlScriptDOM TSql160.g and ParserErrorsTests.cs references are pinned.
+
+case identity valid <<SQL
+CREATE TABLE audit_items(id INT IDENTITY(17,2), label VARCHAR(20));
+SQL
+
+case identity-duplicate syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items(id INT IDENTITY IDENTITY);
+SQL
+
+case identity-duplicate-arguments syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items(id INT IDENTITY(17,2) IDENTITY(23,2));
+SQL
+
+case view-simple valid <<SQL
+CREATE VIEW audit_items_v AS SELECT item_id FROM audit_items;
+SQL
+
+case view-top-order valid <<SQL
+CREATE VIEW dbo.audit_items_v AS SELECT TOP(17) item_id FROM audit_items ORDER BY item_id;
+SQL
+
+case view-offset-order valid <<SQL
+CREATE VIEW audit_items_v AS SELECT item_id FROM audit_items ORDER BY item_id OFFSET 0 ROWS;
+SQL
+
+case view-order-requires-limit syntax-error ExpectedToken <<SQL
+CREATE VIEW audit_items_v AS SELECT item_id FROM audit_items ORDER BY item_id;
+SQL
+
+case view-temporary syntax-error ExpectedToken <<SQL
+CREATE VIEW #audit_items_v AS SELECT item_id FROM audit_items;
+SQL
+
+case view-qualified-temporary syntax-error ExpectedToken <<SQL
+CREATE VIEW dbo.#audit_items_v AS SELECT item_id FROM audit_items;
+SQL
+
+case view-three-part syntax-error ExpectedToken <<SQL
+CREATE VIEW audit_db.dbo.audit_items_v AS SELECT item_id FROM audit_items;
+SQL
+
+case index-plain-column valid <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id DESC);
+SQL
+
+case index-quoted-column valid <<SQL
+CREATE INDEX audit_idx ON dbo.audit_items([item_id]);
+SQL
+
+case index-qualified-column syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(audit_items.item_id);
+SQL
+
+case index-expression syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id+1);
+SQL
+
+case index-parenthesized-column syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items((item_id));
+SQL
+
+case index-function syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(ABS(item_id));
+SQL
+
+case sequence-simple valid <<SQL
+CREATE SEQUENCE audit_seq;
+SQL
+
+case sequence-schema valid <<SQL
+CREATE SEQUENCE dbo.audit_seq START WITH 17 INCREMENT BY 2;
+SQL
+
+case sequence-create-three-part syntax-error ExpectedToken <<SQL
+CREATE SEQUENCE audit_db.dbo.audit_seq;
+SQL
+
+case sequence-alter-three-part syntax-error ExpectedToken <<SQL
+ALTER SEQUENCE audit_db.dbo.audit_seq INCREMENT BY 2;
+SQL
+
+case sequence-drop-three-part syntax-error ExpectedToken <<SQL
+DROP SEQUENCE audit_db.dbo.audit_seq;
+SQL
+
+case sequence-alter-start syntax-error ExpectedToken <<SQL
+ALTER SEQUENCE dbo.audit_seq START WITH 17;
+SQL
+
+case sequence-start-requires-with syntax-error ExpectedToken <<SQL
+CREATE SEQUENCE audit_seq START 17;
+SQL
+
+case sequence-increment-requires-by syntax-error ExpectedToken <<SQL
+CREATE SEQUENCE audit_seq INCREMENT 2;
+SQL
+
+case sequence-min-conflict syntax-error ExpectedToken <<SQL
+CREATE SEQUENCE audit_seq NO MINVALUE MINVALUE 17;
+SQL
+
+case sequence-max-conflict syntax-error ExpectedToken <<SQL
+CREATE SEQUENCE audit_seq MAXVALUE 97 NO MAXVALUE;
+SQL
+
+case sequence-cycle-conflict syntax-error ExpectedToken <<SQL
+CREATE SEQUENCE audit_seq CYCLE NO CYCLE;
+SQL
+
+case sequence-cache-conflict syntax-error ExpectedToken <<SQL
+CREATE SEQUENCE audit_seq CACHE 17 NO CACHE;
+SQL
+
+case sequence-cache-default valid <<SQL
+CREATE SEQUENCE audit_seq CACHE;
+SQL
+
+case sequence-cache-none valid <<SQL
+CREATE SEQUENCE audit_seq NO CACHE;
+SQL
+
+case sequence-cache-followed-option valid <<SQL
+CREATE SEQUENCE audit_seq CACHE NO CYCLE;
+SQL
+
+case sequence-alter-cache valid <<SQL
+ALTER SEQUENCE dbo.audit_seq NO CACHE;
+SQL

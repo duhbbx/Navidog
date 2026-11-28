@@ -1,0 +1,104 @@
+# Independently authored expression-category regressions.
+# MySQL 8.4.11 / MariaDB 11.4.12 / TiDB 8.5.3: isolated native SELECT probes.
+# OceanBase: pinned public mysql-mode bool_pri/predicate/bit_expr productions.
+# Parentheses and production categories matter in addition to token precedence.
+
+case comparison-before-null-test valid <<SQL
+SELECT 0=0 IS NULL, NULL=0 IS NULL, 0=NULL IS NULL;
+SQL
+
+case predicate-on-comparison-right valid <<SQL
+SELECT 0=0 IN(0,1), 0=0 LIKE '0', 0=0 REGEXP '^0$', 0=0 BETWEEN 0 AND 1;
+SQL
+
+case comparison-after-between valid <<SQL
+SELECT 0 BETWEEN 0 AND 1=1;
+SQL
+
+case between-right-associative valid <<SQL
+SELECT 0 BETWEEN 0 AND 1 BETWEEN 0 AND 0, 1 BETWEEN 0 AND 1 BETWEEN 0 AND 0;
+SQL
+
+case between-high-predicate valid <<SQL
+SELECT 0 BETWEEN 0 AND 1 IN(1);
+SQL
+
+case parenthesized-truth-test valid <<SQL
+SELECT (0 IS TRUE)=0, (0 IS TRUE) IS NULL;
+SQL
+
+case parenthesized-predicate-arithmetic valid <<SQL
+SELECT (0 IN(0))+1;
+SQL
+
+case parenthesized-pattern-arithmetic valid <<SQL
+SELECT 0 LIKE (0+1), 0 NOT LIKE (0+1);
+SQL
+
+case parenthesized-predicate-chain valid <<SQL
+SELECT (0 LIKE 0) LIKE 1, (0 IN(0)) IN(1);
+SQL
+
+case truth-test-logical-negation valid <<SQL
+SELECT NOT 0=0 IS NULL, NOT 2=2 IS TRUE;
+SQL
+
+case truth-before-arithmetic syntax-error ExpectedToken <<SQL
+SELECT 0 IS TRUE+1;
+SQL
+
+case null-test-before-arithmetic syntax-error ExpectedToken <<SQL
+SELECT 0 IS NULL+1;
+SQL
+
+case in-before-arithmetic syntax-error ExpectedToken <<SQL
+SELECT 0 IN(0)+1;
+SQL
+
+case recursive-in-before-between valid <<SQL
+SELECT 0 IN(0) BETWEEN 0 AND 1;
+SQL
+
+case recursive-like-chain valid <<SQL
+SELECT 0 LIKE 0 LIKE 1;
+SQL
+
+case recursive-regexp-chain valid <<SQL
+SELECT 0 REGEXP 0 REGEXP 1;
+SQL
+
+case recursive-in-chain valid <<SQL
+SELECT 0 IN(0) IN(1);
+SQL
+
+case recursive-between-low-between valid <<SQL
+SELECT 0 BETWEEN 0 BETWEEN 0 AND 1 AND 1;
+SQL
+
+case recursive-between-low-like valid <<SQL
+SELECT 0 BETWEEN 0 LIKE 0 AND 1;
+SQL
+
+case recursive-pattern-arithmetic valid <<SQL
+SELECT 0 LIKE 0+1;
+SQL
+
+case recursive-negated-pattern-arithmetic valid <<SQL
+SELECT 0 NOT LIKE 0+1;
+SQL
+
+case recursive-truth-before-comparison valid <<SQL
+SELECT 0 IS TRUE=0;
+SQL
+
+case recursive-truth-before-null-test valid <<SQL
+SELECT 0 IS TRUE IS NULL;
+SQL
+
+case escape-expression valid <<SQL
+SELECT 0 LIKE 0 ESCAPE 0+1, 0 LIKE 0 ESCAPE 0 LIKE 0;
+SQL
+
+case group-concat-all syntax-error ExpectedToken <<SQL
+SELECT GROUP_CONCAT(ALL 17);
+SQL

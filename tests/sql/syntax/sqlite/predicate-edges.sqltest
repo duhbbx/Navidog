@@ -1,0 +1,63 @@
+# Independently authored regression cases, 2026-11-27.
+# Reference: https://www.sqlite.org/lang_expr.html#the_in_and_not_in_operators
+# Native acceptance/results checked with a fresh in-memory SQLite connection.
+
+case empty-in-integer valid <<SQL
+SELECT 17 IN ();
+SQL
+
+case empty-in-null valid <<SQL
+SELECT NULL IN ();
+SQL
+
+case empty-not-in-null valid <<SQL
+SELECT NULL NOT IN ();
+SQL
+
+case empty-in-arithmetic valid <<SQL
+SELECT (3 + 5) IN (), 3 + 5 NOT IN ();
+SQL
+
+case empty-in-filter valid <<SQL
+SELECT 1 WHERE NULL NOT IN ();
+SQL
+
+case empty-in-case valid <<SQL
+SELECT CASE WHEN NULL IN () THEN 1 ELSE 2 END;
+SQL
+
+case compact-null-tests valid <<SQL
+SELECT NULL ISNULL, 17 NOTNULL, 17 NOT NULL;
+SQL
+
+case null-test-arithmetic-precedence valid <<SQL
+SELECT 3 + NULL ISNULL, 3 + 5 NOTNULL, 3 * NULL NOT NULL;
+SQL
+
+case null-test-boolean-precedence valid <<SQL
+SELECT NULL ISNULL AND 17 NOTNULL, 0 OR NULL NOTNULL;
+SQL
+
+case null-test-negation valid <<SQL
+SELECT NOT NULL ISNULL, NOT 17 NOTNULL, NOT NULL NOT NULL;
+SQL
+
+case empty-in-missing-closing syntax-error ExpectedToken <<SQL
+SELECT 17 IN (;
+SQL
+
+case empty-in-leading-comma syntax-error ExpectedToken <<SQL
+SELECT 17 IN (,);
+SQL
+
+case in-list-trailing-comma syntax-error ExpectedToken <<SQL
+SELECT 17 IN (17,);
+SQL
+
+case negated-in-missing-opening syntax-error ExpectedToken <<SQL
+SELECT 17 NOT IN );
+SQL
+
+case null-test-incomplete-boolean syntax-error ExpectedToken <<SQL
+SELECT 17 NOT NULL AND;
+SQL

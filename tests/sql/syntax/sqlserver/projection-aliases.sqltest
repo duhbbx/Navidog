@@ -1,0 +1,62 @@
+# Authored T-SQL alias/name contexts, verified with ScriptDOM TSql160.
+# SELECT alias=expr differs from SELECT @variable=expr and OUTPUT syntax.
+
+case identifier-assignment-alias valid <<SQL
+SELECT flag=item_id FROM audit_items;
+SQL
+
+case bracket-assignment-alias valid <<SQL
+SELECT [field label]=17;
+SQL
+
+case string-assignment-alias valid <<SQL
+SELECT 'field label'=17;
+SQL
+
+case unicode-string-assignment-alias valid <<SQL
+SELECT N'field label'=17;
+SQL
+
+case multiple-assignment-aliases valid <<SQL
+SELECT flag=17,other=23;
+SQL
+
+case boolean-word-assignment-aliases valid <<SQL
+SELECT TRUE=17,FALSE=23;
+SQL
+
+case boolean-word-column-names valid <<SQL
+SELECT TRUE,FALSE FROM audit_items;
+SQL
+
+case boolean-word-as-alias valid <<SQL
+SELECT 17 AS TRUE;
+SQL
+
+case string-as-alias valid <<SQL
+SELECT 17 AS 'field label';
+SQL
+
+case string-bare-alias valid <<SQL
+SELECT 17 'field label';
+SQL
+
+case output-string-alias valid <<SQL
+UPDATE audit_items SET item_id=17 OUTPUT inserted.item_id AS 'field label';
+SQL
+
+case assignment-and-as-alias syntax-error ExpectedToken <<SQL
+SELECT flag=17 AS other;
+SQL
+
+case assignment-and-bare-alias syntax-error ExpectedToken <<SQL
+SELECT flag=17 other;
+SQL
+
+case variable-assignment-explicit-gap unsupported <<SQL
+SELECT @flag=17;
+SQL
+
+case empty-alias-model-gap unsupported <<SQL
+SELECT ''=17;
+SQL

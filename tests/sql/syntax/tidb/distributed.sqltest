@@ -1,0 +1,103 @@
+case clustered-auto-random valid <<SQL
+CREATE TABLE tickets (
+  ticket_id BIGINT UNSIGNED AUTO_RANDOM(5, 53),
+  customer_id INT,
+  PRIMARY KEY (ticket_id, customer_id) CLUSTERED
+) PRE_SPLIT_REGIONS=4 PLACEMENT POLICY=eu;
+SQL
+
+case nonclustered-row-id valid <<SQL
+CREATE TABLE logs (id BIGINT PRIMARY KEY NONCLUSTERED)
+  SHARD_ROW_ID_BITS=4, PRE_SPLIT_REGIONS=2;
+SQL
+
+case implicit-clustering-auto-random valid <<SQL
+CREATE TABLE tickets (id INT8 AUTO_RANDOM PRIMARY KEY);
+SQL
+
+case placement-policy-inherit valid <<SQL
+ALTER TABLE logs PLACEMENT POLICY SET DEFAULT;
+SQL
+
+case metadata-from-show-create-table valid <<SQL
+CREATE TABLE `tickets` (
+  `id` bigint NOT NULL /*T![auto_rand] AUTO_RANDOM(5, 54) */,
+  PRIMARY KEY (`id`) /*T![clustered_index] CLUSTERED */
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin /*T! PRE_SPLIT_REGIONS=2 */;
+SQL
+
+case auto-random-wrong-type semantic-error InvalidQueryShape <<SQL
+CREATE TABLE tickets (id INT AUTO_RANDOM PRIMARY KEY);
+SQL
+
+case auto-random-requires-clustered-primary semantic-error InvalidQueryShape <<SQL
+CREATE TABLE tickets (id BIGINT AUTO_RANDOM PRIMARY KEY NONCLUSTERED);
+SQL
+
+case auto-random-must-be-first-primary-key-column semantic-error InvalidQueryShape <<SQL
+CREATE TABLE tickets (tenant_id INT, id BIGINT AUTO_RANDOM, PRIMARY KEY (tenant_id,id) CLUSTERED);
+SQL
+
+case auto-random-incremental-bits semantic-error InvalidQueryShape <<SQL
+CREATE TABLE tickets (id BIGINT AUTO_RANDOM(10, 32) PRIMARY KEY CLUSTERED);
+SQL
+
+case auto-random-no-default semantic-error InvalidQueryShape <<SQL
+CREATE TABLE tickets (id BIGINT AUTO_RANDOM PRIMARY KEY DEFAULT 5);
+SQL
+
+case pre-split-must-fit-shard-bits semantic-error InvalidQueryShape <<SQL
+CREATE TABLE logs (id INT) SHARD_ROW_ID_BITS=2 PRE_SPLIT_REGIONS=4;
+SQL
+
+case shard-row-id-options-must-be-unique semantic-error InvalidQueryShape <<SQL
+CREATE TABLE logs (id INT) SHARD_ROW_ID_BITS=3 SHARD_ROW_ID_BITS=4;
+SQL
+
+case shard-row-id-options-out-of-range semantic-error InvalidQueryShape <<SQL
+CREATE TABLE logs (id INT) SHARD_ROW_ID_BITS=16;
+SQL
+
+case clustered-key-cannot-shard-implicit-id semantic-error InvalidQueryShape <<SQL
+CREATE TABLE logs (id INT PRIMARY KEY CLUSTERED) SHARD_ROW_ID_BITS=4;
+SQL
+
+case ddl-jobs-filter valid <<SQL
+ADMIN SHOW DDL JOBS 10 WHERE TABLE_NAME = 'tickets' AND JOB_ID > 1;
+SQL
+
+case ddl-status valid <<SQL
+ADMIN SHOW DDL;
+SQL
+
+case builtin-types valid <<SQL
+SELECT TIDB_VERSION(), TIDB_CURRENT_TSO(), CAST(1 AS SIGNED);
+SQL
+
+case builtin-arity semantic-error RoutineArgumentCount <<SQL
+SELECT TIDB_VERSION(1);
+SQL
+
+case unsupported-spatial-type syntax-error ExpectedToken <<SQL
+CREATE TABLE geometry_test (p POINT);
+SQL
+
+case cast-declaration-type semantic-error InvalidQueryShape <<SQL
+SELECT CAST(1 AS INT);
+SQL
+
+case stored-routine-is-unavailable routine-error UnsupportedSyntax <<SQL
+CREATE PROCEDURE p() SELECT 1;
+SQL
+
+case trigger-is-unavailable unsupported <<SQL
+CREATE TRIGGER tr BEFORE UPDATE ON t FOR EACH ROW SET NEW.id = 1;
+SQL
+
+case unknown-feature-comment unsupported <<SQL
+CREATE TABLE t(id INT) /*T![ttl] TTL = id + INTERVAL 1 DAY */;
+SQL
+
+case wrong-database-tablegroup unsupported <<SQL
+CREATE TABLEGROUP g SHARDING = 'NONE';
+SQL

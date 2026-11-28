@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/branding">
+        <file alias="navidog.png">navidog-256.png</file>
+    </qresource>
+</RCC>

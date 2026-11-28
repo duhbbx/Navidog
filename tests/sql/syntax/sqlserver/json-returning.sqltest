@@ -1,0 +1,34 @@
+# native-profile: 170
+# Independently authored; RETURNING JSON requires SQL Server 2025 grammar.
+
+case object-native-json valid <<SQL
+SELECT JSON_OBJECT('item':17 RETURNING JSON);
+SQL
+
+case array-native-json valid <<SQL
+SELECT JSON_ARRAY(17,NULL ABSENT ON NULL RETURNING JSON);
+SQL
+
+case object-empty-native-json unsupported <<SQL
+SELECT JSON_OBJECT(RETURNING JSON);
+SQL
+
+case array-empty-native-json unsupported <<SQL
+SELECT JSON_ARRAY(RETURNING JSON);
+SQL
+
+case object-empty-policy-native-json valid <<SQL
+SELECT JSON_OBJECT(NULL ON NULL RETURNING JSON);
+SQL
+
+case array-empty-policy-native-json valid <<SQL
+SELECT JSON_ARRAY(ABSENT ON NULL RETURNING JSON);
+SQL
+
+case returning-before-null-policy syntax-error ExpectedToken <<SQL
+SELECT JSON_OBJECT('item':NULL RETURNING JSON NULL ON NULL);
+SQL
+
+case returning-missing-type syntax-error ExpectedToken <<SQL
+SELECT JSON_ARRAY(17 RETURNING);
+SQL

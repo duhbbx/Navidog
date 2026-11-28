@@ -1,0 +1,39 @@
+case unclosed-string syntax-error LexicalError <<SQL
+SELECT 'unclosed;
+SQL
+
+case pragma-qualified-name valid <<SQL
+PRAGMA main.table_info('table.with.dot');
+SQL
+
+case pragma-signed-setting valid <<SQL
+PRAGMA temp.cache_size = -23;
+SQL
+
+case pragma-reject-parameter syntax-error ExpectedToken <<SQL
+PRAGMA table_info(?);
+SQL
+
+case virtual-table-module valid <<SQL
+CREATE VIRTUAL TABLE IF NOT EXISTS temp.documents USING fts5(title, body UNINDEXED, prefix = '2 3');
+SQL
+
+catalog trigger_schema <<DDL
+CREATE TABLE inventory (id INTEGER PRIMARY KEY, quantity INT);
+CREATE TABLE inventory_events (before_value INT, after_value INT);
+DDL
+
+case update-trigger-with-old-and-new valid catalog=trigger_schema <<SQL
+CREATE TRIGGER audit_qty AFTER UPDATE OF quantity ON inventory
+  WHEN NEW.quantity <> OLD.quantity
+  BEGIN
+    INSERT INTO inventory_events VALUES (OLD.quantity, NEW.quantity);
+  END;
+SQL
+
+case insert-trigger-reject-old semantic-error UnknownColumn catalog=trigger_schema <<SQL
+CREATE TRIGGER invalid_old AFTER INSERT ON inventory
+  BEGIN
+    INSERT INTO inventory_events VALUES (OLD.quantity, NEW.quantity);
+  END;
+SQL

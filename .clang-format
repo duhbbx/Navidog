@@ -1,0 +1,695 @@
+# C/C++ 格式化配置（UTF-8）。clangd 会自动读取当前文件所在目录及其子目录的此配置。
+# 基于本机 Apple clang-format 17.0.0 (clang-1700.6.3.2) 的 LLVM 默认配置完整导出。
+# Apple 版本的选项集可能与上游同名版本不同；其他版本需先验证兼容性。
+# 唯一自定义值：IndentWidth 从 2 改为 4；UseTab 默认已为 Never。
+# 其余值（包括 80 列行宽、8 列 Tab 显示宽度及语言专属缩进）均保持本机默认值。
+# 保留了非 C++ 语言选项供查阅；Language: Cpp 表示此配置段仅用于 C/C++。
+# 更改本文件不会自动重排源码；使用 VS Code 的“格式化文档”应用规则。
+# 默认值来源：xcrun clang-format --style=LLVM --dump-config
+# 选项文档：https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+---
+# 预设基线；下方显式列出的选项优先于此预设。
+BasedOnStyle: LLVM
+
+# 应用于 C/C++ 文件；其他语言的专属选项也保留在下方，方便查阅。
+Language:        Cpp
+
+# public/protected/private 相对成员缩进的偏移量，默认向左偏移 2 列。
+AccessModifierOffset: -2
+
+# 跨行参数与左括号后的位置对齐。
+AlignAfterOpenBracket: Align
+
+# 不按列对齐结构体数组的初始化元素。
+AlignArrayOfStructures: None
+
+# 连续赋值语句的对齐规则。
+AlignConsecutiveAssignments:
+  # 是否启用当前这一组连续对齐规则。
+  Enabled:         false
+  # 是否允许对齐跨过空行。
+  AcrossEmptyLines: false
+  # 是否允许对齐跨过注释行。
+  AcrossComments:  false
+  # 是否将 +=、-= 等复合赋值运算符一起对齐；仅赋值对齐规则使用。
+  AlignCompound:   false
+  # 是否对齐函数指针声明；仅声明对齐规则使用。
+  AlignFunctionPointers: false
+  # 是否在较短的赋值运算符前补空格，以便按运算符右端对齐；仅赋值对齐规则使用。
+  PadOperators:    true
+
+# 连续位域声明的冒号对齐规则。
+AlignConsecutiveBitFields:
+  # 是否启用当前这一组连续对齐规则。
+  Enabled:         false
+  # 是否允许对齐跨过空行。
+  AcrossEmptyLines: false
+  # 是否允许对齐跨过注释行。
+  AcrossComments:  false
+  # 是否将 +=、-= 等复合赋值运算符一起对齐；仅赋值对齐规则使用。
+  AlignCompound:   false
+  # 是否对齐函数指针声明；仅声明对齐规则使用。
+  AlignFunctionPointers: false
+  # 是否在较短的赋值运算符前补空格，以便按运算符右端对齐；仅赋值对齐规则使用。
+  PadOperators:    false
+
+# 连续声明的类型、名称等对齐规则。
+AlignConsecutiveDeclarations:
+  # 是否启用当前这一组连续对齐规则。
+  Enabled:         false
+  # 是否允许对齐跨过空行。
+  AcrossEmptyLines: false
+  # 是否允许对齐跨过注释行。
+  AcrossComments:  false
+  # 是否将 +=、-= 等复合赋值运算符一起对齐；仅赋值对齐规则使用。
+  AlignCompound:   false
+  # 是否对齐函数指针声明；仅声明对齐规则使用。
+  AlignFunctionPointers: false
+  # 是否在较短的赋值运算符前补空格，以便按运算符右端对齐；仅赋值对齐规则使用。
+  PadOperators:    false
+
+# 连续宏定义的对齐规则。
+AlignConsecutiveMacros:
+  # 是否启用当前这一组连续对齐规则。
+  Enabled:         false
+  # 是否允许对齐跨过空行。
+  AcrossEmptyLines: false
+  # 是否允许对齐跨过注释行。
+  AcrossComments:  false
+  # 是否将 +=、-= 等复合赋值运算符一起对齐；仅赋值对齐规则使用。
+  AlignCompound:   false
+  # 是否对齐函数指针声明；仅声明对齐规则使用。
+  AlignFunctionPointers: false
+  # 是否在较短的赋值运算符前补空格，以便按运算符右端对齐；仅赋值对齐规则使用。
+  PadOperators:    false
+
+# 连续短 case 语句的对齐规则。
+AlignConsecutiveShortCaseStatements:
+  # 是否启用当前这一组连续对齐规则。
+  Enabled:         false
+  # 是否允许对齐跨过空行。
+  AcrossEmptyLines: false
+  # 是否允许对齐跨过注释行。
+  AcrossComments:  false
+  # 是否对齐短 case 语句的箭头。
+  AlignCaseArrows: false
+  # 是否对齐短 case 语句的冒号。
+  AlignCaseColons: false
+
+# TableGen：换行 DAG 参数的冒号对齐规则。
+AlignConsecutiveTableGenBreakingDAGArgColons:
+  # 是否启用当前这一组连续对齐规则。
+  Enabled:         false
+  # 是否允许对齐跨过空行。
+  AcrossEmptyLines: false
+  # 是否允许对齐跨过注释行。
+  AcrossComments:  false
+  # 是否将 +=、-= 等复合赋值运算符一起对齐；仅赋值对齐规则使用。
+  AlignCompound:   false
+  # 是否对齐函数指针声明；仅声明对齐规则使用。
+  AlignFunctionPointers: false
+  # 是否在较短的赋值运算符前补空格，以便按运算符右端对齐；仅赋值对齐规则使用。
+  PadOperators:    false
+
+# TableGen：条件运算符冒号的对齐规则。
+AlignConsecutiveTableGenCondOperatorColons:
+  # 是否启用当前这一组连续对齐规则。
+  Enabled:         false
+  # 是否允许对齐跨过空行。
+  AcrossEmptyLines: false
+  # 是否允许对齐跨过注释行。
+  AcrossComments:  false
+  # 是否将 +=、-= 等复合赋值运算符一起对齐；仅赋值对齐规则使用。
+  AlignCompound:   false
+  # 是否对齐函数指针声明；仅声明对齐规则使用。
+  AlignFunctionPointers: false
+  # 是否在较短的赋值运算符前补空格，以便按运算符右端对齐；仅赋值对齐规则使用。
+  PadOperators:    false
+
+# TableGen：定义中冒号的对齐规则。
+AlignConsecutiveTableGenDefinitionColons:
+  # 是否启用当前这一组连续对齐规则。
+  Enabled:         false
+  # 是否允许对齐跨过空行。
+  AcrossEmptyLines: false
+  # 是否允许对齐跨过注释行。
+  AcrossComments:  false
+  # 是否将 +=、-= 等复合赋值运算符一起对齐；仅赋值对齐规则使用。
+  AlignCompound:   false
+  # 是否对齐函数指针声明；仅声明对齐规则使用。
+  AlignFunctionPointers: false
+  # 是否在较短的赋值运算符前补空格，以便按运算符右端对齐；仅赋值对齐规则使用。
+  PadOperators:    false
+
+# 将宏续行反斜杠向右对齐。
+AlignEscapedNewlines: Right
+
+# 将跨行表达式的操作数对齐。
+AlignOperands:   Align
+
+# 行尾注释的对齐方式和允许跨越的空行数。
+AlignTrailingComments:
+  # 行尾注释采用的对齐模式；Always 表示启用对齐。
+  Kind:            Always
+  # 允许行尾注释对齐跨越的空行数。
+  OverEmptyLines:  0
+
+# 函数调用放不下一行时，允许将全部实参一起移到下一行。
+AllowAllArgumentsOnNextLine: true
+
+# 函数声明放不下一行时，允许将全部形参一起移到下一行。
+AllowAllParametersOfDeclarationOnNextLine: true
+
+# 不在 noexcept 说明符之前主动换行。
+AllowBreakBeforeNoexceptSpecifier: Never
+
+# 不将短代码块合并成单行。
+AllowShortBlocksOnASingleLine: Never
+
+# 允许将短 case 表达式放在单行（主要用于 Java switch 表达式）。
+AllowShortCaseExpressionOnASingleLine: true
+
+# 不将短 case 标签及其语句合并成单行。
+AllowShortCaseLabelsOnASingleLine: false
+
+# 允许将 requires 中的短复合约束写成单行。
+AllowShortCompoundRequirementOnASingleLine: true
+
+# 允许将短枚举定义写成单行。
+AllowShortEnumsOnASingleLine: true
+
+# 允许将能放下的短函数定义合并为单行。
+AllowShortFunctionsOnASingleLine: All
+
+# 不将短 if 语句合并成单行。
+AllowShortIfStatementsOnASingleLine: Never
+
+# 允许将能放下的短 lambda 合并为单行。
+AllowShortLambdasOnASingleLine: All
+
+# 不将短循环及其循环体合并成单行。
+AllowShortLoopsOnASingleLine: false
+
+# 旧版返回类型换行选项；保留本机默认值，新配置优先参考 BreakAfterReturnType。
+AlwaysBreakAfterDefinitionReturnType: None
+
+# 不强制在多行字符串前换行。
+AlwaysBreakBeforeMultilineStrings: false
+
+# 将这些宏识别为属性或类型修饰符。
+AttributeMacros:
+  - __capability
+
+# 允许将多个函数实参放在同一行。
+BinPackArguments: true
+
+# 允许将多个函数形参放在同一行。
+BinPackParameters: true
+
+# 位域冒号两侧都加空格。
+BitFieldColonSpacing: Both
+
+# 细分的大括号换行规则；仅在 BreakBeforeBraces 为 Custom 时按这些子项控制。
+BraceWrapping:
+  # 是否在 case 标签后的左大括号前换行。
+  AfterCaseLabel:  false
+  # 是否在 class 定义的左大括号前换行。
+  AfterClass:      false
+  # 是否在控制语句的左大括号前换行。
+  AfterControlStatement: Never
+  # 是否在 enum 定义的左大括号前换行。
+  AfterEnum:       false
+  # 是否在 extern 块的左大括号前换行。
+  AfterExternBlock: false
+  # 是否在函数体的左大括号前换行。
+  AfterFunction:   false
+  # 是否在 namespace 定义的左大括号前换行。
+  AfterNamespace:  false
+  # 是否在 Objective-C 声明的左大括号前换行。
+  AfterObjCDeclaration: false
+  # 是否在 struct 定义的左大括号前换行。
+  AfterStruct:     false
+  # 是否在 union 定义的左大括号前换行。
+  AfterUnion:      false
+  # 是否在 catch 前换行。
+  BeforeCatch:     false
+  # 是否在 else 前换行。
+  BeforeElse:      false
+  # 是否在 lambda 函数体的左大括号前换行。
+  BeforeLambdaBody: false
+  # 是否在 do-while 的 while 前换行。
+  BeforeWhile:     false
+  # 是否额外缩进换行后的大括号。
+  IndentBraces:    false
+  # 函数左大括号已换行时，是否将空函数体的右括号另起一行。
+  SplitEmptyFunction: true
+  # 类、结构体等左大括号已换行时，是否将空定义的右括号另起一行。
+  SplitEmptyRecord: true
+  # 命名空间左大括号已换行时，是否将空命名空间的右括号另起一行。
+  SplitEmptyNamespace: true
+
+# 允许在相邻字符串字面量之间换行。
+BreakAdjacentStringLiterals: true
+
+# 保留属性后现有的换行情况。
+BreakAfterAttributes: Leave
+
+# Java：不强制在字段注解后换行。
+BreakAfterJavaFieldAnnotations: false
+
+# 不强制在函数返回类型后换行，仍可因行宽等原因换行。
+BreakAfterReturnType: None
+
+# JSON：在非空数组的左方括号后换行。
+BreakArrays:     true
+
+# 二元运算表达式换行时，将运算符留在上一行末尾。
+BreakBeforeBinaryOperators: None
+
+# 始终在 concept 声明前换行。
+BreakBeforeConceptDeclarations: Always
+
+# 大括号采用 LLVM 的 Attach 风格，通常跟在语句或声明末尾。
+BreakBeforeBraces: Attach
+
+# 仅对多行内联汇编在冒号前换行。
+BreakBeforeInlineASMColon: OnlyMultiline
+
+# 三元表达式换行时，将 ? 和 : 放在下一行开头。
+BreakBeforeTernaryOperators: true
+
+# 构造函数初始化列表需要换行时，在冒号前换行。
+BreakConstructorInitializers: BeforeColon
+
+# 不强制将函数定义的参数另起一行。
+BreakFunctionDefinitionParameters: false
+
+# 继承列表需要换行时，在冒号前换行。
+BreakInheritanceList: BeforeColon
+
+# 允许将较长的字符串字面量拆为相邻的字符串。
+BreakStringLiterals: true
+
+# 后续声明跨行时，在模板参数列表后换行。
+BreakTemplateDeclarations: MultiLine
+
+# 每行目标宽度为 80 列；部分无法拆分的内容可以超过此宽度。
+ColumnLimit:     80
+
+# 匹配此正则的特殊注释不进行拆行或合并。
+CommentPragmas:  '^ IWYU pragma:'
+
+# 不将连续嵌套的命名空间声明压缩到一行。
+CompactNamespaces: false
+
+# 构造函数初始化列表、继承列表的缩进宽度，保留默认 4 列。
+ConstructorInitializerIndentWidth: 4
+
+# 普通续行的缩进宽度，保留默认 4 列；括号对齐等规则可能优先。
+ContinuationIndentWidth: 4
+
+# 使用 C++11 风格处理花括号初始化列表。
+Cpp11BracedListStyle: true
+
+# 不从现有代码推断指针星号对齐方式，使用 PointerAlignment。
+DerivePointerAlignment: false
+
+# 不禁用格式化，即启用格式化。
+DisableFormat:   false
+
+# 不在访问控制标签后保留空行。
+EmptyLineAfterAccessModifier: Never
+
+# 在访问控制标签前按逻辑块情况保留或添加空行。
+EmptyLineBeforeAccessModifier: LogicalBlock
+
+# 不启用实验性的参数紧凑排布自动检测。
+ExperimentalAutoDetectBinPacking: false
+
+# 补充或修正较长命名空间结束处的注释。
+FixNamespaceComments: true
+
+# 将这些宏按 foreach 循环的语法格式化。
+ForEachMacros:
+  - foreach
+  - Q_FOREACH
+  - BOOST_FOREACH
+
+# 将这些宏按 if 条件语句的语法格式化。
+IfMacros:
+  - KJ_IF_MAYBE
+
+# 保留不同 include 块的边界，在各块内分别排序。
+IncludeBlocks:   Preserve
+
+# 按正则表达式匹配头文件分组；列表中第一个匹配项生效。
+IncludeCategories:
+  # 头文件分组的匹配正则，包含 include 中的引号或尖括号。
+  - Regex:           '^"(llvm|llvm-c|clang|clang-c)/'
+    # 头文件分类优先级，较小的值排在前面。
+    Priority:        2
+    # 重组 include 块时使用的排序优先级；0 表示使用 Priority。
+    SortPriority:    0
+    # 正则匹配是否区分大小写。
+    CaseSensitive:   false
+  # 头文件分组的匹配正则，包含 include 中的引号或尖括号。
+  - Regex:           '^(<|"(gtest|gmock|isl|json)/)'
+    # 头文件分类优先级，较小的值排在前面。
+    Priority:        3
+    # 重组 include 块时使用的排序优先级；0 表示使用 Priority。
+    SortPriority:    0
+    # 正则匹配是否区分大小写。
+    CaseSensitive:   false
+  # 头文件分组的匹配正则，包含 include 中的引号或尖括号。
+  - Regex:           '.*'
+    # 头文件分类优先级，较小的值排在前面。
+    Priority:        1
+    # 重组 include 块时使用的排序优先级；0 表示使用 Priority。
+    SortPriority:    0
+    # 正则匹配是否区分大小写。
+    CaseSensitive:   false
+
+# 用于判断与源文件同名的主头文件；允许 Test 后缀。
+IncludeIsMainRegex: '(Test)?$'
+
+# 除常见源文件后缀外，需要按主源文件处理的文件名正则；空值表示不额外扩展。
+IncludeIsMainSourceRegex: ''
+
+# 不为访问控制标签设置独立缩进层级，使用 AccessModifierOffset。
+IndentAccessModifiers: false
+
+# 不额外缩进 case 标签后显式花括号代码块的括号。
+IndentCaseBlocks: false
+
+# switch 内的 case/default 标签不额外缩进一层。
+IndentCaseLabels: false
+
+# extern 块内部是否缩进，跟随 BraceWrapping.AfterExternBlock 的设置。
+IndentExternBlock: AfterExternBlock
+
+# 按普通代码缩进规则处理 goto 标签；关闭时标签位于行首。
+IndentGotoLabels: true
+
+# 预处理指令不缩进。
+IndentPPDirectives: None
+
+# 在相应 requires 子句布局中启用缩进。
+IndentRequiresClause: true
+
+# 每级缩进使用 4 个空格；这是相对 LLVM 默认配置唯一修改的配置值。
+IndentWidth: 4
+
+# 跨行时不额外缩进函数名称。
+IndentWrappedFunctionNames: false
+
+# 不自动为 if/else/for/while 等控制语句补大括号。
+InsertBraces:    false
+
+# 不主动为缺少换行的文件末尾补换行。
+InsertNewlineAtEOF: false
+
+# 不自动插入尾随逗号。
+InsertTrailingCommas: None
+
+# 整数字面量的分组分隔符规则；分组宽度为 0 表示移除已有分隔符。
+IntegerLiteralSeparator:
+  # 二进制字面量每组位数，0 表示移除分隔符，负数表示保持原样。
+  Binary:          0
+  # 应用二进制分组规则所需的最少位数。
+  BinaryMinDigits: 0
+  # 十进制字面量每组位数，0 表示移除分隔符，负数表示保持原样。
+  Decimal:         0
+  # 应用十进制分组规则所需的最少位数。
+  DecimalMinDigits: 0
+  # 十六进制字面量每组位数，0 表示移除分隔符，负数表示保持原样。
+  Hex:             0
+  # 应用十六进制分组规则所需的最少位数。
+  HexMinDigits:    0
+
+# JavaScript：保留原有单引号或双引号风格。
+JavaScriptQuotes: Leave
+
+# JavaScript：允许将导入语句换行。
+JavaScriptWrapImports: true
+
+# 控制文件和代码块边界的空行保留方式。
+KeepEmptyLines:
+  # 是否保留文件末尾的空行。
+  AtEndOfFile:     false
+  # 是否保留代码块起始处的空行。
+  AtStartOfBlock:  true
+  # 是否保留文件起始处的空行。
+  AtStartOfFile:   true
+
+# lambda 函数体以其签名起始位置为基准缩进。
+LambdaBodyIndentation: Signature
+
+# 推断已有换行符风格；无法判断时使用 LF。
+LineEnding:      DeriveLF
+
+# 匹配自定义宏代码块起始标记的正则，空值表示未设置。
+MacroBlockBegin: ''
+
+# 匹配自定义宏代码块结束标记的正则，空值表示未设置。
+MacroBlockEnd:   ''
+
+# 寻找主头文件时，仅将双引号形式的 include 作为候选。
+MainIncludeChar: Quote
+
+# 最多保留 1 个连续空行。
+MaxEmptyLinesToKeep: 1
+
+# 不额外缩进命名空间内的内容。
+NamespaceIndentation: None
+
+# Objective-C：协议列表的紧凑排布跟随 BinPackParameters。
+ObjCBinPackProtocolList: Auto
+
+# Objective-C：块表达式缩进保留 LLVM 默认 2 列，不改动语言专属默认值。
+ObjCBlockIndentWidth: 2
+
+# Objective-C：在嵌套块参数前换行。
+ObjCBreakBeforeNestedBlockParam: true
+
+# Objective-C：@property 与属性括号之间不加空格。
+ObjCSpaceAfterProperty: false
+
+# Objective-C：协议列表的左尖括号前加空格。
+ObjCSpaceBeforeProtocolList: true
+
+# 构造函数初始化项采用紧凑排布，允许多个初始化项同处一行。
+PackConstructorInitializers: BinPack
+
+# 在赋值运算符附近换行的惩罚值；越大越倾向避免此类换行。
+PenaltyBreakAssignment: 2
+
+# 在函数调用的第一个实参前换行的惩罚值。
+PenaltyBreakBeforeFirstCallParameter: 19
+
+# 拆分注释的惩罚值。
+PenaltyBreakComment: 300
+
+# 在首个流插入运算符 << 前换行的惩罚值。
+PenaltyBreakFirstLessLess: 120
+
+# 在左括号后换行的惩罚值。
+PenaltyBreakOpenParenthesis: 0
+
+# 在作用域运算符 :: 后换行的惩罚值。
+PenaltyBreakScopeResolution: 500
+
+# 拆分字符串字面量的惩罚值。
+PenaltyBreakString: 1000
+
+# 在模板声明后换行的惩罚值。
+PenaltyBreakTemplateDeclaration: 10
+
+# 每超过行宽限制一列的惩罚值。
+PenaltyExcessCharacter: 1000000
+
+# 缩进中每列空白产生的惩罚值。
+PenaltyIndentedWhitespace: 0
+
+# 将函数返回类型独占一行的惩罚值。
+PenaltyReturnTypeOnItsOwnLine: 60
+
+# 指针星号靠近变量名，如 int *value。
+PointerAlignment: Right
+
+# 预处理指令缩进宽度；-1 表示使用 IndentWidth，仅在启用预处理缩进时生效。
+PPIndentWidth:   -1
+
+# 保留 const/volatile 等限定符原有的排列位置。
+QualifierAlignment: Leave
+
+# 引用符号 &/&& 的对齐方式跟随 PointerAlignment。
+ReferenceAlignment: Pointer
+
+# 允许重新排布、折行注释文本。
+ReflowComments:  true
+
+# 不按 LLVM 规则自动删除可省略的大括号。
+RemoveBracesLLVM: false
+
+# 不自动移除表达式中的可省略括号。
+RemoveParentheses: Leave
+
+# 不自动移除函数或类定义等位置的多余分号。
+RemoveSemicolon: false
+
+# requires 子句独占一行。
+RequiresClausePosition: OwnLine
+
+# requires 表达式的主体以外层作用域为基准缩进。
+RequiresExpressionIndentation: OuterScope
+
+# 保留定义块之间现有的空行分隔情况。
+SeparateDefinitionBlocks: Leave
+
+# 最多 1 个未折行正文行的命名空间视为短命名空间，可不添加结束注释。
+ShortNamespaceLines: 1
+
+# 不跳过宏定义体，即宏定义体也参与格式化。
+SkipMacroDefinitionBody: false
+
+# 按区分大小写的顺序排列 include。
+SortIncludes:    CaseSensitive
+
+# Java：静态导入排在普通导入之前。
+SortJavaStaticImport: Before
+
+# 对 using 声明按字典序排序，并将连续数字作为数值比较。
+SortUsingDeclarations: LexicographicNumeric
+
+# C 风格强制转换括号后不加空格。
+SpaceAfterCStyleCast: false
+
+# 逻辑非运算符 ! 后不加空格。
+SpaceAfterLogicalNot: false
+
+# template 关键字后加空格。
+SpaceAfterTemplateKeyword: true
+
+# 指针限定符周围的空格跟随指针对齐规则。
+SpaceAroundPointerQualifiers: Default
+
+# 赋值运算符前加空格。
+SpaceBeforeAssignmentOperators: true
+
+# case 标签冒号前不加空格。
+SpaceBeforeCaseColon: false
+
+# C++11 花括号初始化列表前不额外加空格。
+SpaceBeforeCpp11BracedList: false
+
+# 构造函数初始化列表冒号前加空格。
+SpaceBeforeCtorInitializerColon: true
+
+# 继承列表冒号前加空格。
+SpaceBeforeInheritanceColon: true
+
+# JSON：键名后的冒号前不加空格。
+SpaceBeforeJsonColon: false
+
+# if/for/while 等控制语句与左括号之间加空格。
+SpaceBeforeParens: ControlStatements
+
+# 细分的左括号前空格规则；仅在 SpaceBeforeParens 为 Custom 时按这些子项控制。
+SpaceBeforeParensOptions:
+  # 是否在控制语句关键字与左括号之间加空格。
+  AfterControlStatements: true
+  # 是否在 foreach 类宏与左括号之间加空格。
+  AfterForeachMacros: true
+  # 是否在函数定义名与左括号之间加空格。
+  AfterFunctionDefinitionName: false
+  # 是否在函数声明名与左括号之间加空格。
+  AfterFunctionDeclarationName: false
+  # 是否在 if 类宏与左括号之间加空格。
+  AfterIfMacros:   true
+  # 是否在重载运算符名与参数左括号之间加空格。
+  AfterOverloadedOperator: false
+  # 是否在 placement new/delete 关键字与其左括号之间加空格。
+  AfterPlacementOperator: true
+  # 是否在 requires 子句关键字与左括号之间加空格。
+  AfterRequiresInClause: false
+  # 是否在 requires 表达式关键字与左括号之间加空格。
+  AfterRequiresInExpression: false
+  # 是否在非空圆括号前加空格。
+  BeforeNonEmptyParentheses: false
+
+# 范围 for 循环的冒号前加空格。
+SpaceBeforeRangeBasedForLoopColon: true
+
+# 左方括号前不额外加空格。
+SpaceBeforeSquareBrackets: false
+
+# 空代码块的大括号之间不加空格。
+SpaceInEmptyBlock: false
+
+# 代码与行尾注释之间至少保留 1 个空格。
+SpacesBeforeTrailingComments: 1
+
+# 模板参数列表的尖括号内侧不加空格。
+SpacesInAngles:  Never
+
+# 容器字面量内侧加空格，主要用于 Objective-C/JavaScript。
+SpacesInContainerLiterals: true
+
+# 行注释 // 后的空格数范围；不适用于特殊注释前缀。
+SpacesInLineCommentPrefix:
+  # 行注释前缀后的最少空格数。
+  Minimum:         1
+  # 行注释前缀后的最多空格数；-1 表示不限制。
+  Maximum:         -1
+
+# 圆括号内侧不额外加空格。
+SpacesInParens:  Never
+
+# 细分的圆括号内侧空格规则；仅在 SpacesInParens 为 Custom 时按这些子项控制。
+SpacesInParensOptions:
+  # 是否保留双层圆括号内部已有的空格。
+  ExceptDoubleParentheses: false
+  # 是否在 C 风格强制转换的圆括号内侧加空格。
+  InCStyleCasts:   false
+  # 是否在条件语句的圆括号内侧加空格。
+  InConditionalStatements: false
+  # 是否在空圆括号内添加空格。
+  InEmptyParentheses: false
+  # 是否在其他圆括号内侧加空格。
+  Other:           false
+
+# 方括号内侧不加空格。
+SpacesInSquareBrackets: false
+
+# 使用当前格式化器支持的最新 C++ 语法规则；不改变项目的编译标准。
+Standard:        Latest
+
+# 将这些宏识别为语句前的属性式修饰宏。
+StatementAttributeLikeMacros:
+  - Q_EMIT
+
+# 将这些宏识别为完整语句宏。
+StatementMacros:
+  - Q_UNUSED
+  - QT_REQUIRE_VERSION
+
+# TableGen：不在 DAG 参数内部主动换行。
+TableGenBreakInsideDAGArg: DontBreak
+
+# Tab 的显示宽度为 8 列；UseTab 为 Never，因此缩进不会生成 Tab。
+TabWidth:        8
+
+# 始终使用空格缩进，不生成 Tab。
+UseTab:          Never
+
+# Verilog：在实例端口之间换行。
+VerilogBreakBetweenInstancePorts: true
+
+# 这些宏对空白敏感，不重新排布其参数中的空白。
+WhitespaceSensitiveMacros:
+  - BOOST_PP_STRINGIZE
+  - CF_SWIFT_NAME
+  - NS_SWIFT_NAME
+  - PP_STRINGIZE
+  - STRINGIZE
+...

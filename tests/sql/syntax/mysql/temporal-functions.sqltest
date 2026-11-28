@@ -1,0 +1,154 @@
+# Independently authored; native grammar restricts temporal precision to integer literals.
+# Source revisions: tests/sql/corpus/reference-sources.json.
+
+case date-calls valid <<SQL
+SELECT CURDATE(), UTC_DATE();
+SQL
+
+case time-calls valid <<SQL
+SELECT CURTIME(), CURTIME(3), UTC_TIME(), UTC_TIME(6);
+SQL
+
+case utc-bare valid <<SQL
+SELECT UTC_DATE, UTC_TIME, UTC_TIMESTAMP;
+SQL
+
+case timestamp-calls valid <<SQL
+SELECT UTC_TIMESTAMP(), UTC_TIMESTAMP(6), NOW();
+SQL
+
+case qualified-columns valid <<SQL
+SELECT t.curdate, t.curtime, t.now FROM audit_clock t;
+SQL
+
+case quoted-columns valid <<SQL
+SELECT `curdate`, `curtime`, `now` FROM audit_clock;
+SQL
+
+case local-bare-identifiers valid <<SQL
+SELECT curdate, curtime, now FROM audit_clock;
+SQL
+
+case curtime-negative syntax-error ExpectedToken <<SQL
+SELECT CURTIME(-1);
+SQL
+
+case curtime-fractional syntax-error ExpectedToken <<SQL
+SELECT CURTIME(1.0);
+SQL
+
+case curtime-string syntax-error ExpectedToken <<SQL
+SELECT CURTIME('1');
+SQL
+
+case curtime-null syntax-error ExpectedToken <<SQL
+SELECT CURTIME(NULL);
+SQL
+
+case curtime-expression syntax-error ExpectedToken <<SQL
+SELECT CURTIME(1+1);
+SQL
+
+case curtime-too-many syntax-error ExpectedToken <<SQL
+SELECT CURTIME(1,2);
+SQL
+
+case curtime-range semantic-error InvalidQueryShape <<SQL
+SELECT CURTIME(7);
+SQL
+
+case utc_time-negative syntax-error ExpectedToken <<SQL
+SELECT UTC_TIME(-1);
+SQL
+
+case utc_time-fractional syntax-error ExpectedToken <<SQL
+SELECT UTC_TIME(1.0);
+SQL
+
+case utc_time-string syntax-error ExpectedToken <<SQL
+SELECT UTC_TIME('1');
+SQL
+
+case utc_time-null syntax-error ExpectedToken <<SQL
+SELECT UTC_TIME(NULL);
+SQL
+
+case utc_time-expression syntax-error ExpectedToken <<SQL
+SELECT UTC_TIME(1+1);
+SQL
+
+case utc_time-too-many syntax-error ExpectedToken <<SQL
+SELECT UTC_TIME(1,2);
+SQL
+
+case utc_time-range semantic-error InvalidQueryShape <<SQL
+SELECT UTC_TIME(7);
+SQL
+
+case utc_timestamp-negative syntax-error ExpectedToken <<SQL
+SELECT UTC_TIMESTAMP(-1);
+SQL
+
+case utc_timestamp-fractional syntax-error ExpectedToken <<SQL
+SELECT UTC_TIMESTAMP(1.0);
+SQL
+
+case utc_timestamp-string syntax-error ExpectedToken <<SQL
+SELECT UTC_TIMESTAMP('1');
+SQL
+
+case utc_timestamp-null syntax-error ExpectedToken <<SQL
+SELECT UTC_TIMESTAMP(NULL);
+SQL
+
+case utc_timestamp-expression syntax-error ExpectedToken <<SQL
+SELECT UTC_TIMESTAMP(1+1);
+SQL
+
+case utc_timestamp-too-many syntax-error ExpectedToken <<SQL
+SELECT UTC_TIMESTAMP(1,2);
+SQL
+
+case utc_timestamp-range semantic-error InvalidQueryShape <<SQL
+SELECT UTC_TIMESTAMP(7);
+SQL
+
+case now-negative syntax-error ExpectedToken <<SQL
+SELECT NOW(-1);
+SQL
+
+case now-fractional syntax-error ExpectedToken <<SQL
+SELECT NOW(1.0);
+SQL
+
+case now-string syntax-error ExpectedToken <<SQL
+SELECT NOW('1');
+SQL
+
+case now-null syntax-error ExpectedToken <<SQL
+SELECT NOW(NULL);
+SQL
+
+case now-expression syntax-error ExpectedToken <<SQL
+SELECT NOW(1+1);
+SQL
+
+case now-too-many syntax-error ExpectedToken <<SQL
+SELECT NOW(1,2);
+SQL
+
+case now-range semantic-error InvalidQueryShape <<SQL
+SELECT NOW(7);
+SQL
+
+case curdate-argument syntax-error ExpectedToken <<SQL
+SELECT CURDATE(1);
+SQL
+
+case utc_date-argument syntax-error ExpectedToken <<SQL
+SELECT UTC_DATE(1);
+SQL
+
+case temporal-leading-zero-precision valid <<SQL
+SELECT CURTIME(0000006),UTC_TIME(0000000),UTC_TIMESTAMP(0000003);
+SQL

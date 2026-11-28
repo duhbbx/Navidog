@@ -1,0 +1,11 @@
+/build*/
+/.cache/
+/.DS_Store
+*.user
+*.db
+*.db-*
+*.sqlite*
+/screenshots/
+/dist/
+__pycache__/
+*.pyc

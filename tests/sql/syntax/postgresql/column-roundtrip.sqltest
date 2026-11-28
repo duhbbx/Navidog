@@ -1,0 +1,42 @@
+# Independently authored array, table-function and join output-shape probes.
+# Owned PostgreSQL execution compares rows plus described column names/types.
+
+case columns-constructed-array valid <<SQL
+SELECT ARRAY[17,NULL,29];
+SQL
+
+case columns-array-indirection valid <<SQL
+SELECT a[2],a[1:2] FROM(VALUES(ARRAY[17,NULL,29]))AS v(a);
+SQL
+
+case columns-scalar-subselect-array valid <<SQL
+SELECT (SELECT ARRAY[17,29])[1];
+SQL
+
+case columns-series-implicit valid <<SQL
+SELECT * FROM generate_series(17,19);
+SQL
+
+case columns-series-alias valid <<SQL
+SELECT * FROM generate_series(17,19)AS s;
+SQL
+
+case columns-lateral-comma valid <<SQL
+SELECT row_id,item FROM(VALUES(1,ARRAY[17,NULL]),(2,ARRAY[29]))AS base(row_id,parts),unnest(parts)AS item ORDER BY row_id,item NULLS LAST;
+SQL
+
+case columns-full-join-using valid <<SQL
+SELECT * FROM(VALUES(1,17),(2,29))AS l(row_id,left_cost) FULL JOIN(VALUES(2,31),(3,37))AS r(row_id,right_cost)USING(row_id) ORDER BY row_id;
+SQL
+
+case columns-natural-left-join valid <<SQL
+SELECT * FROM(VALUES(1,17),(2,29))AS l(row_id,cost) NATURAL LEFT JOIN(VALUES(2,31),(3,37))AS r(row_id,shipping) ORDER BY row_id;
+SQL
+
+case columns-project-set valid <<SQL
+SELECT generate_series(17,19),generate_series(31,32);
+SQL
+
+case columns-quoted-array valid <<SQL
+SELECT v."Parts"[1],v."Parts"[2:] FROM(VALUES(ARRAY[17,29,31]))AS v("Parts");
+SQL

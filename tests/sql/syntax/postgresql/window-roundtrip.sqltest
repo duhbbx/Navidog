@@ -1,0 +1,38 @@
+# Independently authored named-window/frame cases with isolated PostgreSQL execution.
+# Peer rows and separated numeric keys distinguish RANGE, ROWS and GROUPS.
+
+case window-roundtrip-named-rows valid <<SQL
+SELECT site_id,row_id,SUM(cost) OVER w AS measured FROM (VALUES(1,1,11,7),(1,1,15,5),(1,2,20,NULL),(1,3,25,9),(2,1,31,3),(2,2,39,11)) AS audit_items(site_id,slot_id,row_id,cost) WINDOW w AS(PARTITION BY site_id ORDER BY row_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) ORDER BY site_id,row_id;
+SQL
+
+case window-roundtrip-copied-window valid <<SQL
+SELECT site_id,row_id,SUM(cost) OVER(base ORDER BY row_id ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS measured FROM (VALUES(1,1,11,7),(1,1,15,5),(1,2,20,NULL),(1,3,25,9),(2,1,31,3),(2,2,39,11)) AS audit_items(site_id,slot_id,row_id,cost) WINDOW base AS(PARTITION BY site_id) ORDER BY site_id,row_id;
+SQL
+
+case window-roundtrip-inherited-last-value valid <<SQL
+SELECT site_id,row_id,LAST_VALUE(cost) OVER framed AS measured FROM (VALUES(1,1,11,7),(1,1,15,5),(1,2,20,NULL),(1,3,25,9),(2,1,31,3),(2,2,39,11)) AS audit_items(site_id,slot_id,row_id,cost) WINDOW base AS(PARTITION BY site_id),ordered AS(base ORDER BY row_id),framed AS(ordered ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) ORDER BY site_id,row_id;
+SQL
+
+case window-roundtrip-default-range-peers valid <<SQL
+SELECT site_id,row_id,SUM(cost) OVER w AS measured FROM (VALUES(1,1,11,7),(1,1,15,5),(1,2,20,NULL),(1,3,25,9),(2,1,31,3),(2,2,39,11)) AS audit_items(site_id,slot_id,row_id,cost) WINDOW w AS(PARTITION BY site_id ORDER BY slot_id) ORDER BY site_id,row_id;
+SQL
+
+case window-roundtrip-numeric-range-gaps valid <<SQL
+SELECT site_id,row_id,SUM(cost) OVER w AS measured FROM (VALUES(1,1,11,7),(1,1,15,5),(1,2,20,NULL),(1,3,25,9),(2,1,31,3),(2,2,39,11)) AS audit_items(site_id,slot_id,row_id,cost) WINDOW w AS(PARTITION BY site_id ORDER BY row_id RANGE BETWEEN 1 PRECEDING AND CURRENT ROW) ORDER BY site_id,row_id;
+SQL
+
+case window-roundtrip-groups-exclude-ties valid <<SQL
+SELECT site_id,row_id,SUM(cost) OVER w AS measured FROM (VALUES(1,1,11,7),(1,1,15,5),(1,2,20,NULL),(1,3,25,9),(2,1,31,3),(2,2,39,11)) AS audit_items(site_id,slot_id,row_id,cost) WINDOW w AS(PARTITION BY site_id ORDER BY slot_id GROUPS BETWEEN 1 PRECEDING AND CURRENT ROW EXCLUDE TIES) ORDER BY site_id,row_id;
+SQL
+
+case window-roundtrip-filtered-window valid <<SQL
+SELECT site_id,row_id,SUM(cost) FILTER(WHERE cost>=7) OVER w AS measured FROM (VALUES(1,1,11,7),(1,1,15,5),(1,2,20,NULL),(1,3,25,9),(2,1,31,3),(2,2,39,11)) AS audit_items(site_id,slot_id,row_id,cost) WINDOW w AS(PARTITION BY site_id ORDER BY row_id ROWS UNBOUNDED PRECEDING) ORDER BY site_id,row_id;
+SQL
+
+case window-roundtrip-empty-named-window valid <<SQL
+SELECT site_id,row_id,COUNT(*) OVER w AS measured FROM (VALUES(1,1,11,7),(1,1,15,5),(1,2,20,NULL),(1,3,25,9),(2,1,31,3),(2,2,39,11)) AS audit_items(site_id,slot_id,row_id,cost) WINDOW w AS() ORDER BY site_id,row_id;
+SQL
+
+case framed-window-cannot-be-copied semantic-error InvalidQueryShape <<SQL
+SELECT SUM(cost) OVER(w) FROM (VALUES(1,1,11,7),(1,1,15,5),(1,2,20,NULL),(1,3,25,9),(2,1,31,3),(2,2,39,11)) AS audit_items(site_id,slot_id,row_id,cost) WINDOW w AS(ORDER BY row_id ROWS UNBOUNDED PRECEDING);
+SQL

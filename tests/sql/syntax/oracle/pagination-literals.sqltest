@@ -1,0 +1,107 @@
+# Authored Oracle 19c row-limiting cases: official SELECT docs + pinned PL/SQL ANTLR.
+# No Oracle server execution is claimed; unsupported forms retain explicit scope gaps.
+# NULL/fractional/negative bounds are not given PostgreSQL/SQLite semantics.
+
+case negative-offset valid <<SQL
+SELECT 17 FROM dual OFFSET -1 ROW;
+SQL
+
+case fractional-offset valid <<SQL
+SELECT 17 FROM dual OFFSET 1.5 ROWS FETCH NEXT 2 ROWS ONLY;
+SQL
+
+case null-offset valid <<SQL
+SELECT 17 FROM dual OFFSET NULL ROWS;
+SQL
+
+case negative-count valid <<SQL
+SELECT 17 FROM dual FETCH FIRST -1 ROWS ONLY;
+SQL
+
+case fractional-count valid <<SQL
+SELECT 17 FROM dual FETCH NEXT 1.5 ROWS ONLY;
+SQL
+
+case null-count valid <<SQL
+SELECT 17 FROM dual FETCH FIRST NULL ROWS ONLY;
+SQL
+
+case arithmetic-count valid <<SQL
+SELECT 17 FROM dual FETCH NEXT 1+1 ROWS ONLY;
+SQL
+
+case parenthesized-count valid <<SQL
+SELECT 17 FROM dual FETCH NEXT (+1+2)*3 ROWS ONLY;
+SQL
+
+case division-count valid <<SQL
+SELECT 17 FROM dual FETCH NEXT (9/2) ROWS ONLY;
+SQL
+
+case scientific-count valid <<SQL
+SELECT 17 FROM dual FETCH NEXT 1e0 ROWS ONLY;
+SQL
+
+case bind-parameters valid <<SQL
+SELECT 17 FROM dual OFFSET :skip ROWS FETCH NEXT :take ROWS ONLY;
+SQL
+
+case omitted-count valid <<SQL
+SELECT 17 FROM dual FETCH NEXT ROW ONLY;
+SQL
+
+case ties-without-order valid <<SQL
+SELECT 17 FROM dual FETCH FIRST ROWS WITH TIES;
+SQL
+
+case ordered-fractional-ties valid <<SQL
+SELECT 17 FROM dual ORDER BY 1 FETCH FIRST 1.5 ROWS WITH TIES;
+SQL
+
+case percentage-explicit-gap unsupported <<SQL
+SELECT 17 FROM dual FETCH FIRST 25 PERCENT ROWS ONLY;
+SQL
+
+case function-expression-gap unsupported <<SQL
+SELECT 17 FROM dual FETCH FIRST ABS(1) ROWS ONLY;
+SQL
+
+case string-conversion-gap unsupported <<SQL
+SELECT 17 FROM dual FETCH FIRST '1' ROWS ONLY;
+SQL
+
+case name-scope-gap unsupported <<SQL
+SELECT item_id FROM audit_items FETCH FIRST item_id ROWS ONLY;
+SQL
+
+case missing-offset-value syntax-error ExpectedToken <<SQL
+SELECT 17 FROM dual OFFSET ROWS;
+SQL
+
+case missing-offset-row-keyword syntax-error ExpectedToken <<SQL
+SELECT 17 FROM dual OFFSET 1 FETCH NEXT 1 ROWS ONLY;
+SQL
+
+case missing-fetch-row-keyword syntax-error ExpectedToken <<SQL
+SELECT 17 FROM dual FETCH NEXT 1 ONLY;
+SQL
+
+case missing-fetch-mode syntax-error ExpectedToken <<SQL
+SELECT 17 FROM dual FETCH 1 ROWS ONLY;
+SQL
+
+case missing-only syntax-error ExpectedToken <<SQL
+SELECT 17 FROM dual FETCH FIRST 1 ROWS;
+SQL
+
+case duplicate-fetch syntax-error ExpectedToken <<SQL
+SELECT 17 FROM dual FETCH FIRST 1 ROWS ONLY FETCH NEXT 2 ROWS ONLY;
+SQL
+
+case offset-after-fetch syntax-error ExpectedToken <<SQL
+SELECT 17 FROM dual FETCH FIRST 1 ROWS ONLY OFFSET 1 ROWS;
+SQL
+
+case percent-missing-expression syntax-error ExpectedToken <<SQL
+SELECT 17 FROM dual FETCH FIRST PERCENT ROWS ONLY;
+SQL

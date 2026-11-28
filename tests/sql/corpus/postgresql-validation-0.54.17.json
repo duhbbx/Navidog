@@ -1,0 +1,176 @@
+{
+  "schema_version": 1,
+  "version": "0.54.17",
+  "purpose": "Reproducible validation metadata, not an acceptance override or coverage percentage. No upstream SQL was executed.",
+  "native_parser": {
+    "adapter": "pglast",
+    "version": "8.9",
+    "postgresql_version": [
+      18,
+      6
+    ],
+    "libpg_query_revision": "776c2ac5efa2a736f45bc7f18e1fd06cb9c6504e",
+    "native_sha256": "920de229ad92aab61eb32a8b82047109f84b595d5f3fc5898842b99dc527ec9e"
+  },
+  "fingerprint_algorithm": "postgresql-raw-tree-parseloc-v4",
+  "resolved_previous_reviews": 200,
+  "pending_native_tree_reviews": 0,
+  "active_exact_reviews": 1,
+  "fixtures": 2313,
+  "checks": [
+    {
+      "report": ".cache/pg-final49-authored.summary.json",
+      "sha256": "4932924ac59abf0ad2f774b6f18aeb8bf96f94e6ac951fd944f472080fdad0b8",
+      "compiler_sha256": "fb9d6874884160d9b8f7e47c7778821c7d3c73d6a25b27bf7ac08c28f2a9b333",
+      "cases": 1360,
+      "summary": {
+        "native-accepted": 1165,
+        "native-tree-agreement": 1043,
+        "native-rejected": 195,
+        "reviewed-native-tree-difference": 1
+      }
+    },
+    {
+      "report": ".cache/pg-final49-cached.summary.json",
+      "sha256": "254f00a14bb29faa7073208217a1cc435c41cd4023511c39113697902f845b17",
+      "compiler_sha256": "fb9d6874884160d9b8f7e47c7778821c7d3c73d6a25b27bf7ac08c28f2a9b333",
+      "cases": 6257,
+      "summary": {
+        "native-accepted": 6098,
+        "native-tree-agreement": 3422,
+        "native-rejected": 66,
+        "deferred": 93
+      }
+    },
+    {
+      "report": ".cache/pg-final49-native15.json",
+      "sha256": "cfb93fd1a091987f7933707c56a42868097699da62fdfe2de6a80129897b0c70",
+      "compiler_sha256": "fb9d6874884160d9b8f7e47c7778821c7d3c73d6a25b27bf7ac08c28f2a9b333",
+      "version": "15.17 (Homebrew)",
+      "cases": 101,
+      "passed": 101,
+      "round_trip": 39,
+      "column_description_passed": 39
+    },
+    {
+      "report": ".cache/pg-final49-native18.json",
+      "sha256": "e38d06d7a25a32cb249f2c169e6207f41ea176e1ace7cdcbd0c4ca22a72a7430",
+      "compiler_sha256": "fb9d6874884160d9b8f7e47c7778821c7d3c73d6a25b27bf7ac08c28f2a9b333",
+      "version": "18.7 (Debian 18.7-1.pgdg13+5)",
+      "cases": 101,
+      "passed": 101,
+      "round_trip": 39,
+      "column_description_passed": 39,
+      "container_image": {
+        "Id": "sha256:64c8b0d31e4ab6ea665e8426ea406a94bf52de3c05b3a4a8bf713704eefa9328",
+        "RepoDigests": [
+          "postgres@sha256:64c8b0d31e4ab6ea665e8426ea406a94bf52de3c05b3a4a8bf713704eefa9328"
+        ],
+        "Architecture": "arm64",
+        "Os": "linux",
+        "label": "postgres:18"
+      }
+    },
+    {
+      "report": ".cache/pg-final49-ddl15.json",
+      "sha256": "8a22ec1f77e0d151022473ffe30a0588c75de14b54ed45d6878b19ef7d4bcae7",
+      "compiler_sha256": "fb9d6874884160d9b8f7e47c7778821c7d3c73d6a25b27bf7ac08c28f2a9b333",
+      "version": "15.17 (Homebrew)",
+      "cases": 31,
+      "passed": 31,
+      "round_trip": 22,
+      "column_description_passed": 0
+    },
+    {
+      "report": ".cache/pg-final49-ddl18.json",
+      "sha256": "2f50dab100954d9f55d8d3fc2453e4e83107b91c1c79c2a29c9db711e9d7a7cb",
+      "compiler_sha256": "fb9d6874884160d9b8f7e47c7778821c7d3c73d6a25b27bf7ac08c28f2a9b333",
+      "version": "18.7 (Debian 18.7-1.pgdg13+5)",
+      "cases": 31,
+      "passed": 31,
+      "round_trip": 22,
+      "column_description_passed": 0,
+      "container_image": {
+        "Id": "sha256:64c8b0d31e4ab6ea665e8426ea406a94bf52de3c05b3a4a8bf713704eefa9328",
+        "RepoDigests": [
+          "postgres@sha256:64c8b0d31e4ab6ea665e8426ea406a94bf52de3c05b3a4a8bf713704eefa9328"
+        ],
+        "Architecture": "arm64",
+        "Os": "linux",
+        "label": "postgres:18"
+      }
+    },
+    {
+      "test": "regular",
+      "report": ".cache/pg-final48-tests.log",
+      "sha256": "0b36b543718ce284bee9a3f12a5f46434549cb3af460b43ce7e15cc9b4d780fa"
+    },
+    {
+      "test": "sanitizers",
+      "report": ".cache/pg-final48-sanitize-tests.log",
+      "sha256": "1900696ed489e12bd7a096e17674838a9577c218bc6b91891032a1cf413b5ebe"
+    },
+    {
+      "test": "desktop",
+      "report": ".cache/pg-final49-desktop-tests.log",
+      "sha256": "53ac2e74dce54000f423bbefa4430ec0d0af37bedbf868cfa239848efda55d44"
+    },
+    {
+      "test": "python-tools",
+      "report": ".cache/pg-final49-tools.log",
+      "sha256": "4a524af42e7f5852f848bfb98b06317d148e05d14568e5b3e389b188d1061d43"
+    }
+  ],
+  "inputs": [
+    {
+      "path": "tests/sql/corpus/reference-sources.json",
+      "sha256": "6673c121254ab65d017afcb9290529040e2034236c4167361ad4184c2505e9a4"
+    },
+    {
+      "path": "tests/sql/corpus/native-probes.json",
+      "sha256": "14c93c03d66ce653bdd4bb37ec2cce6887b6fe6aeebb401c0886185130717f68"
+    },
+    {
+      "path": "tests/sql/corpus/postgresql-ddl-probes.json",
+      "sha256": "c07c759bdc07085d4df0b84d1487e2e65164a08220e3c0a5593c15a9f2811467"
+    },
+    {
+      "path": "tests/sql/corpus/postgresql-resolved-reviews-0.54.17.json",
+      "sha256": "7c8f3a4dadf8cf539a887b234e818dca755b0a4d35cee244df7e13b157ee235f"
+    },
+    {
+      "path": "tests/sql/corpus/postgresql-roundtrip-reviews.json",
+      "sha256": "4e355f3f9ef7d624297910605d4020d7c1c9fd8b55538b8c9957bff4a438d687"
+    },
+    {
+      "path": "tests/sql/corpus/postgresql-pending-reviews.json",
+      "sha256": "0c6ad698d17f59179985293e0c625bc4fdfc15b5632193eff159b6d2357c0b59"
+    }
+  ],
+  "installation": {
+    "version": "0.54.17",
+    "installed_path": "/Applications/Navidog.app",
+    "processes": 1,
+    "workspace_tabs": 4,
+    "workspace_verified": true,
+    "binary_sha256": "d99081ac2a5799e3aabe89f04ca5498326b8634634a7989c749e92c456e08359",
+    "removed_obsolete_artifacts": [
+      "Navidog-0.54.16-macOS-Arm-Portable.zip",
+      "Navidog-0.54.16-macOS-Arm-Setup.pkg",
+      "Navidog-0.54.16-macOS-Arm-Portable.zip.sha256",
+      "Navidog-0.54.16-macOS-Arm-Setup.pkg.sha256",
+      "Navidog.app",
+      "Navidog-before-0.54.17.app"
+    ]
+  },
+  "artifacts": [
+    {
+      "path": "dist/Navidog-0.54.17-macOS-Arm-Portable.zip",
+      "sha256": "73a7a6b99e064b39a5fbba811a6c3ed3f797bcd75eb09cdbfd07a5bd9dc4d9b9"
+    },
+    {
+      "path": "dist/Navidog-0.54.17-macOS-Arm-Setup.pkg",
+      "sha256": "4bf9dfb1d7a92a67bb3711043dc9eb7f3c2193b70e40883f4071ec3f99a6c6c9"
+    }
+  ]
+}

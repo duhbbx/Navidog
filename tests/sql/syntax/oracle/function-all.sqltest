@@ -1,0 +1,62 @@
+# Independently authored; ALL is the default function quantifier, with dialect-specific wildcard rules.
+# Native grammar revisions and original notices remain in the reference cache.
+
+case count-all valid <<SQL
+SELECT COUNT(ALL 17) FROM dual;
+SQL
+
+case sum-all valid <<SQL
+SELECT SUM(ALL 17) FROM dual;
+SQL
+
+case min-all valid <<SQL
+SELECT MIN(ALL 17) FROM dual;
+SQL
+
+case max-all valid <<SQL
+SELECT MAX(ALL 17) FROM dual;
+SQL
+
+case avg-all valid <<SQL
+SELECT AVG(ALL 17) FROM dual;
+SQL
+
+case grouped-all valid <<SQL
+SELECT label,SUM(ALL item_id) FROM audit_items GROUP BY label;
+SQL
+
+case window-all valid <<SQL
+SELECT SUM(ALL 17) OVER() FROM dual;
+SQL
+
+case count-all-star syntax-error ExpectedToken <<SQL
+SELECT COUNT(ALL *) FROM dual;
+SQL
+
+case count-all-empty syntax-error ExpectedToken <<SQL
+SELECT COUNT(ALL) FROM dual;
+SQL
+
+case all-distinct-conflict syntax-error ExpectedToken <<SQL
+SELECT SUM(ALL DISTINCT 17) FROM dual;
+SQL
+
+case distinct-all-conflict syntax-error ExpectedToken <<SQL
+SELECT SUM(DISTINCT ALL 17) FROM dual;
+SQL
+
+case all-leading-comma syntax-error ExpectedToken <<SQL
+SELECT SUM(ALL,17) FROM dual;
+SQL
+
+case all-trailing-comma syntax-error ExpectedToken <<SQL
+SELECT SUM(ALL 17,) FROM dual;
+SQL
+
+case sum-all-star syntax-error ExpectedToken <<SQL
+SELECT SUM(ALL *) FROM dual;
+SQL
+
+case quoted-all-column valid <<SQL
+SELECT SUM("ALL") FROM audit_items;
+SQL

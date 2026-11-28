@@ -1,0 +1,173 @@
+# Independently authored; LIMIT/OFFSET a_expr versus FETCH/ROW(S) c_expr.
+
+case limit-arithmetic valid <<SQL
+SELECT 17 LIMIT 1+1;
+SQL
+
+case limit-cast valid <<SQL
+SELECT 17 LIMIT '1'::BIGINT;
+SQL
+
+case limit-null valid <<SQL
+SELECT 17 LIMIT NULL;
+SQL
+
+case limit-numeric-string valid <<SQL
+SELECT 17 LIMIT '1';
+SQL
+
+case limit-decimal-coercion valid <<SQL
+SELECT 17 LIMIT 1.5;
+SQL
+
+case limit-scalar-function valid <<SQL
+SELECT 17 LIMIT ABS(-1);
+SQL
+
+case limit-case valid <<SQL
+SELECT 17 LIMIT CASE WHEN 17=17 THEN 1 ELSE 2 END;
+SQL
+
+case limit-subquery valid <<SQL
+SELECT 17 LIMIT (SELECT 1);
+SQL
+
+case correlated-outer-limit valid <<SQL
+SELECT (SELECT 17 LIMIT audit_items.item_id) FROM audit_items;
+SQL
+
+case offset-arithmetic valid <<SQL
+SELECT 17 OFFSET 1-1 LIMIT 1;
+SQL
+
+case offset-null valid <<SQL
+SELECT 17 OFFSET NULL;
+SQL
+
+case offset-string valid <<SQL
+SELECT 17 OFFSET '0';
+SQL
+
+case offset-parenthesized-rows valid <<SQL
+SELECT 17 OFFSET (1-1) ROWS;
+SQL
+
+case offset-cast-call-rows valid <<SQL
+SELECT 17 OFFSET CAST('0' AS BIGINT) ROWS;
+SQL
+
+case fetch-parenthesized valid <<SQL
+SELECT 17 FETCH FIRST (1+1) ROWS ONLY;
+SQL
+
+case fetch-cast-call valid <<SQL
+SELECT 17 FETCH NEXT CAST('1' AS INT) ROW ONLY;
+SQL
+
+case fetch-scalar-function valid <<SQL
+SELECT 17 FETCH FIRST ABS(-1) ROWS ONLY;
+SQL
+
+case fetch-subquery valid <<SQL
+SELECT 17 FETCH FIRST (SELECT 1) ROW ONLY;
+SQL
+
+case fetch-signed-positive valid <<SQL
+SELECT 17 FETCH FIRST +1 ROW ONLY;
+SQL
+
+case fetch-null valid <<SQL
+SELECT 17 FETCH FIRST NULL ROWS ONLY;
+SQL
+
+case fetch-omitted-value valid <<SQL
+SELECT 17 FETCH FIRST ROW ONLY;
+SQL
+
+case fetch-parenthesized-cast valid <<SQL
+SELECT 17 FETCH FIRST ('1'::BIGINT) ROWS ONLY;
+SQL
+
+case ties-expression-bounds valid <<SQL
+SELECT 17 ORDER BY 1 OFFSET 1-1 FETCH FIRST (1+1) ROWS WITH TIES;
+SQL
+
+case limit-negative semantic-error InvalidQueryShape <<SQL
+SELECT 17 LIMIT -1;
+SQL
+
+case offset-negative semantic-error InvalidQueryShape <<SQL
+SELECT 17 OFFSET -1;
+SQL
+
+case fetch-negative semantic-error InvalidQueryShape <<SQL
+SELECT 17 FETCH FIRST -1 ROW ONLY;
+SQL
+
+case limit-boolean semantic-error InvalidQueryShape <<SQL
+SELECT 17 LIMIT TRUE;
+SQL
+
+case limit-date semantic-error InvalidQueryShape <<SQL
+SELECT 17 LIMIT CURRENT_DATE;
+SQL
+
+case limit-typed-text semantic-error InvalidQueryShape <<SQL
+SELECT 17 LIMIT VARCHAR '1';
+SQL
+
+case limit-array semantic-error InvalidQueryShape <<SQL
+SELECT 17 LIMIT ARRAY[1];
+SQL
+
+case limit-local-column semantic-error InvalidQueryShape <<SQL
+SELECT item_id FROM audit_items LIMIT item_id;
+SQL
+
+case offset-local-column semantic-error InvalidQueryShape <<SQL
+SELECT item_id FROM audit_items OFFSET audit_items.item_id;
+SQL
+
+case limit-aggregate semantic-error InvalidQueryShape <<SQL
+SELECT item_id FROM audit_items LIMIT COUNT(*);
+SQL
+
+case limit-window semantic-error InvalidQueryShape <<SQL
+SELECT 17 LIMIT ROW_NUMBER() OVER();
+SQL
+
+case fetch-bare-arithmetic syntax-error ExpectedToken <<SQL
+SELECT 17 FETCH FIRST 1+1 ROWS ONLY;
+SQL
+
+case fetch-separate-parentheses syntax-error ExpectedToken <<SQL
+SELECT 17 FETCH FIRST (1)+(1) ROWS ONLY;
+SQL
+
+case fetch-bare-postfix-cast syntax-error ExpectedToken <<SQL
+SELECT 17 FETCH FIRST '1'::BIGINT ROWS ONLY;
+SQL
+
+case offset-rows-bare-arithmetic syntax-error ExpectedToken <<SQL
+SELECT 17 OFFSET 1-1 ROWS;
+SQL
+
+case offset-rows-separate-parentheses syntax-error ExpectedToken <<SQL
+SELECT 17 OFFSET (1)-(1) ROWS;
+SQL
+
+case fetch-signed-parentheses syntax-error ExpectedToken <<SQL
+SELECT 17 FETCH FIRST +(1) ROW ONLY;
+SQL
+
+case fetch-missing-rows syntax-error ExpectedToken <<SQL
+SELECT 17 FETCH FIRST 1 ONLY;
+SQL
+
+case limit-incomplete syntax-error ExpectedToken <<SQL
+SELECT 17 LIMIT 1+;
+SQL
+
+case limit-comma syntax-error ExpectedToken <<SQL
+SELECT 17 LIMIT 0,1;
+SQL

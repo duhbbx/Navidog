@@ -1,0 +1,42 @@
+# Independently authored; MySQL-family XOR binds between OR and AND.
+# References: native MySQL/TiDB grammar sources pinned in the source inventory.
+
+case xor-literals valid <<SQL
+SELECT 1 XOR 0, NULL XOR 1;
+SQL
+
+case xor-and-precedence valid <<SQL
+SELECT 1 XOR 0 AND 0;
+SQL
+
+case xor-or-precedence valid <<SQL
+SELECT 1 OR 0 XOR 1;
+SQL
+
+case xor-not-precedence valid <<SQL
+SELECT NOT 1 XOR 0;
+SQL
+
+case xor-filter valid <<SQL
+SELECT item_id FROM audit_items WHERE item_id=17 XOR label IS NULL;
+SQL
+
+case xor-case valid <<SQL
+SELECT CASE WHEN 1 XOR 0 THEN 'yes' ELSE 'no' END;
+SQL
+
+case xor-missing-right syntax-error ExpectedToken <<SQL
+SELECT 1 XOR;
+SQL
+
+case xor-missing-left syntax-error ExpectedToken <<SQL
+SELECT XOR 1;
+SQL
+
+case xor-reserved-column syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items(xor INTEGER);
+SQL
+
+case xor-quoted-column valid <<SQL
+SELECT `xor` FROM audit_items;
+SQL

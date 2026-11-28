@@ -1,0 +1,74 @@
+# Independently authored SQLite GLOB cases, verified with native in-memory SQLite.
+# ESCAPE has native function-arity semantics and remains an explicit model gap.
+
+case glob-pattern valid <<SQL
+SELECT 'item_17' GLOB 'item_[0-9][0-9]';
+SQL
+
+case glob-negated valid <<SQL
+SELECT 'item_17' NOT GLOB 'item_[a-z]*';
+SQL
+
+case glob-case-sensitive valid <<SQL
+SELECT 'Item_17' GLOB 'item_*';
+SQL
+
+case glob-unicode-character valid <<SQL
+SELECT '字' GLOB '?';
+SQL
+
+case glob-null-value valid <<SQL
+SELECT NULL GLOB '*';
+SQL
+
+case glob-null-pattern valid <<SQL
+SELECT 'item_17' NOT GLOB NULL;
+SQL
+
+case glob-and valid <<SQL
+SELECT 'item_17' GLOB 'item_*' AND 17=17;
+SQL
+
+case glob-not-prefix valid <<SQL
+SELECT NOT 'item_17' GLOB 'item_*';
+SQL
+
+case glob-concat-pattern valid <<SQL
+SELECT 'item_17' GLOB 'item_'||'*';
+SQL
+
+case glob-comparison-chain valid <<SQL
+SELECT 'item_17' GLOB 'item_*'=1;
+SQL
+
+case glob-chain valid <<SQL
+SELECT 'item_17' GLOB 'item_*' GLOB '1';
+SQL
+
+case glob-not-chain valid <<SQL
+SELECT 'item_17' NOT GLOB 'item_*' IS NULL;
+SQL
+
+case glob-parenthesized valid <<SQL
+SELECT ('item_17' GLOB 'item_*')=1;
+SQL
+
+case glob-missing-pattern syntax-error ExpectedToken <<SQL
+SELECT 'item_17' GLOB;
+SQL
+
+case glob-not-missing-pattern syntax-error ExpectedToken <<SQL
+SELECT 'item_17' NOT GLOB;
+SQL
+
+case glob-missing-value syntax-error ExpectedToken <<SQL
+SELECT GLOB 'item_*';
+SQL
+
+case glob-escape-function-gap unsupported <<SQL
+SELECT 'item_17' GLOB 'item_*' ESCAPE '!';
+SQL
+
+case not-glob-escape-function-gap unsupported <<SQL
+SELECT 'item_17' NOT GLOB 'item_*' ESCAPE '!';
+SQL

@@ -1,0 +1,41 @@
+# Independently authored; SQLite parse.y and native :memory: result checks.
+
+case comparison-before-like valid <<SQL
+SELECT 2=0 LIKE '0';
+SQL
+
+case comparison-before-in valid <<SQL
+SELECT 2=0 IN (0);
+SQL
+
+case between-low-equality valid <<SQL
+SELECT 2 BETWEEN 0=0 AND 3;
+SQL
+
+case between-high-equality valid <<SQL
+SELECT 2 BETWEEN 0 AND 3=1;
+SQL
+
+case between-high-in valid <<SQL
+SELECT 2 BETWEEN 0 AND 3 IN (1);
+SQL
+
+case between-high-relational valid <<SQL
+SELECT 2 BETWEEN 0 AND 3 < 1;
+SQL
+
+case between-chained valid <<SQL
+SELECT 2 BETWEEN 0 AND 3 BETWEEN 0 AND 1;
+SQL
+
+case between-parenthesized-high valid <<SQL
+SELECT 2 BETWEEN 0 AND (3=1);
+SQL
+
+case between-low-boolean-not valid <<SQL
+SELECT 2 BETWEEN NOT 0 AND 3;
+SQL
+
+case between-high-null valid <<SQL
+SELECT 2 BETWEEN 0 AND NULL;
+SQL

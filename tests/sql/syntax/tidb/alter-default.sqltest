@@ -1,0 +1,49 @@
+# Independently authored; TiDB parser.y ALTER DEFAULT uses SignedLiteral or parenthesized Expression.
+
+case literal-integer valid <<SQL
+ALTER TABLE audit_items ALTER COLUMN item_id SET DEFAULT 17;
+SQL
+
+case literal-negative valid <<SQL
+ALTER TABLE audit_items ALTER COLUMN item_id SET DEFAULT -17;
+SQL
+
+case literal-string valid <<SQL
+ALTER TABLE audit_items ALTER COLUMN label SET DEFAULT 'item';
+SQL
+
+case literal-null valid <<SQL
+ALTER TABLE audit_items ALTER COLUMN label SET DEFAULT NULL;
+SQL
+
+case expression-parenthesized valid <<SQL
+ALTER TABLE audit_items ALTER COLUMN item_id SET DEFAULT (17+23);
+SQL
+
+case expression-nested valid <<SQL
+ALTER TABLE audit_items ALTER COLUMN item_id SET DEFAULT ((17+23));
+SQL
+
+case now-parenthesized valid <<SQL
+ALTER TABLE audit_items ALTER COLUMN created_at SET DEFAULT (NOW());
+SQL
+
+case current-time-parenthesized valid <<SQL
+ALTER TABLE audit_items ALTER COLUMN created_at SET DEFAULT (CURRENT_TIMESTAMP);
+SQL
+
+case now-unparenthesized syntax-error ExpectedToken <<SQL
+ALTER TABLE audit_items ALTER COLUMN created_at SET DEFAULT NOW();
+SQL
+
+case current-time-unparenthesized syntax-error ExpectedToken <<SQL
+ALTER TABLE audit_items ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP;
+SQL
+
+case expression-unparenthesized syntax-error ExpectedToken <<SQL
+ALTER TABLE audit_items ALTER COLUMN item_id SET DEFAULT 17+23;
+SQL
+
+case empty-parenthesis syntax-error ExpectedToken <<SQL
+ALTER TABLE audit_items ALTER COLUMN item_id SET DEFAULT ();
+SQL

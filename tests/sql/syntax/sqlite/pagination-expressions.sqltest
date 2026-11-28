@@ -1,0 +1,129 @@
+# Independently authored against SQLite limit_opt ::= LIMIT expr [OFFSET expr].
+
+case limit-negative-unlimited valid <<SQL
+SELECT 17 LIMIT -1;
+SQL
+
+case limit-parenthesized valid <<SQL
+SELECT 17 LIMIT (1+1);
+SQL
+
+case limit-bare-arithmetic valid <<SQL
+SELECT 17 LIMIT 1+1;
+SQL
+
+case limit-function valid <<SQL
+SELECT 17 LIMIT ABS(-1);
+SQL
+
+case limit-scalar-min valid <<SQL
+SELECT 17 LIMIT MIN(1,2);
+SQL
+
+case limit-boolean valid <<SQL
+SELECT 17 LIMIT TRUE;
+SQL
+
+case limit-zero-boolean valid <<SQL
+SELECT 17 LIMIT FALSE;
+SQL
+
+case limit-real-integer valid <<SQL
+SELECT 17 LIMIT 1.0;
+SQL
+
+case limit-exponent-integer valid <<SQL
+SELECT 17 LIMIT 1e0;
+SQL
+
+case limit-numeric-string valid <<SQL
+SELECT 17 LIMIT '1';
+SQL
+
+case limit-case valid <<SQL
+SELECT 17 LIMIT CASE WHEN 17=17 THEN 1 ELSE 2 END;
+SQL
+
+case limit-subquery valid <<SQL
+SELECT 17 LIMIT (SELECT 1);
+SQL
+
+case offset-negative-zero valid <<SQL
+SELECT 17 LIMIT 1 OFFSET -1;
+SQL
+
+case offset-arithmetic valid <<SQL
+SELECT 17 LIMIT 1 OFFSET 1-1;
+SQL
+
+case comma-expression-order valid <<SQL
+SELECT 17 LIMIT 1-1,1+1;
+SQL
+
+case comma-unlimited-count valid <<SQL
+SELECT 17 LIMIT 1,-1;
+SQL
+
+case comma-negative-offset valid <<SQL
+SELECT 17 LIMIT -1,1;
+SQL
+
+case limit-null semantic-error InvalidQueryShape <<SQL
+SELECT 17 LIMIT NULL;
+SQL
+
+case offset-null semantic-error InvalidQueryShape <<SQL
+SELECT 17 LIMIT 1 OFFSET NULL;
+SQL
+
+case limit-fractional semantic-error InvalidQueryShape <<SQL
+SELECT 17 LIMIT 1.5;
+SQL
+
+case offset-fractional semantic-error InvalidQueryShape <<SQL
+SELECT 17 LIMIT 1 OFFSET -1.5;
+SQL
+
+case limit-aggregate semantic-error InvalidQueryShape <<SQL
+SELECT 17 LIMIT COUNT(*);
+SQL
+
+case limit-window semantic-error InvalidQueryShape <<SQL
+SELECT 17 LIMIT ROW_NUMBER() OVER();
+SQL
+
+case limit-local-column semantic-error UnknownColumn <<SQL
+SELECT item_id FROM audit_items LIMIT item_id;
+SQL
+
+case limit-outer-column semantic-error UnknownColumn <<SQL
+SELECT (SELECT 17 LIMIT audit_items.item_id) FROM audit_items;
+SQL
+
+case offset-outer-column semantic-error UnknownColumn <<SQL
+SELECT (SELECT 17 LIMIT 1 OFFSET audit_items.item_id) FROM audit_items;
+SQL
+
+case offset-without-limit syntax-error ExpectedToken <<SQL
+SELECT 17 OFFSET 1;
+SQL
+
+case no-limit-all syntax-error ExpectedToken <<SQL
+SELECT 17 LIMIT ALL;
+SQL
+
+case comma-then-offset syntax-error ExpectedToken <<SQL
+SELECT 17 LIMIT 0,1 OFFSET 0;
+SQL
+
+case extra-comma syntax-error ExpectedToken <<SQL
+SELECT 17 LIMIT 0,1,2;
+SQL
+
+case missing-offset syntax-error ExpectedToken <<SQL
+SELECT 17 LIMIT 1 OFFSET;
+SQL
+
+case missing-operand syntax-error ExpectedToken <<SQL
+SELECT 17 LIMIT 1+;
+SQL

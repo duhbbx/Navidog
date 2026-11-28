@@ -1,0 +1,7 @@
+# Navidog 0.54.22
+
+- Added connection types for H2, KingbaseES (金仓), UXDB (优炫), Huawei GaussDB, IBM Db2 LUW, Redis, PolarDB for MySQL and PolarDB for PostgreSQL.
+- H2, KingbaseES, UXDB, GaussDB and Db2 use the shared JDBC helper and the vendor JAR selected in Advanced. H2 supports existing MVStore files and TCP. The JDBC runtime is available in single-architecture builds configured with JDK 25. JDBC connection settings support SSH for remote databases. These five new adapters currently omit dedicated TLS configuration.
+- The JDBC navigation uses `DatabaseMetaData` to browse schemas, tables, views, fields and the routines exposed by the selected driver. Table design supports column and primary-key changes. Additional table object changes, routine definitions, and proprietary SQL extensions remain engine-specific. The SQL editor uses shared SQL syntax and metadata for common statement checking and suggestions.
+- PolarDB modes reuse the MySQL and PostgreSQL native clients, respectively. A package must include the corresponding native client. PolarDB-specific syntax and Oracle compatibility extensions are outside this release.
+- Redis uses the native hiredis client. It supports standalone connections and ACL credentials, bounded SCAN browsing, value previews, a line-based command editor, command name suggestions and local checks for quoting and some common command arities. The server checks key types and the full command semantics. Redis Cluster redirection, Sentinel and TLS remain unsupported.

@@ -1,0 +1,38 @@
+# Independently authored; ANTLR TSqlParser search_condition / predicate.
+# Predicates are combined by NOT, then AND, then OR.
+
+case not-like-predicate valid <<SQL
+SELECT item_id FROM audit_items WHERE NOT label LIKE 'item%';
+SQL
+
+case like-and-comparison valid <<SQL
+SELECT item_id FROM audit_items WHERE label LIKE 'item%' AND item_id = 17;
+SQL
+
+case like-or-comparison valid <<SQL
+SELECT item_id FROM audit_items WHERE label LIKE 'item%' OR item_id = 17;
+SQL
+
+case not-between-predicate valid <<SQL
+SELECT item_id FROM audit_items WHERE NOT item_id BETWEEN 17 AND 23;
+SQL
+
+case between-and-comparison valid <<SQL
+SELECT item_id FROM audit_items WHERE item_id BETWEEN 17 AND 23 AND label = 'item';
+SQL
+
+case in-and-comparison valid <<SQL
+SELECT item_id FROM audit_items WHERE item_id IN (17, 23) AND label = 'item';
+SQL
+
+case negated-predicate-combination valid <<SQL
+SELECT item_id FROM audit_items WHERE NOT label LIKE 'item%' AND item_id > 17 OR item_id = 3;
+SQL
+
+case like-missing-and-right syntax-error ExpectedToken <<SQL
+SELECT item_id FROM audit_items WHERE label LIKE 'item%' AND;
+SQL
+
+case between-missing-upper syntax-error ExpectedToken <<SQL
+SELECT item_id FROM audit_items WHERE NOT item_id BETWEEN 17 AND;
+SQL

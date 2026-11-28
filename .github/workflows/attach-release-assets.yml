@@ -1,0 +1,60 @@
+name: Attach desktop release assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag
+        required: true
+        type: string
+      run_id:
+        description: Desktop build run ID
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  attach:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Upload verified desktop packages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE: ${{ inputs.release_tag }}
+          BUILD_RUN: ${{ inputs.run_id }}
+        run: |
+          [[ "$RELEASE" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && "$BUILD_RUN" =~ ^[0-9]+$ ]]
+          version="${RELEASE#v}"
+          gh run view "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" --json headBranch,workflowName |
+            jq -e '.headBranch == "main" and .workflowName == "Desktop builds"' >/dev/null
+          dir="$(mktemp -d)"
+          mkdir "$dir/upload"
+          gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" --pattern 'Navidog-*' --dir "$dir/download"
+          while IFS= read -r -d '' asset; do
+            filename="$(basename "$asset")"
+            case "$filename" in
+              "navidog_${version}_"*.deb)
+                artifact="$(basename "$(dirname "$asset")")"
+                case "$artifact" in
+                  Navidog-ubuntu-x64) filename="Navidog-$version-Ubuntu-24.04-amd64.deb" ;;
+                  Navidog-debian-x64) filename="Navidog-$version-Debian-13-amd64.deb" ;;
+                  *) exit 1 ;;
+                esac ;;
+              "Navidog-$version-"*.zip|"Navidog-$version-"*.pkg|"Navidog-$version-"*.exe|"Navidog-$version-"*.tar.gz|"Navidog-$version-"*.tar.gz.sha256|"navidog-$version-"*.pkg.tar.zst) ;;
+              *) continue ;;
+            esac
+            install -m 644 "$asset" "$dir/upload/$filename"
+          done < <(find "$dir/download" -type f -print0)
+          gh release view "$RELEASE" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' > "$dir/existing"
+          shopt -s nullglob
+          files=("$dir/upload/"*)
+          (( ${#files[@]} > 0 ))
+          for asset in "${files[@]}"; do
+            if ! grep -Fxq -- "$(basename "$asset")" "$dir/existing"; then
+              gh release upload "$RELEASE" "$asset" --repo "$GITHUB_REPOSITORY"
+            fi
+          done

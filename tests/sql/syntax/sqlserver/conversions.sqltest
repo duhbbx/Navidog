@@ -1,0 +1,129 @@
+# Independently authored; SQL Server CAST/CONVERT specialized type productions.
+
+case convert-integer valid <<SQL
+SELECT CONVERT(INT,17);
+SQL
+
+case convert-decimal valid <<SQL
+SELECT CONVERT(DECIMAL(12,3),17.25);
+SQL
+
+case convert-text-max valid <<SQL
+SELECT CONVERT(NVARCHAR(MAX),17);
+SQL
+
+case convert-date-style valid <<SQL
+SELECT CONVERT(DATETIME,'2026-11-27',23);
+SQL
+
+case convert-style-expression valid <<SQL
+SELECT CONVERT(VARCHAR(20),stamp,style_code+1) FROM audit_items;
+SQL
+
+case convert-subquery-value valid <<SQL
+SELECT CONVERT(INT,(SELECT 17));
+SQL
+
+case convert-schema-type valid <<SQL
+SELECT CONVERT(dbo.audit_type,17);
+SQL
+
+case try-convert valid <<SQL
+SELECT TRY_CONVERT(INT,'not an integer');
+SQL
+
+case try-convert-style valid <<SQL
+SELECT TRY_CONVERT(DATETIME,'2026-11-27',23);
+SQL
+
+case try-cast valid <<SQL
+SELECT TRY_CAST('17' AS INT);
+SQL
+
+case try-cast-type-arguments valid <<SQL
+SELECT TRY_CAST('17.25' AS DECIMAL(12,3));
+SQL
+
+case nested-conversions valid <<SQL
+SELECT CONVERT(VARCHAR(20),TRY_CAST('17' AS INT));
+SQL
+
+case ordinary-cast valid <<SQL
+SELECT CAST('17' AS INT);
+SQL
+
+case convert-empty syntax-error ExpectedToken <<SQL
+SELECT CONVERT();
+SQL
+
+case convert-missing-type syntax-error ExpectedToken <<SQL
+SELECT CONVERT(,17);
+SQL
+
+case convert-numeric-type syntax-error ExpectedToken <<SQL
+SELECT CONVERT(17,23);
+SQL
+
+case convert-string-type syntax-error ExpectedToken <<SQL
+SELECT CONVERT('INT',17);
+SQL
+
+case convert-missing-value syntax-error ExpectedToken <<SQL
+SELECT CONVERT(INT);
+SQL
+
+case convert-missing-comma syntax-error ExpectedToken <<SQL
+SELECT CONVERT(INT 17);
+SQL
+
+case convert-extra-value syntax-error ExpectedToken <<SQL
+SELECT CONVERT(INT,17,23,31);
+SQL
+
+case convert-missing-style syntax-error ExpectedToken <<SQL
+SELECT CONVERT(INT,17,);
+SQL
+
+case convert-wildcard-value syntax-error ExpectedToken <<SQL
+SELECT CONVERT(INT,*);
+SQL
+
+case convert-wildcard-style syntax-error ExpectedToken <<SQL
+SELECT CONVERT(INT,17,*);
+SQL
+
+case convert-as-syntax syntax-error ExpectedToken <<SQL
+SELECT CONVERT('17' AS INT);
+SQL
+
+case try-cast-comma-syntax syntax-error ExpectedToken <<SQL
+SELECT TRY_CAST(INT,'17');
+SQL
+
+case try-cast-missing-as syntax-error ExpectedToken <<SQL
+SELECT TRY_CAST('17' INT);
+SQL
+
+case try-cast-missing-type syntax-error ExpectedToken <<SQL
+SELECT TRY_CAST('17' AS);
+SQL
+
+case try-cast-style syntax-error ExpectedToken <<SQL
+SELECT TRY_CAST('17' AS INT,23);
+SQL
+
+case convert-filter-try-convert syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id > TRY_CONVERT(INT,17);
+SQL
+
+case convert-filter-try-cast syntax-error ExpectedToken <<SQL
+CREATE INDEX audit_idx ON audit_items(item_id) WHERE item_id > TRY_CAST('17' AS INT);
+SQL
+
+case convert-bad-type-length semantic-error InvalidQueryShape <<SQL
+SELECT CONVERT(NVARCHAR(5000),'audit');
+SQL
+
+case convert-bad-decimal-scale semantic-error InvalidQueryShape <<SQL
+SELECT TRY_CONVERT(DECIMAL(3,7),17);
+SQL

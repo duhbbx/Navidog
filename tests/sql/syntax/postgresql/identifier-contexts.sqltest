@@ -1,0 +1,149 @@
+# Independently authored; keyword categories and context-specific PG identifiers.
+
+case reserved-column-name syntax-error ExpectedToken <<SQL
+SELECT analyse FROM audit_items;
+SQL
+
+case reserved-column-type-literal syntax-error ExpectedToken <<SQL
+SELECT analyse 'audit';
+SQL
+
+case reserved-table-alias syntax-error ExpectedToken <<SQL
+SELECT item_id FROM audit_items analyse;
+SQL
+
+case reserved-array-name syntax-error ExpectedToken <<SQL
+SELECT array FROM audit_items;
+SQL
+
+case reserved-variadic-name syntax-error ExpectedToken <<SQL
+SELECT variadic FROM audit_items;
+SQL
+
+case type-function-not-column syntax-error ExpectedToken <<SQL
+SELECT authorization FROM audit_items;
+SQL
+
+case type-function-not-table-alias syntax-error ExpectedToken <<SQL
+SELECT item_id FROM audit_items binary;
+SQL
+
+case quoted-reserved-column valid <<SQL
+SELECT "analyse","array","like" FROM audit_items;
+SQL
+
+case qualified-reserved-attributes valid <<SQL
+SELECT audit_items.analyse,audit_items.like FROM audit_items;
+SQL
+
+case quoted-reserved-table-alias valid <<SQL
+SELECT "analyse".item_id FROM audit_items AS "analyse";
+SQL
+
+case column-keywords valid <<SQL
+SELECT exists,coalesce,escape,filter,interval FROM audit_items;
+SQL
+
+case type-function-call valid <<SQL
+SELECT like('audit'),binary(17);
+SQL
+
+case type-function-type-literal valid <<SQL
+SELECT like 'audit',authorization 'audit';
+SQL
+
+case column-keyword-not-type syntax-error ExpectedToken <<SQL
+SELECT coalesce 'audit';
+SQL
+
+case xml-keyword-not-type syntax-error ExpectedToken <<SQL
+SELECT xmlparse 'audit';
+SQL
+
+case json-keyword-not-type syntax-error ExpectedToken <<SQL
+SELECT json_array 'audit';
+SQL
+
+case quoted-keyword-type valid <<SQL
+SELECT "coalesce" 'audit';
+SQL
+
+case column-keyword-qualified-literal valid <<SQL
+SELECT int.audit_type '17';
+SQL
+
+case column-keyword-qualified-cast-type syntax-error ExpectedToken <<SQL
+SELECT CAST('17' AS int.audit_type);
+SQL
+
+case type-function-qualified-cast-type valid <<SQL
+SELECT CAST('audit' AS like.audit_type);
+SQL
+
+case type-function-qualified-literal syntax-error ExpectedToken <<SQL
+SELECT like.audit_type 'audit';
+SQL
+
+case special-column-keyword-qualified-literal valid <<SQL
+SELECT coalesce.audit_type 'audit';
+SQL
+
+case schema-qualified-type valid <<SQL
+SELECT audit.int '17';
+SQL
+
+case non-type-cast-target syntax-error ExpectedToken <<SQL
+SELECT CAST('audit' AS coalesce);
+SQL
+
+case type-function-cast-target valid <<SQL
+SELECT CAST('audit' AS like);
+SQL
+
+case session-value-keywords valid <<SQL
+SELECT CURRENT_CATALOG,CURRENT_ROLE,CURRENT_SCHEMA,USER;
+SQL
+
+case schema-function-call valid <<SQL
+SELECT current_schema();
+SQL
+
+case session-keyword-not-type syntax-error ExpectedToken <<SQL
+SELECT current_date 'audit';
+SQL
+
+case session-keyword-not-table-alias syntax-error ExpectedToken <<SQL
+SELECT item_id FROM audit_items current_user;
+SQL
+
+case set-table-alias valid <<SQL
+SELECT item_id FROM audit_items SET;
+SQL
+
+case update-set-clause valid <<SQL
+UPDATE audit_items SET item_id=17 WHERE item_id=23;
+SQL
+
+case update-explicit-set-alias valid <<SQL
+UPDATE audit_items AS SET SET item_id=17;
+SQL
+
+case insert-as-alias valid <<SQL
+INSERT INTO audit_items AS incoming(item_id) VALUES(17);
+SQL
+
+case insert-no-bare-alias syntax-error ExpectedToken <<SQL
+INSERT INTO audit_items incoming(item_id) VALUES(17);
+SQL
+
+case window-partition-clause valid <<SQL
+SELECT SUM(item_id) OVER(PARTITION BY label) FROM audit_items;
+SQL
+
+case window-partition-not-name syntax-error ExpectedToken <<SQL
+SELECT SUM(item_id) OVER(partition) FROM audit_items WINDOW partition AS ();
+SQL
+
+case window-quoted-partition-name valid <<SQL
+SELECT SUM(item_id) OVER("partition") FROM audit_items WINDOW "partition" AS ();
+SQL

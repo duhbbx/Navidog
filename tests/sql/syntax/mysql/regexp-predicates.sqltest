@@ -1,0 +1,62 @@
+# Independently authored; REGEXP/RLIKE grammar references are pinned in the source inventory.
+# Regex engines/collations differ, so cases assert parsing rather than cross-database equivalence.
+
+case regexp-literal valid <<SQL
+SELECT 'item_17' REGEXP '^item_[0-9]+$';
+SQL
+
+case rlike-alias valid <<SQL
+SELECT 'item_17' RLIKE '^item';
+SQL
+
+case regexp-negated valid <<SQL
+SELECT 'item_17' NOT REGEXP '^other';
+SQL
+
+case rlike-negated valid <<SQL
+SELECT 'item_17' NOT RLIKE '^other';
+SQL
+
+case regexp-null valid <<SQL
+SELECT NULL REGEXP '^item', 'item' NOT REGEXP NULL;
+SQL
+
+case regexp-and valid <<SQL
+SELECT item_id FROM audit_items WHERE label REGEXP '^item' AND item_id=17;
+SQL
+
+case regexp-prefix-not valid <<SQL
+SELECT item_id FROM audit_items WHERE NOT label REGEXP '^item' OR item_id=17;
+SQL
+
+case regexp-concat valid <<SQL
+SELECT CONCAT('item', '_17') REGEXP CONCAT('^','item');
+SQL
+
+case regexp-case valid <<SQL
+SELECT CASE WHEN 'item' RLIKE '^i' THEN 17 ELSE 23 END;
+SQL
+
+case regexp-parenthesized valid <<SQL
+SELECT ('item' REGEXP '^i') = 1;
+SQL
+
+case regexp-parameter valid <<SQL
+SELECT label REGEXP ? FROM audit_items;
+SQL
+
+case regexp-missing-pattern syntax-error ExpectedToken <<SQL
+SELECT 'item' REGEXP;
+SQL
+
+case rlike-missing-pattern syntax-error ExpectedToken <<SQL
+SELECT 'item' NOT RLIKE;
+SQL
+
+case regexp-missing-value syntax-error ExpectedToken <<SQL
+SELECT REGEXP '^item';
+SQL
+
+case regexp-unclosed syntax-error ExpectedToken <<SQL
+SELECT ('item' REGEXP '^item';
+SQL

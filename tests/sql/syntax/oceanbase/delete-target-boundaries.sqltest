@@ -1,0 +1,63 @@
+# Authored DELETE production boundaries; native EXPLAIN does not execute DELETE.
+# MySQL 8.4.11 / MariaDB 11.4.12 / TiDB 8.5.3; OceanBase pinned public grammar.
+# MariaDB baseline is 11.4; later single-table DELETE alias extensions differ.
+
+case first-target-star valid <<SQL
+DELETE FROM item.* USING audit_items item WHERE item.item_id=17;
+SQL
+
+case first-target-star-list valid <<SQL
+DELETE FROM item.*,other.* USING audit_items item JOIN audit_other other ON item.item_id=other.item_id;
+SQL
+
+case alias-before-using syntax-error ExpectedToken <<SQL
+DELETE FROM audit_items item USING audit_items item;
+SQL
+
+case as-alias-before-using syntax-error ExpectedToken <<SQL
+DELETE FROM audit_items AS item USING audit_items item;
+SQL
+
+case alias-before-target-comma syntax-error ExpectedToken <<SQL
+DELETE FROM audit_items item,audit_other USING audit_items,audit_other;
+SQL
+
+case alias-in-before-from-list syntax-error ExpectedToken <<SQL
+DELETE item AS renamed FROM audit_items item;
+SQL
+
+case single-target-star syntax-error ExpectedToken <<SQL
+DELETE FROM audit_items.* WHERE item_id=17;
+SQL
+
+case derived-target syntax-error ExpectedToken <<SQL
+DELETE FROM (SELECT 17 AS item_id) item;
+SQL
+
+case single-table-alias valid <<SQL
+DELETE FROM audit_items item WHERE item.item_id=17;
+SQL
+
+case single-table-as-alias valid <<SQL
+DELETE FROM audit_items AS item WHERE item.item_id=17;
+SQL
+
+case ignore-before-flags valid <<SQL
+DELETE IGNORE QUICK LOW_PRIORITY QUICK FROM audit_items WHERE item_id=17;
+SQL
+
+case ignore-after-flags syntax-error ExpectedToken <<SQL
+DELETE LOW_PRIORITY QUICK IGNORE FROM audit_items;
+SQL
+
+case target-base-name-hidden-by-alias semantic-error UnknownTable <<SQL
+DELETE FROM audit_items USING audit_items AS item;
+SQL
+
+case before-from-target-base-hidden semantic-error UnknownTable <<SQL
+DELETE audit_items FROM audit_items AS item;
+SQL
+
+case existing-alias-target valid <<SQL
+DELETE item FROM audit_items AS item;
+SQL

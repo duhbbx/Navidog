@@ -1,0 +1,161 @@
+# Independently authored; SQL Server 2022 scalar JSON constructor grammar.
+
+case object-empty valid <<SQL
+SELECT JSON_OBJECT();
+SQL
+
+case array-empty valid <<SQL
+SELECT JSON_ARRAY();
+SQL
+
+case object-pairs valid <<SQL
+SELECT JSON_OBJECT('item':17,'label':'audit','missing':NULL);
+SQL
+
+case object-key-expression valid <<SQL
+SELECT JSON_OBJECT(LOWER('ITEM'):17+23);
+SQL
+
+case object-column-key valid <<SQL
+SELECT JSON_OBJECT(label:item_id) FROM audit_items;
+SQL
+
+case object-returning-column-key valid <<SQL
+SELECT JSON_OBJECT(returning:item_id) FROM audit_items;
+SQL
+
+case array-returning-column valid <<SQL
+SELECT JSON_ARRAY(returning) FROM audit_items;
+SQL
+
+case object-null-policy valid <<SQL
+SELECT JSON_OBJECT('item':NULL NULL ON NULL);
+SQL
+
+case object-absent-policy valid <<SQL
+SELECT JSON_OBJECT('item':NULL ABSENT ON NULL);
+SQL
+
+case object-empty-null-policy valid <<SQL
+SELECT JSON_OBJECT(NULL ON NULL);
+SQL
+
+case array-empty-absent-policy valid <<SQL
+SELECT JSON_ARRAY(ABSENT ON NULL);
+SQL
+
+case array-elements valid <<SQL
+SELECT JSON_ARRAY(17,'audit',NULL,ABS(-23));
+SQL
+
+case array-null-policy valid <<SQL
+SELECT JSON_ARRAY(17,NULL NULL ON NULL);
+SQL
+
+case array-absent-policy valid <<SQL
+SELECT JSON_ARRAY(17,NULL ABSENT ON NULL);
+SQL
+
+case nested-constructors valid <<SQL
+SELECT JSON_OBJECT('items':JSON_ARRAY(17,NULL ABSENT ON NULL),'meta':JSON_OBJECT('count':1));
+SQL
+
+case object-no-colon syntax-error ExpectedToken <<SQL
+SELECT JSON_OBJECT('item');
+SQL
+
+case object-comma-instead-colon syntax-error ExpectedToken <<SQL
+SELECT JSON_OBJECT('item',17);
+SQL
+
+case object-missing-value syntax-error ExpectedToken <<SQL
+SELECT JSON_OBJECT('item':);
+SQL
+
+case object-missing-key syntax-error ExpectedToken <<SQL
+SELECT JSON_OBJECT(:17);
+SQL
+
+case object-two-colons syntax-error ExpectedToken <<SQL
+SELECT JSON_OBJECT('item'::17);
+SQL
+
+case object-trailing-comma syntax-error ExpectedToken <<SQL
+SELECT JSON_OBJECT('item':17,);
+SQL
+
+case array-trailing-comma syntax-error ExpectedToken <<SQL
+SELECT JSON_ARRAY(17,);
+SQL
+
+case array-colon syntax-error ExpectedToken <<SQL
+SELECT JSON_ARRAY('item':17);
+SQL
+
+case object-distinct syntax-error ExpectedToken <<SQL
+SELECT JSON_OBJECT(DISTINCT 'item':17);
+SQL
+
+case array-all syntax-error ExpectedToken <<SQL
+SELECT JSON_ARRAY(ALL 17);
+SQL
+
+case object-wildcard syntax-error ExpectedToken <<SQL
+SELECT JSON_OBJECT('item':*);
+SQL
+
+case array-wildcard syntax-error ExpectedToken <<SQL
+SELECT JSON_ARRAY(*);
+SQL
+
+case object-duplicate-policy syntax-error ExpectedToken <<SQL
+SELECT JSON_OBJECT('item':17 NULL ON NULL ABSENT ON NULL);
+SQL
+
+case array-policy-missing-on syntax-error ExpectedToken <<SQL
+SELECT JSON_ARRAY(17 ABSENT NULL);
+SQL
+
+case array-policy-missing-null syntax-error ExpectedToken <<SQL
+SELECT JSON_ARRAY(17 NULL ON);
+SQL
+
+case object-policy-before-pairs syntax-error ExpectedToken <<SQL
+SELECT JSON_OBJECT(NULL ON NULL 'item':17);
+SQL
+
+case object-returning-invalid-type syntax-error ExpectedToken <<SQL
+SELECT JSON_OBJECT('item':17 RETURNING VARCHAR(20));
+SQL
+
+case object-window-clause syntax-error ExpectedToken <<SQL
+SELECT JSON_OBJECT('item':17) OVER();
+SQL
+
+case array-window-clause syntax-error ExpectedToken <<SQL
+SELECT JSON_ARRAY(17) OVER();
+SQL
+
+case quoted-generic-function valid <<SQL
+SELECT [JSON_OBJECT]('item');
+SQL
+
+case qualified-generic-function valid <<SQL
+SELECT dbo.JSON_OBJECT('item');
+SQL
+
+case quoted-generic-colon syntax-error ExpectedToken <<SQL
+SELECT [JSON_OBJECT]('item':17);
+SQL
+
+case object-aggregate-grammar-pending unsupported <<SQL
+SELECT JSON_OBJECTAGG('item':17);
+SQL
+
+case array-aggregate-grammar-pending unsupported <<SQL
+SELECT JSON_ARRAYAGG(item_id ORDER BY item_id) FROM audit_items;
+SQL
+
+case embeddings-grammar-pending unsupported <<SQL
+SELECT AI_GENERATE_EMBEDDINGS('audit text' USE MODEL audit_model);
+SQL

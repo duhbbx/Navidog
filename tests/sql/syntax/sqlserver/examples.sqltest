@@ -1,0 +1,33 @@
+case procedure-no-count routine-valid <<SQL
+CREATE OR ALTER PROCEDURE dbo.p AS
+BEGIN
+  -- expect: bogus; this comment belongs to the procedure body.
+  SET NOCOUNT ON;
+  DECLARE @item_count int = 1;
+  SELECT @item_count;
+END;
+SQL
+
+catalog apply_tables <<DDL
+CREATE TABLE items (id int);
+DDL
+
+case apply-left-binding valid catalog=apply_tables <<SQL
+SELECT a.id, r.n FROM items AS a OUTER APPLY (SELECT a.id AS n) r;
+SQL
+
+case apply-later-table semantic-error UnknownColumn catalog=apply_tables <<SQL
+SELECT r.n FROM items AS a CROSS APPLY (SELECT b.id AS n) r
+JOIN items AS b ON a.id=b.id;
+SQL
+
+case pivot-derived-output valid <<SQL
+SELECT r.department, r.[2025] FROM
+  (VALUES (1,2,2025),(2,3,2025)) AS source(department,value_col,sales_year)
+  PIVOT (SUM(value_col) FOR sales_year IN ([2025],[2026])) AS r;
+SQL
+
+case pivot-axis-outside-source semantic-error UnknownColumn <<SQL
+SELECT * FROM (VALUES (1,2)) AS source(n,value_col)
+  PIVOT (SUM(value_col) FOR absent IN ([2025])) AS r;
+SQL

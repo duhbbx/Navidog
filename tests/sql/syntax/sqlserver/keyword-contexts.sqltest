@@ -1,0 +1,246 @@
+# Independently authored T-SQL cases; ScriptDOM TSql160 and official docs checked.
+# Unsupported cases retain explicit owning-model/scope gaps.
+
+case fillfactor-quoted-column valid <<SQL
+SELECT [FILLFACTOR] FROM audit_items;
+SQL
+
+case backup-quoted-column valid <<SQL
+SELECT [BACKUP] FROM audit_items;
+SQL
+
+case public-quoted-column valid <<SQL
+SELECT [PUBLIC] FROM audit_items;
+SQL
+
+case external-quoted-column valid <<SQL
+SELECT [EXTERNAL] FROM audit_items;
+SQL
+
+case coalesce-quoted-column valid <<SQL
+SELECT [COALESCE] FROM audit_items;
+SQL
+
+case double-quoted-column valid <<SQL
+SELECT [DOUBLE] FROM audit_items;
+SQL
+
+case varying-quoted-column valid <<SQL
+SELECT [VARYING] FROM audit_items;
+SQL
+
+case national-quoted-column valid <<SQL
+SELECT [NATIONAL] FROM audit_items;
+SQL
+
+case rowcount-quoted-column valid <<SQL
+SELECT [ROWCOUNT] FROM audit_items;
+SQL
+
+case trigger-quoted-column valid <<SQL
+SELECT [TRIGGER] FROM audit_items;
+SQL
+
+case fillfactor-field-name syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (FILLFACTOR INT);
+SQL
+
+case fillfactor-as-alias syntax-error ExpectedToken <<SQL
+SELECT 17 AS FILLFACTOR;
+SQL
+
+case backup-field-name syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (BACKUP INT);
+SQL
+
+case backup-as-alias syntax-error ExpectedToken <<SQL
+SELECT 17 AS BACKUP;
+SQL
+
+case public-field-name syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (PUBLIC INT);
+SQL
+
+case public-as-alias syntax-error ExpectedToken <<SQL
+SELECT 17 AS PUBLIC;
+SQL
+
+case external-field-name syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (EXTERNAL INT);
+SQL
+
+case external-as-alias syntax-error ExpectedToken <<SQL
+SELECT 17 AS EXTERNAL;
+SQL
+
+case coalesce-field-name syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (COALESCE INT);
+SQL
+
+case coalesce-as-alias syntax-error ExpectedToken <<SQL
+SELECT 17 AS COALESCE;
+SQL
+
+case double-field-name syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (DOUBLE INT);
+SQL
+
+case double-as-alias syntax-error ExpectedToken <<SQL
+SELECT 17 AS DOUBLE;
+SQL
+
+case varying-field-name syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (VARYING INT);
+SQL
+
+case varying-as-alias syntax-error ExpectedToken <<SQL
+SELECT 17 AS VARYING;
+SQL
+
+case national-field-name syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (NATIONAL INT);
+SQL
+
+case national-as-alias syntax-error ExpectedToken <<SQL
+SELECT 17 AS NATIONAL;
+SQL
+
+case rowcount-field-name syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (ROWCOUNT INT);
+SQL
+
+case rowcount-as-alias syntax-error ExpectedToken <<SQL
+SELECT 17 AS ROWCOUNT;
+SQL
+
+case trigger-field-name syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items (TRIGGER INT);
+SQL
+
+case trigger-as-alias syntax-error ExpectedToken <<SQL
+SELECT 17 AS TRIGGER;
+SQL
+
+case disk-profile-identifier valid <<SQL
+SELECT DISK AS DISK FROM audit_items;
+SQL
+
+case dump-profile-identifier valid <<SQL
+SELECT DUMP AS DUMP FROM audit_items;
+SQL
+
+case index-is-reserved-in-expression unsupported <<SQL
+SELECT INDEX AS INDEX FROM audit_items;
+SQL
+
+case load-profile-identifier valid <<SQL
+SELECT LOAD AS LOAD FROM audit_items;
+SQL
+
+case precision-profile-identifier valid <<SQL
+SELECT PRECISION AS PRECISION FROM audit_items;
+SQL
+
+case securityaudit-profile-identifier valid <<SQL
+SELECT SECURITYAUDIT AS SECURITYAUDIT FROM audit_items;
+SQL
+
+case public-schema-delimited valid <<SQL
+SELECT item_id FROM [public].audit_items;
+SQL
+
+case public-schema-undelimited syntax-error ExpectedToken <<SQL
+SELECT item_id FROM public.audit_items;
+SQL
+
+case keyword-functions valid <<SQL
+SELECT COALESCE(NULL,17),NULLIF(17,23),LEFT('item',1),RIGHT('item',1);
+SQL
+
+case keyword-convert valid <<SQL
+SELECT CONVERT(INT,17),TRY_CONVERT(INT,17);
+SQL
+
+case double-precision-type valid <<SQL
+CREATE TABLE audit_items(amount DOUBLE PRECISION);
+SQL
+
+case double-missing-precision syntax-error ExpectedToken <<SQL
+CREATE TABLE audit_items(amount DOUBLE);
+SQL
+
+case native-session-keywords valid <<SQL
+SELECT USER,CURRENT_USER,SESSION_USER,SYSTEM_USER;
+SQL
+
+case local-time-word-columns valid <<SQL
+SELECT LOCALTIME,LOCALTIMESTAMP FROM audit_items;
+SQL
+
+case current-time-not-native syntax-error ExpectedToken <<SQL
+SELECT CURRENT_TIME;
+SQL
+
+case identity-attribute-gap unsupported <<SQL
+SELECT IDENTITYCOL FROM audit_items;
+SQL
+
+case qualified-rowguid-attribute-gap unsupported <<SQL
+SELECT audit_items.ROWGUIDCOL FROM audit_items;
+SQL
+
+case coalesce-one-argument syntax-error ExpectedToken <<SQL
+SELECT COALESCE(17);
+SQL
+
+case nullif-one-argument syntax-error ExpectedToken <<SQL
+SELECT NULLIF(17);
+SQL
+
+case left-distinct syntax-error ExpectedToken <<SQL
+SELECT LEFT(DISTINCT 17);
+SQL
+
+case fulltext-column valid <<SQL
+SELECT 17 FROM audit_items WHERE CONTAINS(label,'item');
+SQL
+
+case fulltext-variable valid <<SQL
+SELECT 17 FROM audit_items WHERE FREETEXT(label,@query);
+SQL
+
+case fulltext-function-column syntax-error ExpectedToken <<SQL
+SELECT 17 FROM audit_items WHERE CONTAINS(ABS(item_id),'item');
+SQL
+
+case fulltext-number-search syntax-error ExpectedToken <<SQL
+SELECT 17 FROM audit_items WHERE CONTAINS(label,17);
+SQL
+
+case fulltext-column-search syntax-error ExpectedToken <<SQL
+SELECT 17 FROM audit_items WHERE CONTAINS(label,other_label);
+SQL
+
+case fulltext-language-keyword-required syntax-error ExpectedToken <<SQL
+SELECT 17 FROM audit_items WHERE CONTAINS(label,'item','en');
+SQL
+
+case fulltext-language-gap unsupported <<SQL
+SELECT 17 FROM audit_items WHERE CONTAINS(label,'item',LANGUAGE 1033);
+SQL
+
+case fulltext-star-gap unsupported <<SQL
+SELECT 17 FROM audit_items WHERE CONTAINS(*,'item');
+SQL
+
+case fulltext-column-list-gap unsupported <<SQL
+SELECT 17 FROM audit_items WHERE CONTAINS((label,other_label),'item');
+SQL
+
+case index-declaration-shape-gap unsupported <<SQL
+CREATE TABLE audit_items(INDEX audit_key);
+SQL
+
+case index-delimited-column valid <<SQL
+CREATE TABLE audit_items([INDEX] INT);
+SQL

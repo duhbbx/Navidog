@@ -1,0 +1,14 @@
+**
+!CMakeLists.txt
+!LICENSE
+!NOTICE
+!apps/
+!apps/sql/
+!apps/sql/**
+!include/
+!include/navidog/
+!include/navidog/sql/
+!include/navidog/sql/**
+!src/
+!src/sql/
+!src/sql/**

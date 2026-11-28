@@ -1,0 +1,2571 @@
+{
+  "schema_version": 1,
+  "collected_on": "2026-11-27",
+  "sources": {
+    "antlr": {
+      "repository": "antlr/grammars-v4",
+      "ref": "de38599628d221099c046e92962f70204d852b54",
+      "revision": "de38599628d221099c046e92962f70204d852b54"
+    },
+    "postgresql": {
+      "repository": "postgres/postgres",
+      "ref": "REL_18_STABLE",
+      "revision": "1b87015657d39cb28a218bbf3122dac1e722bd68"
+    },
+    "mysql": {
+      "repository": "mysql/mysql-server",
+      "ref": "8.4",
+      "revision": "14f6f5119f993f74a8514352108d9337182d5be5"
+    },
+    "mariadb": {
+      "repository": "MariaDB/server",
+      "ref": "11.4",
+      "revision": "0ca9410e1e5163fa7361eb8b9cceecfaa37842a4"
+    },
+    "tidb": {
+      "repository": "pingcap/tidb",
+      "ref": "release-8.5",
+      "revision": "a3ad25ec1c13667ade6e531ea25d8549df49e319"
+    },
+    "sqlite": {
+      "repository": "sqlite/sqlite",
+      "ref": "master",
+      "revision": "27eb88c47801b6cd55ffd28d82a2690a138d96da"
+    },
+    "oceanbase": {
+      "repository": "oceanbase/oceanbase",
+      "ref": "master",
+      "revision": "d375c6d70e8dd81c0d153496c85a1a22dfbc81f2"
+    },
+    "sqlserver": {
+      "repository": "microsoft/SqlScriptDOM",
+      "ref": "main",
+      "revision": "3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb"
+    }
+  },
+  "antlr_tool": {
+    "version": "4.13.2",
+    "url": "https://repo.maven.apache.org/maven2/org/antlr/antlr4/4.13.2/antlr4-4.13.2-complete.jar",
+    "sha256": "eae2dfa119a64327444672aff63e9ec35a20180dc5b8090b7a6ab85125df4d76",
+    "mysql_version_predicates": 80400,
+    "mysql_sql_modes": []
+  },
+  "cached_file_inventory": {
+    "antlr/README.md": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/README.md",
+      "sha256": "459a06b92a59e415dae23796decf309a2385469c3ec5ae1447a1b290ff39ed24",
+      "bytes": 1256
+    },
+    "antlr/sql/mysql/Oracle/MySQLParser.g4": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/MySQLParser.g4",
+      "sha256": "1b5200e53ef0cc7e9f4b55b08376a6d777e6921c7bb168f7bb4b3d794e287b9b",
+      "bytes": 151623
+    },
+    "antlr/sql/mysql/Oracle/MySQLLexer.g4": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/MySQLLexer.g4",
+      "sha256": "49d19cd546c6a9b07c2f98307f25557ed2378fc46c7d2fce7eab66d9f194e34a",
+      "bytes": 105340
+    },
+    "antlr/sql/postgresql/PostgreSQLLexer.g4": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/PostgreSQLLexer.g4",
+      "sha256": "7fd0641bbc5872a174a01c8e0a327491113f0a3c2dce1fd7edd36759f89200da",
+      "bytes": 24650
+    },
+    "antlr/sql/postgresql/PostgreSQLParser.g4": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/PostgreSQLParser.g4",
+      "sha256": "4261329d8c706dbd88d60c8225b9011f2db639a8ce910d2638a69ce367c95b0b",
+      "bytes": 111478
+    },
+    "antlr/sql/plsql/PlSqlParser.g4": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/PlSqlParser.g4",
+      "sha256": "eb276be3890a9d9a92d7a654300fd717cb2db4800ab35fe92326b55e784bf770",
+      "bytes": 243940
+    },
+    "antlr/sql/tsql/TSqlLexer.g4": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/TSqlLexer.g4",
+      "sha256": "c2ea8c633c26d46347138bc00b9374ba6ab327ad99a48c22ba01cc494be018b0",
+      "bytes": 71193
+    },
+    "antlr/sql/tsql/TSqlParser.g4": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/TSqlParser.g4",
+      "sha256": "1a7e935763af4b8e81d40111f8c309d834378435f263ac67c2e5e900c7e648c2",
+      "bytes": 206848
+    },
+    "antlr/sql/sqlite/SQLiteParser.g4": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/SQLiteParser.g4",
+      "sha256": "a4e84eae02b7f02802e10b7e6f5d15f1878722337012ccffd10bdf4acf26324a",
+      "bytes": 21013
+    },
+    "antlr/sql/sqlite/SQLiteLexer.g4": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/SQLiteLexer.g4",
+      "sha256": "19fa347a41eddc482d818549c5b06c047f52393320b8e9bdf6f783450f8d0e50",
+      "bytes": 7500
+    },
+    "postgresql/COPYRIGHT": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/COPYRIGHT",
+      "sha256": "3d6af92ff8a4c2cdf69afb1cf44edea727922f5cd0cf8b5f72b11cdecac8fdfd",
+      "bytes": 1198
+    },
+    "postgresql/src/test/regress/sql/select.sql": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/sql/select.sql",
+      "sha256": "cfac42494cebf178a8315ef1b8cb18c5cf51326668c08f0fe21358b19fb70863",
+      "bytes": 8142
+    },
+    "postgresql/src/test/regress/sql/select_distinct_on.sql": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/sql/select_distinct_on.sql",
+      "sha256": "75853787148494b3a47bad833f31e952b2abbfcf70875efb89b67d4c143b1dd5",
+      "bytes": 2997
+    },
+    "postgresql/src/test/regress/sql/select_having.sql": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/sql/select_having.sql",
+      "sha256": "bf8adb623f24960d979619f1e697612ba5d25f949af72db66c76666345f9c68f",
+      "bytes": 1749
+    },
+    "postgresql/src/test/regress/sql/join.sql": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/sql/join.sql",
+      "sha256": "aad532ef02915c4de8c8cf5ee79a52ad8db0c2d457e5e2fd888e325aeecfd56b",
+      "bytes": 141975
+    },
+    "postgresql/src/test/regress/sql/window.sql": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/sql/window.sql",
+      "sha256": "eebc389dc528151d762ec7c0e75aa0bc58275b408f77c478ece9da2374ddc113",
+      "bytes": 78125
+    },
+    "postgresql/src/test/regress/sql/arrays.sql": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/sql/arrays.sql",
+      "sha256": "d979dd818b3d0fd44b7b570c84e2ab1c457c1453a0d1f86c51b8fe11adf35efd",
+      "bytes": 33211
+    },
+    "postgresql/src/backend/parser/gram.y": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/backend/parser/gram.y",
+      "sha256": "7e548b673a1e03eb3a56c5eb9ad92d8e11095fac76e14cb258ca851f58274724",
+      "bytes": 507317
+    },
+    "postgresql/src/test/regress/sql/subselect.sql": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/sql/subselect.sql",
+      "sha256": "668fe273a64515f0fc7ab0eb52de779118d8d3fe8203a31d410aedcb4dbcfc0e",
+      "bytes": 45222
+    },
+    "postgresql/src/test/regress/sql/insert.sql": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/sql/insert.sql",
+      "sha256": "91fd64ccf76825d0aac933378703f4b404675f58c32169f787ccf9bb230fff5d",
+      "bytes": 29000
+    },
+    "postgresql/src/test/regress/sql/with.sql": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/sql/with.sql",
+      "sha256": "5c5826e5458f88569050843563b35a3f11040ae628c7f05f0dec9c1ac0706e0d",
+      "bytes": 46221
+    },
+    "postgresql/src/test/regress/sql/update.sql": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/sql/update.sql",
+      "sha256": "e01c3819ff17baeeb4e28d45e46c6bf5db711a79f8064be5c5f1c69ed349addf",
+      "bytes": 26779
+    },
+    "postgresql/src/test/regress/sql/delete.sql": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/sql/delete.sql",
+      "sha256": "14c8bdd0e7f50e3a6693b27daa326bc4fcd8416db261b948c53deded8f9c4fcf",
+      "bytes": 671
+    },
+    "postgresql/src/test/regress/sql/create_table.sql": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/sql/create_table.sql",
+      "sha256": "182b522ddd091e8d21bba2ced6672ac465b59925a662923acdc2345f5869bf13",
+      "bytes": 30500
+    },
+    "postgresql/src/test/regress/sql/merge.sql": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/sql/merge.sql",
+      "sha256": "aebdab72a1e5e41a2195dbd051d73ecdf9c1cb67ed690684a021a4669aff6f9a",
+      "bytes": 54513
+    },
+    "postgresql/src/test/regress/sql/create_index.sql": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/sql/create_index.sql",
+      "sha256": "b7a22df2a32dcf1f9e678b22f77b07f384328873fde8a48e9581aa239a47209c",
+      "bytes": 59810
+    },
+    "postgresql/src/test/regress/sql/alter_table.sql": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/sql/alter_table.sql",
+      "sha256": "5897dc379123555002aa29faa4bd6fe98933c6482786e81929a47eb8f6cca511",
+      "bytes": 130356
+    },
+    "postgresql/src/test/regress/expected/select_distinct.out": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/expected/select_distinct.out",
+      "sha256": "0869e80dfe3020d0711e79e73d6ee264dcfc9592f0e918607ee1890d42398d44",
+      "bytes": 13773
+    },
+    "postgresql/src/test/regress/expected/select_distinct_on.out": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/expected/select_distinct_on.out",
+      "sha256": "b5254efae56908b5537674959ce2eb3dfe29a6207ce7557d5660cbbe9a023421",
+      "bytes": 6660
+    },
+    "postgresql/src/test/regress/expected/select.out": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/expected/select.out",
+      "sha256": "7f6cc01ab07acb1b4e7c9f40b9e97d7a8a7f530d196b476ac333ebdf27c4d125",
+      "bytes": 24496
+    },
+    "postgresql/src/test/regress/expected/arrays.out": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/expected/arrays.out",
+      "sha256": "f7c4f56bea9373d965fd81b4c28bfea65b048fb56bbec0790c13a5df5b17a0bf",
+      "bytes": 113596
+    },
+    "postgresql/src/test/regress/expected/window.out": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/expected/window.out",
+      "sha256": "6cfe8b0ff6550e90c38c56834ce67f2c06cf055ecc8a998692cb9693f5856b9e",
+      "bytes": 196182
+    },
+    "postgresql/src/test/regress/expected/subselect.out": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/expected/subselect.out",
+      "sha256": "f9b8d1272046161bff44f6e65e6008e843d63193b80cf9c799d8aa9a086097ad",
+      "bytes": 106626
+    },
+    "postgresql/src/test/regress/expected/join.out": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/expected/join.out",
+      "sha256": "689d3551676ab9e809340b12105290e96afbd7f05b836ac4dd940249803ee446",
+      "bytes": 397860
+    },
+    "postgresql/src/test/regress/expected/insert.out": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/expected/insert.out",
+      "sha256": "c556879b2562af45b5e706bfc12ce68e51620240c1e6a19fcab47690adb2449e",
+      "bytes": 52222
+    },
+    "postgresql/src/test/regress/expected/update.out": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/expected/update.out",
+      "sha256": "48dbb7b5a84cea6368edf1ec8de4e6b66862b1b48cdd87ec48c71c5b8efd999a",
+      "bytes": 41614
+    },
+    "postgresql/src/test/regress/expected/delete.out": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/expected/delete.out",
+      "sha256": "265580eba81e5be94b903b5402ed5467711c84147829dd093e176350d4f750b2",
+      "bytes": 1083
+    },
+    "postgresql/src/test/regress/expected/merge.out": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/expected/merge.out",
+      "sha256": "97a417c73ef12432c4a6502a2d66a409bb25d687d1678a4de9946fe93dd01144",
+      "bytes": 95379
+    },
+    "postgresql/src/test/regress/expected/create_table.out": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/expected/create_table.out",
+      "sha256": "c68a73fa9ca428f2eddeee429701a0649149856a1ff3db8278b24e5c9c8df3f5",
+      "bytes": 59581
+    },
+    "postgresql/src/test/regress/expected/create_index.out": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/expected/create_index.out",
+      "sha256": "a37cf49ef226a9171ccd9a0f192d4dda5e41be5b2a4b10c0989cc6fd9fd9ed2f",
+      "bytes": 176114
+    },
+    "postgresql/src/test/regress/expected/alter_table.out": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/expected/alter_table.out",
+      "sha256": "f98f9cbe7576eb5380904905813593eccbccb2d2e6cd739acb7cd2febab3ec8b",
+      "bytes": 225920
+    },
+    "mysql/LICENSE": {
+      "url": "https://raw.githubusercontent.com/mysql/mysql-server/14f6f5119f993f74a8514352108d9337182d5be5/LICENSE",
+      "sha256": "627ee2a5b4b508844c37b8617b77adb1747b47b7de10d66af6816021498d15cd",
+      "bytes": 262847
+    },
+    "mysql/mysql-test/t/func_like.test": {
+      "url": "https://raw.githubusercontent.com/mysql/mysql-server/14f6f5119f993f74a8514352108d9337182d5be5/mysql-test/t/func_like.test",
+      "sha256": "7556b4a03bc536bef413e0435eaf742534ba557f509f301a9fa2549993beedc0",
+      "bytes": 12456
+    },
+    "mysql/sql/sql_yacc.yy": {
+      "url": "https://raw.githubusercontent.com/mysql/mysql-server/14f6f5119f993f74a8514352108d9337182d5be5/sql/sql_yacc.yy",
+      "sha256": "d23e6df858a2a9df6fe5ea6bc620dc866b2b37b8181cca1c9c55481c5012c829",
+      "bytes": 572173
+    },
+    "mysql/mysql-test/t/window_functions.test": {
+      "url": "https://raw.githubusercontent.com/mysql/mysql-server/14f6f5119f993f74a8514352108d9337182d5be5/mysql-test/t/window_functions.test",
+      "sha256": "3353bf720b22b794f31ac66b2d44f967df0740d317d05e54458d4d275010cef7",
+      "bytes": 179023
+    },
+    "mysql/mysql-test/t/insert.test": {
+      "url": "https://raw.githubusercontent.com/mysql/mysql-server/14f6f5119f993f74a8514352108d9337182d5be5/mysql-test/t/insert.test",
+      "sha256": "34b6a323f29d8c0649a92cd2a6daecd96377718dc048fafa6844944c5375ba11",
+      "bytes": 30960
+    },
+    "mysql/mysql-test/t/update.test": {
+      "url": "https://raw.githubusercontent.com/mysql/mysql-server/14f6f5119f993f74a8514352108d9337182d5be5/mysql-test/t/update.test",
+      "sha256": "e62304f8c4245cb87390b269b97aa139c67468e1ba0ed3a97df494229548cc58",
+      "bytes": 23506
+    },
+    "mysql/mysql-test/t/delete.test": {
+      "url": "https://raw.githubusercontent.com/mysql/mysql-server/14f6f5119f993f74a8514352108d9337182d5be5/mysql-test/t/delete.test",
+      "sha256": "f1dd2baaa948eb26846951260c60ec59db44f1115ab52e2ea67c67774f5025bc",
+      "bytes": 26440
+    },
+    "mysql/mysql-test/t/partition.test": {
+      "url": "https://raw.githubusercontent.com/mysql/mysql-server/14f6f5119f993f74a8514352108d9337182d5be5/mysql-test/t/partition.test",
+      "sha256": "e386420abad51de118f026b5962d45a37204effbcca373edf73a9c1b223b5114",
+      "bytes": 91037
+    },
+    "mariadb/COPYING": {
+      "url": "https://raw.githubusercontent.com/MariaDB/server/0ca9410e1e5163fa7361eb8b9cceecfaa37842a4/COPYING",
+      "sha256": "240a15a1d0f34d3abca462cdb7e5fb89470967563f16b0e71169e51c1e74cf2b",
+      "bytes": 17987
+    },
+    "mariadb/mysql-test/main/func_like.test": {
+      "url": "https://raw.githubusercontent.com/MariaDB/server/0ca9410e1e5163fa7361eb8b9cceecfaa37842a4/mysql-test/main/func_like.test",
+      "sha256": "3e280a9a9100961094a8dc9e8c4a7dcae75b6e3c2c611b024d603c026781ceb0",
+      "bytes": 9111
+    },
+    "mariadb/sql/sql_yacc.yy": {
+      "url": "https://raw.githubusercontent.com/MariaDB/server/0ca9410e1e5163fa7361eb8b9cceecfaa37842a4/sql/sql_yacc.yy",
+      "sha256": "6ac24a21ef1f6b25c7598003b471f630f6df99f396bf6daded7aa64b6f445b24",
+      "bytes": 610481
+    },
+    "mariadb/mysql-test/main/insert.test": {
+      "url": "https://raw.githubusercontent.com/MariaDB/server/0ca9410e1e5163fa7361eb8b9cceecfaa37842a4/mysql-test/main/insert.test",
+      "sha256": "6528aeca1575ed57fc676065ccf16c1b99c06bcf5b864f4f8627d41c402c7398",
+      "bytes": 20206
+    },
+    "mariadb/mysql-test/main/subselect.test": {
+      "url": "https://raw.githubusercontent.com/MariaDB/server/0ca9410e1e5163fa7361eb8b9cceecfaa37842a4/mysql-test/main/subselect.test",
+      "sha256": "28bcbe91ac13135841d4ce447065fc4ed445e24108dde251e95e1f8d9e3fe0d4",
+      "bytes": 214527
+    },
+    "mariadb/mysql-test/main/delete.test": {
+      "url": "https://raw.githubusercontent.com/MariaDB/server/0ca9410e1e5163fa7361eb8b9cceecfaa37842a4/mysql-test/main/delete.test",
+      "sha256": "855cd144bc03f041e4ebfba69c767397992278d977ff2d7ca02f9ee0a77f22a7",
+      "bytes": 17190
+    },
+    "mariadb/mysql-test/main/partition.test": {
+      "url": "https://raw.githubusercontent.com/MariaDB/server/0ca9410e1e5163fa7361eb8b9cceecfaa37842a4/mysql-test/main/partition.test",
+      "sha256": "2e34f2066170c4f77f6374e3e36e747c3eba6e5fb4928110787ed1968dae3ea4",
+      "bytes": 92605
+    },
+    "tidb/LICENSE": {
+      "url": "https://raw.githubusercontent.com/pingcap/tidb/a3ad25ec1c13667ade6e531ea25d8549df49e319/LICENSE",
+      "sha256": "2da5bcc8cff0ae5ba36d9923145e34eed3340a458a269f663c3582430f8c358f",
+      "bytes": 11294
+    },
+    "tidb/pkg/parser/README.md": {
+      "url": "https://raw.githubusercontent.com/pingcap/tidb/a3ad25ec1c13667ade6e531ea25d8549df49e319/pkg/parser/README.md",
+      "sha256": "ebd5cded8b93e5502e51cc49bb78658c3a9b9a38529a273a180def2e687549ce",
+      "bytes": 3299
+    },
+    "sqlite/LICENSE.md": {
+      "url": "https://raw.githubusercontent.com/sqlite/sqlite/27eb88c47801b6cd55ffd28d82a2690a138d96da/LICENSE.md",
+      "sha256": "c9053892d578840a196d588ff68baa9bc0f5240eb215fb9cf91cd6b0b3209305",
+      "bytes": 3829
+    },
+    "sqlite/test/select1.test": {
+      "url": "https://raw.githubusercontent.com/sqlite/sqlite/27eb88c47801b6cd55ffd28d82a2690a138d96da/test/select1.test",
+      "sha256": "8c7d820028533c4a409d3b1efd338892f1398569f358c85b2cf6865597fef25a",
+      "bytes": 33225
+    },
+    "sqlite/src/parse.y": {
+      "url": "https://raw.githubusercontent.com/sqlite/sqlite/27eb88c47801b6cd55ffd28d82a2690a138d96da/src/parse.y",
+      "sha256": "d152eb2c4f7a8bdd4ca467aace34ceda15979059d7cae2378fa26c66793f5431",
+      "bytes": 76959
+    },
+    "sqlite/test/select2.test": {
+      "url": "https://raw.githubusercontent.com/sqlite/sqlite/27eb88c47801b6cd55ffd28d82a2690a138d96da/test/select2.test",
+      "sha256": "8ea3be8c011acc283e5e54dc2ff9dbacde847f053178b11ffafa7aa3d465edc7",
+      "bytes": 4546
+    },
+    "tidb/pkg/parser/parser_test.go": {
+      "url": "https://raw.githubusercontent.com/pingcap/tidb/a3ad25ec1c13667ade6e531ea25d8549df49e319/pkg/parser/parser_test.go",
+      "sha256": "5992b97f68a460fa016bf6b461d09ac165504cd5bceafce5cdfbd48f9654eeed",
+      "bytes": 591478
+    },
+    "sqlite/test/select3.test": {
+      "url": "https://raw.githubusercontent.com/sqlite/sqlite/27eb88c47801b6cd55ffd28d82a2690a138d96da/test/select3.test",
+      "sha256": "3965a950e11c6447b85eacf33dfac6b4d0d703bd98b83560f00e63ee0cacb7bb",
+      "bytes": 10912
+    },
+    "sqlite/test/select4.test": {
+      "url": "https://raw.githubusercontent.com/sqlite/sqlite/27eb88c47801b6cd55ffd28d82a2690a138d96da/test/select4.test",
+      "sha256": "4a025a0af4012669bcf979d3460fb9375cc8bf3f69d513f83fa40c5395b0d065",
+      "bytes": 26858
+    },
+    "sqlite/test/select5.test": {
+      "url": "https://raw.githubusercontent.com/sqlite/sqlite/27eb88c47801b6cd55ffd28d82a2690a138d96da/test/select5.test",
+      "sha256": "bba389e1e3ea461b66d4fe35a5a29a1e4d85f04b899dcf43c6e350609d0024ae",
+      "bytes": 6670
+    },
+    "sqlite/test/select6.test": {
+      "url": "https://raw.githubusercontent.com/sqlite/sqlite/27eb88c47801b6cd55ffd28d82a2690a138d96da/test/select6.test",
+      "sha256": "2c1798cceffa0aeac00140c0515a727bca822adae839bc2d0b23894d1a35e7c0",
+      "bytes": 17753
+    },
+    "sqlite/test/select7.test": {
+      "url": "https://raw.githubusercontent.com/sqlite/sqlite/27eb88c47801b6cd55ffd28d82a2690a138d96da/test/select7.test",
+      "sha256": "a79eab463440260425340d1ea1a79d904c6b3abbcfca776ad333aeaa63413cb3",
+      "bytes": 7424
+    },
+    "sqlite/test/select8.test": {
+      "url": "https://raw.githubusercontent.com/sqlite/sqlite/27eb88c47801b6cd55ffd28d82a2690a138d96da/test/select8.test",
+      "sha256": "6622cc69dc24078d1c2d40665be67734d21dd052f368c6c4d4e6439b2e169a43",
+      "bytes": 1689
+    },
+    "sqlite/test/select9.test": {
+      "url": "https://raw.githubusercontent.com/sqlite/sqlite/27eb88c47801b6cd55ffd28d82a2690a138d96da/test/select9.test",
+      "sha256": "0bc5c880547907e5dd099f6cfd8dd503bf853b86f461d9ee45bbadd51421c4b2",
+      "bytes": 16444
+    },
+    "sqlite/test/selectA.test": {
+      "url": "https://raw.githubusercontent.com/sqlite/sqlite/27eb88c47801b6cd55ffd28d82a2690a138d96da/test/selectA.test",
+      "sha256": "a432f2895d5a3cca7344181f7d25d4e1d3a3ab3d2d6665450e4fe63e7f8eb6ad",
+      "bytes": 46043
+    },
+    "sqlite/test/insert.test": {
+      "url": "https://raw.githubusercontent.com/sqlite/sqlite/27eb88c47801b6cd55ffd28d82a2690a138d96da/test/insert.test",
+      "sha256": "98c8e1196bc7970f242f009b93776cd0afab31f0f2232f8a43568fbe8d091d26",
+      "bytes": 17022
+    },
+    "sqlite/test/with1.test": {
+      "url": "https://raw.githubusercontent.com/sqlite/sqlite/27eb88c47801b6cd55ffd28d82a2690a138d96da/test/with1.test",
+      "sha256": "3486bdf537b0cfdbc5a345afbdcaa53a105302f439a04fc6983945688832b21c",
+      "bytes": 33379
+    },
+    "sqlite/test/window1.test": {
+      "url": "https://raw.githubusercontent.com/sqlite/sqlite/27eb88c47801b6cd55ffd28d82a2690a138d96da/test/window1.test",
+      "sha256": "a839ea459f38e3b086f0fdc57094952deab2a64dfd471daa102dcd5404fbc966",
+      "bytes": 65290
+    },
+    "sqlite/test/update.test": {
+      "url": "https://raw.githubusercontent.com/sqlite/sqlite/27eb88c47801b6cd55ffd28d82a2690a138d96da/test/update.test",
+      "sha256": "f12fef87391265d3e0aee908be82e0927088d3dcff74bc6dca39d5051b448a8c",
+      "bytes": 24374
+    },
+    "sqlite/test/delete.test": {
+      "url": "https://raw.githubusercontent.com/sqlite/sqlite/27eb88c47801b6cd55ffd28d82a2690a138d96da/test/delete.test",
+      "sha256": "b91b952366438629b71aa0f5f8f7c9c5106915935d9594fc3d726d0f42de240f",
+      "bytes": 12216
+    },
+    "sqlserver/LICENSE": {
+      "url": "https://raw.githubusercontent.com/microsoft/SqlScriptDOM/3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb/LICENSE",
+      "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383",
+      "bytes": 1141
+    },
+    "sqlserver/Test/SqlDom/ParserErrorsTests.cs": {
+      "url": "https://raw.githubusercontent.com/microsoft/SqlScriptDOM/3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb/Test/SqlDom/ParserErrorsTests.cs",
+      "sha256": "0a1d433c7d27db2708a473b8fec25e533c5b164950156d3b5ce14df6e850c5cf",
+      "bytes": 542615
+    },
+    "antlr/sql/plsql/PlSqlLexer.g4": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/PlSqlLexer.g4",
+      "sha256": "aaddaa2f9d40e10ab71e83a402499ae893aa7f03497a631e5c12f2c4cd1d2567",
+      "bytes": 119329
+    },
+    "postgresql/src/test/regress/expected/select_having.out": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/expected/select_having.out",
+      "sha256": "14ea106d976003bfa237df0b0fc484141f1cb6041f4c9310bc74cf919cb5ac7e",
+      "bytes": 2573
+    },
+    "postgresql/src/test/regress/sql/select_distinct.sql": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/sql/select_distinct.sql",
+      "sha256": "9a519d1b1938cf04c181c2ab5b150c9b53fa21774421bacff5c4cc5a8936f83b",
+      "bytes": 7617
+    },
+    "mysql/mysql-test/t/subselect.test": {
+      "url": "https://raw.githubusercontent.com/mysql/mysql-server/14f6f5119f993f74a8514352108d9337182d5be5/mysql-test/t/subselect.test",
+      "sha256": "1b252ed589742893e1008b6a772bc22261c508ebda623402dc2a18a63331526e",
+      "bytes": 2283
+    },
+    "postgresql/src/test/regress/expected/with.out": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/test/regress/expected/with.out",
+      "sha256": "6836377c0ea2b052307a9e0951bfd4578c06be7fa355b2a4667a89729121d54f",
+      "bytes": 102117
+    },
+    "mariadb/mysql-test/main/func_in.test": {
+      "url": "https://raw.githubusercontent.com/MariaDB/server/0ca9410e1e5163fa7361eb8b9cceecfaa37842a4/mysql-test/main/func_in.test",
+      "sha256": "64626dfafa9aedeadff44a6d11780b385f2b40c2207216385e270cc4c38444c3",
+      "bytes": 28792
+    },
+    "mariadb/mysql-test/main/update.test": {
+      "url": "https://raw.githubusercontent.com/MariaDB/server/0ca9410e1e5163fa7361eb8b9cceecfaa37842a4/mysql-test/main/update.test",
+      "sha256": "b723fd259ff12b54500315c734292308e31704cbb72dd700ae32a882198a4152",
+      "bytes": 23144
+    },
+    "oceanbase/LICENSE": {
+      "url": "https://raw.githubusercontent.com/oceanbase/oceanbase/d375c6d70e8dd81c0d153496c85a1a22dfbc81f2/LICENSE",
+      "sha256": "43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1",
+      "bytes": 11356
+    },
+    "tidb/pkg/parser/lexer_test.go": {
+      "url": "https://raw.githubusercontent.com/pingcap/tidb/a3ad25ec1c13667ade6e531ea25d8549df49e319/pkg/parser/lexer_test.go",
+      "sha256": "c8942bf01233529043a4ccab99673edf8b3a0d8a6e435b835f7d76838382523b",
+      "bytes": 17292
+    },
+    "mariadb/mysql-test/main/select.test": {
+      "url": "https://raw.githubusercontent.com/MariaDB/server/0ca9410e1e5163fa7361eb8b9cceecfaa37842a4/mysql-test/main/select.test",
+      "sha256": "6c1dc9048244535e1fa31ff4b2dbb020c183069223f7750510193e679894dd65",
+      "bytes": 210493
+    },
+    "tidb/pkg/parser/parser.y": {
+      "url": "https://raw.githubusercontent.com/pingcap/tidb/a3ad25ec1c13667ade6e531ea25d8549df49e319/pkg/parser/parser.y",
+      "sha256": "8a5bdca705d83c54d674ab4c512b42cac7ed76b6d5c56a0a9e9fda04b5cbf593",
+      "bytes": 405959
+    },
+    "oceanbase/src/sql/parser/sql_parser_mysql_mode.y": {
+      "url": "https://raw.githubusercontent.com/oceanbase/oceanbase/d375c6d70e8dd81c0d153496c85a1a22dfbc81f2/src/sql/parser/sql_parser_mysql_mode.y",
+      "sha256": "4e3e9ae0ca60c8010735f98b8e30bacd8e384b559ef2004078ac53d493481d4e",
+      "bytes": 838999
+    },
+    "antlr/sql/mysql/Oracle/Java/MySQLLexerBase.java": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/Java/MySQLLexerBase.java",
+      "sha256": "5334a3a01a6ee1a963df1be4761decc1a9b6c13b030d9f311de65b8030920603",
+      "bytes": 11908
+    },
+    "antlr/sql/mysql/Oracle/Java/MySQLParserBase.java": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/Java/MySQLParserBase.java",
+      "sha256": "28a8d89a993b3cc410f4d34869222ccb8c101f1025590bf4d2ff02a1e09f3f6b",
+      "bytes": 2966
+    },
+    "antlr/sql/postgresql/Java/PostgreSQLLexerBase.java": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/Java/PostgreSQLLexerBase.java",
+      "sha256": "d72333cf2e489b6fc19775e7f4b6d0a08faa4baa26affe780963169cc382c829",
+      "bytes": 2920
+    },
+    "antlr/sql/plsql/Java/PlSqlLexerBase.java": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/Java/PlSqlLexerBase.java",
+      "sha256": "88e8c740cf204eb4c5f509b395435a2ca8608dfcdade5372afa818944e50b5ce",
+      "bytes": 1104
+    },
+    "antlr/sql/postgresql/Java/PostgreSQLParserBase.java": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/Java/PostgreSQLParserBase.java",
+      "sha256": "c8d76e4076381ecf6367305afa6ae584dc7d4da0d39eefe6f13da3008719e8b9",
+      "bytes": 5999
+    },
+    "antlr/sql/plsql/Java/PlSqlParserBase.java": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/Java/PlSqlParserBase.java",
+      "sha256": "f33d462f26313550b3c6df2994ba6e88345e95b015fc607055cb9edb658f17fa",
+      "bytes": 3973
+    },
+    "antlr/sql/mysql/Oracle/Java/SqlMode.java": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/Java/SqlMode.java",
+      "sha256": "d96d42b22cc19f480e899b4015f8b07f4c1db6a2741a3be925891fffa2c88d2f",
+      "bytes": 182
+    },
+    "antlr/sql/mysql/Oracle/Java/SqlModes.java": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/Java/SqlModes.java",
+      "sha256": "fafe27eb1b28fba091ec37ef03c9325d49cc8e7cc7d1e6498df3d245fa0a8fa5",
+      "bytes": 1776
+    },
+    "sqlserver/SqlScriptDom/Parser/TSql/TSql160.g": {
+      "url": "https://raw.githubusercontent.com/microsoft/SqlScriptDOM/3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb/SqlScriptDom/Parser/TSql/TSql160.g",
+      "sha256": "ef984277ad292293a2cf93efd903b63399c4a44041c7506b6c2e2050cdaa6874",
+      "bytes": 1168619
+    },
+    "antlr/sql/postgresql/Java/ParserDispatchingErrorListener.java": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/Java/ParserDispatchingErrorListener.java",
+      "sha256": "efd25f25f09887819f9ed95f1fb23c704b2d0d930c53df4274ebfbf0fd82b612",
+      "bytes": 3472
+    },
+    "antlr/sql/postgresql/Java/LexerDispatchingErrorListener.java": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/Java/LexerDispatchingErrorListener.java",
+      "sha256": "f755ae276b51f401901a8fc576247d156f3b8ebdbe924b6e671c1d8521f68b3e",
+      "bytes": 3483
+    },
+    "antlr/sql/mysql/Oracle/examples/case_sensitive_sql.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/case_sensitive_sql.sql",
+      "sha256": "8a1abc0023c8df9a009a83651ffd51a71774ee7ae58ebaa7a549c87be729d2c9",
+      "bytes": 386
+    },
+    "antlr/sql/mysql/Oracle/examples/bitrix_queries_cut.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/bitrix_queries_cut.sql",
+      "sha256": "4326d91dc634dc7f38b4d853cdd975e7d72ccb364c3e7331544b79793cd29180",
+      "bytes": 105865
+    },
+    "antlr/sql/mysql/Oracle/examples/analyze.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/analyze.sql",
+      "sha256": "20c9fec1ab55c5a5a59c039adadc65a0f269e6c3270ebc9c43016f8eaf2f797b",
+      "bytes": 223
+    },
+    "antlr/sql/mysql/Oracle/examples/admin.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/admin.sql",
+      "sha256": "efcca776f8a958adab19e2fe5853256480669abf1ba446fd268b079d5398c272",
+      "bytes": 169
+    },
+    "antlr/sql/mysql/Oracle/examples/ddl_create.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/ddl_create.sql",
+      "sha256": "42284789fd4f7777f85a9fb0560c207ebcad18d6f5708dcf92ce2b868426e884",
+      "bytes": 32249
+    },
+    "antlr/sql/mysql/Oracle/examples/ddl_drop.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/ddl_drop.sql",
+      "sha256": "7ada60219953ffdf251b94ead2bffcae53cf6f3518de4ea1eab6564485c8e453",
+      "bytes": 2006
+    },
+    "antlr/sql/mysql/Oracle/examples/ddl_flush.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/ddl_flush.sql",
+      "sha256": "1d1423f80e3e9f95931652dd794c975a14da59a29298092b80699be96a1666c7",
+      "bytes": 400
+    },
+    "antlr/sql/mysql/Oracle/examples/ddl_alter.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/ddl_alter.sql",
+      "sha256": "196849c7e8d3c435d38aa6a76fdb59a78f70080047d2d370d3a27b340022e8c1",
+      "bytes": 7389
+    },
+    "antlr/sql/mysql/Oracle/examples/dml_delete.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/dml_delete.sql",
+      "sha256": "2fd3eec9bdb18e13e1a131d62b736c53432cdb22197c86499ff7edd49071d3a4",
+      "bytes": 1211
+    },
+    "antlr/sql/mysql/Oracle/examples/dml_replace.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/dml_replace.sql",
+      "sha256": "2f4683b6674d81f31fee8709e5d05eae062e2c83f5ee11f02503a7279b6dfcdb",
+      "bytes": 661
+    },
+    "antlr/sql/mysql/Oracle/examples/dml_insert.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/dml_insert.sql",
+      "sha256": "2d3e67ad153201457d87e1037c998c6c49c0a16a8d6c517e8a926e36b928f2f1",
+      "bytes": 2668
+    },
+    "antlr/sql/mysql/Oracle/examples/dml_select.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/dml_select.sql",
+      "sha256": "e64c03f67dddb82c3c8131aa3ac0899bedc3ae60d51661d2850218511767fb3a",
+      "bytes": 9185
+    },
+    "antlr/sql/mysql/Oracle/examples/dml_table.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/dml_table.sql",
+      "sha256": "ea14ed453425f48bf721c6c4b8f426dc648829ea46cb6181de608881f4aa54a9",
+      "bytes": 149
+    },
+    "antlr/sql/mysql/Oracle/examples/dml_test_arithmetic_expression.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/dml_test_arithmetic_expression.sql",
+      "sha256": "66293bb752539439d0fce7561677dc60e9883dce98d700c4039e88239f587854",
+      "bytes": 12
+    },
+    "antlr/sql/mysql/Oracle/examples/dml_union.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/dml_union.sql",
+      "sha256": "6d28b04729c13a818d79aca97268183d5ba72b0b6d7fa3fbc823e0ab44867934",
+      "bytes": 1858
+    },
+    "antlr/sql/mysql/Oracle/examples/dml_update.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/dml_update.sql",
+      "sha256": "79c14946d95ba47eaed3883d83737a4da796f9f438062aa70c0d53324cc6f75c",
+      "bytes": 1254
+    },
+    "antlr/sql/mysql/Oracle/examples/dml_with.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/dml_with.sql",
+      "sha256": "48536bd4c5e45e3a362045a26866f79f483ec88b3e3164b562d4f414093769e7",
+      "bytes": 821
+    },
+    "antlr/sql/mysql/Oracle/examples/empty_hex_literal.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/empty_hex_literal.sql",
+      "sha256": "878c55ff7bd15db79d03d2861c0e354c6922f13b443b5339de5a9d859ef684a8",
+      "bytes": 391
+    },
+    "antlr/sql/mysql/Oracle/examples/expressions.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/expressions.sql",
+      "sha256": "1e746da96d08cbb8113da2ef495ec82be2f8bfbe9c046cb7565b8add81e6237a",
+      "bytes": 66
+    },
+    "antlr/sql/mysql/Oracle/examples/ext_tests.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/ext_tests.sql",
+      "sha256": "fe254b6ccabddbc1a603290abd4aaf56498eeed9b1a539d022ca92c1747fd5ac",
+      "bytes": 2735
+    },
+    "antlr/sql/mysql/Oracle/examples/kill.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/kill.sql",
+      "sha256": "8eb72846b1e6deb39a49f38d88ffc753e11bf7670096c3242253e3075a0f6f8c",
+      "bytes": 245
+    },
+    "antlr/sql/mysql/Oracle/examples/grant.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/grant.sql",
+      "sha256": "3c9a7820a8bc29f3349d9e214e788d2f9bced8cf86bbc98a2f74199ba02ea1ec",
+      "bytes": 6606
+    },
+    "antlr/sql/mysql/Oracle/examples/mysql_spec_comment.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/mysql_spec_comment.sql",
+      "sha256": "8ad2bcd79a5c3c51f03fd0bdcd0071979188e58f4e327805096050c4169e1370",
+      "bytes": 1033
+    },
+    "antlr/sql/mysql/Oracle/examples/optimize.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/optimize.sql",
+      "sha256": "4a5a2b28bd49dba3aa6f5cbc729a1a30b085f80fb8ca0a54e79a6a9602513845",
+      "bytes": 133
+    },
+    "antlr/sql/postgresql/examples/advisory_lock.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/advisory_lock.sql",
+      "sha256": "5d43a7bd858eeddd7bec4fee13cf9ffaab1686539dddbc8beeb2a7608c2980c8",
+      "bytes": 4097
+    },
+    "antlr/sql/mysql/Oracle/examples/smoke_tests.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/mysql/Oracle/examples/smoke_tests.sql",
+      "sha256": "c977107e63e1aeb9ad22cb732bc27802d84a032ecfd330d000b9831ce42faf76",
+      "bytes": 1265
+    },
+    "antlr/sql/postgresql/examples/aggregates.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/aggregates.sql",
+      "sha256": "77adfc6c6be636936161cca420b39efad8674d8e7e6667ae6ec83cf3673798f7",
+      "bytes": 39377
+    },
+    "antlr/sql/postgresql/examples/alter_generic.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/alter_generic.sql",
+      "sha256": "c69131db87104358f45d7e47f4e0239199c75e2c633614e6c22cb0abeceebf97",
+      "bytes": 28050
+    },
+    "antlr/sql/postgresql/examples/alter_operator.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/alter_operator.sql",
+      "sha256": "562d9da1cc9c5a0f45c23863eac807fed9676f3fc786e5020dd21039c7bb2b38",
+      "bytes": 3397
+    },
+    "antlr/sql/postgresql/examples/amutils.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/amutils.sql",
+      "sha256": "5d9c026b1be5877a5f1917972b205f89da51ad43160846ebf2ff25ad44773870",
+      "bytes": 4261
+    },
+    "antlr/sql/postgresql/examples/arrays.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/arrays.sql",
+      "sha256": "d9efb4309b17c2d125ae2b97727db33d471b3ebfc678b4ce31ce29d86ca1d65e",
+      "bytes": 24958
+    },
+    "antlr/sql/postgresql/examples/alter_table.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/alter_table.sql",
+      "sha256": "5229d005c321cc553502a8223607dc33f9fb176865b00a2f1103f2b5ace3d951",
+      "bytes": 109109
+    },
+    "antlr/sql/postgresql/examples/async.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/async.sql",
+      "sha256": "3ad75081622af835e0449eba961270be47ff881e9ed43e811286ebd510ee98de",
+      "bytes": 767
+    },
+    "antlr/sql/postgresql/examples/bit.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/bit.sql",
+      "sha256": "d460690887fd67e4eb0be34e05e5fb8e8e9ba8cfda94c8c70a55453d92a0a2c8",
+      "bytes": 7211
+    },
+    "antlr/sql/postgresql/examples/bitmapops.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/bitmapops.sql",
+      "sha256": "47c48b84fd301194731ed1910cb8ad9d6844c03462375a6a6b0f62560b7ae908",
+      "bytes": 1365
+    },
+    "antlr/sql/postgresql/examples/boolean.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/boolean.sql",
+      "sha256": "9454a738ed9e21e0e380946da43f3b19150f0f3cc4b2615b3b91165c61d8f850",
+      "bytes": 5758
+    },
+    "antlr/sql/postgresql/examples/box.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/box.sql",
+      "sha256": "73439f416a8139f7fce5da7297db4ff2a5e30263b9eb7f8ca30dfc1f950c0bab",
+      "bytes": 8228
+    },
+    "antlr/sql/postgresql/examples/brin.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/brin.sql",
+      "sha256": "0a2a79441a4d2f0ff36dcefb6909ed95aecd1e1c7d7ac70698cc538d53810e9b",
+      "bytes": 16382
+    },
+    "antlr/sql/postgresql/examples/btree_index.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/btree_index.sql",
+      "sha256": "ea7124355d994bbfd25c7b3a7c60322815a98b4c7b9e0ac5dbb110ff9ea8002f",
+      "bytes": 6819
+    },
+    "antlr/sql/postgresql/examples/builtin_functions_date.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/builtin_functions_date.sql",
+      "sha256": "e762f1988ad96c0989c76ccc630b94ee60eb55f5bd792dd2232ae7b5436cf567",
+      "bytes": 1509
+    },
+    "antlr/sql/postgresql/examples/builtin_functions_format_date.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/builtin_functions_format_date.sql",
+      "sha256": "9ac11fa2e35d43cd9cfbf8708593b067d9502fb6c3290463a1c81c5521da1ec5",
+      "bytes": 361
+    },
+    "antlr/sql/postgresql/examples/builtin_functions_math.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/builtin_functions_math.sql",
+      "sha256": "6eca3f79e750ded3b7ce6b425d8a0f2396802a39ba4e4a850a109f435d14ea3c",
+      "bytes": 1179
+    },
+    "antlr/sql/postgresql/examples/builtin_functions_string.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/builtin_functions_string.sql",
+      "sha256": "1eb21d76bc4f2b1d9567f536c34729f771914b83516b64c39d30152ceba8d597",
+      "bytes": 2484
+    },
+    "antlr/sql/postgresql/examples/case.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/case.sql",
+      "sha256": "d5c0c06a65fce485d4e450e8f893896498675bcf0f897faf5669a253f49ec260",
+      "bytes": 6050
+    },
+    "antlr/sql/postgresql/examples/char.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/char.sql",
+      "sha256": "fd9e02020ff09a31b386272a8d1e9690b538352f9eea37d72f86f0b9138e34ad",
+      "bytes": 1422
+    },
+    "antlr/sql/postgresql/examples/circle.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/circle.sql",
+      "sha256": "be46322ea96ff6ec02d659ed267a8f44d945e68ceb5b2422cef9f031391ccf71",
+      "bytes": 1432
+    },
+    "antlr/sql/postgresql/examples/cluster.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/cluster.sql",
+      "sha256": "5170a48afa1234e21c93b0ad248e22f25985eb2c6c967028d0ac863ea9632af0",
+      "bytes": 9691
+    },
+    "antlr/sql/postgresql/examples/collate.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/collate.sql",
+      "sha256": "f8b496e4fbab181efea99915869e712519500679ab0b0d8c57229d1c48b6378c",
+      "bytes": 10215
+    },
+    "antlr/sql/postgresql/examples/combocid.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/combocid.sql",
+      "sha256": "b260ab0d0954852172c4cea5b0e86bce2a255e9cb2a525744ec1672b22f4e831",
+      "bytes": 2830
+    },
+    "antlr/sql/plsql/examples/4357-not-ambig.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/4357-not-ambig.sql",
+      "sha256": "7ee4affa2705d881a7432f2ed5f3568a8202fec3d489d21b4458c47a93570e53",
+      "bytes": 43
+    },
+    "antlr/sql/postgresql/examples/comments.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/comments.sql",
+      "sha256": "721fe9f78605294b1d633dda7e968146c35b08744cff8dd7ce91a5ac511179b9",
+      "bytes": 1041
+    },
+    "antlr/sql/plsql/examples/alter_attribute_dimension.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/alter_attribute_dimension.sql",
+      "sha256": "877bf42fd3d39940e3a8bf901e60d930726927406558174a6462222ea6664ca8",
+      "bytes": 74
+    },
+    "antlr/sql/plsql/examples/alter_function.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/alter_function.sql",
+      "sha256": "c99fb0741abfe3eaaa4d1059d68702af47acb6907173fed8eb83917152e5eb4f",
+      "bytes": 45
+    },
+    "antlr/sql/plsql/examples/alter_hierarchy.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/alter_hierarchy.sql",
+      "sha256": "765f7ea1e4c4505434ca97f4961617ae7579c08e331ff275cffccedbbe48559b",
+      "bytes": 55
+    },
+    "antlr/sql/plsql/examples/alter_library.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/alter_library.sql",
+      "sha256": "44e55103598bab09d749632b81e3b022ced1087f9f9834fdb4a313f1709cdbac",
+      "bytes": 37
+    },
+    "antlr/sql/plsql/examples/alter_index.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/alter_index.sql",
+      "sha256": "5eaf26a3cdfd7fefb236ecc1e8756108d7bd2748849737704f127605cfef5e89",
+      "bytes": 194
+    },
+    "antlr/sql/plsql/examples/alter_operator.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/alter_operator.sql",
+      "sha256": "37504be200d56bea7af8acf07b0d6be82c9fc944a600a0c1aff7b561faf4fe24",
+      "bytes": 30
+    },
+    "antlr/sql/plsql/examples/alter_outline.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/alter_outline.sql",
+      "sha256": "a95bef422ff1c6467f215813566e33c623e47a0269686f6e2626f21cdecf01d5",
+      "bytes": 32
+    },
+    "antlr/sql/plsql/examples/alter_rollback_segment.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/alter_rollback_segment.sql",
+      "sha256": "cb258e4bdccec2e319d97757d686d86af528beced297872c854fe436ce884a6b",
+      "bytes": 85
+    },
+    "antlr/sql/plsql/examples/alter_table.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/alter_table.sql",
+      "sha256": "7d7d2042ddd1344cb741ece469d526c801c00db0e60507b4274553d5386dc8d6",
+      "bytes": 3353
+    },
+    "antlr/sql/plsql/examples/alter_table_modify_partition_shrink.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/alter_table_modify_partition_shrink.sql",
+      "sha256": "37d76e4e3cb150a8f124099c480b94495d01e196937fafb8cb1f0ba85b55a8ae",
+      "bytes": 82
+    },
+    "antlr/sql/plsql/examples/alter_tablespace_set.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/alter_tablespace_set.sql",
+      "sha256": "24a9e595e1b149fa9b8eef20475aba6c42ee2f5e48efe5150e449f843b3cc7c8",
+      "bytes": 44
+    },
+    "antlr/sql/plsql/examples/alter_type.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/alter_type.sql",
+      "sha256": "1eb0d09b4dd7e27c600d4c3e38d2981da30bd12c908308d4a89efad296c6dfda",
+      "bytes": 265
+    },
+    "antlr/sql/plsql/examples/alternative_quoted_strings.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/alternative_quoted_strings.sql",
+      "sha256": "2d9d448db856d5f0dae7bbd9c7909b306048208c0b5237c2cef788c3ac5567e4",
+      "bytes": 523
+    },
+    "antlr/sql/plsql/examples/associate_statistics.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/associate_statistics.sql",
+      "sha256": "8c75948bfbedb51dfa572aad1789991ba36d8a366f11045e80c755e14ceab27a",
+      "bytes": 139
+    },
+    "antlr/sql/plsql/examples/avg_min_max.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/avg_min_max.sql",
+      "sha256": "629a76db2bd0326353a55ca852b33ca1474ff9f18605e35d1c58755d36df260d",
+      "bytes": 182
+    },
+    "antlr/sql/plsql/examples/bulk_collect_into.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/bulk_collect_into.sql",
+      "sha256": "eb03cb795e2f6fdfabb8205839d9050581825d4cdb5805ab866b71e1ec3a7ee3",
+      "bytes": 172
+    },
+    "antlr/sql/plsql/examples/cast_multiset04.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/cast_multiset04.sql",
+      "sha256": "d8f2c4b86f9efc67f0c2d17f05e8d0fdf91d046e83715624f333f5ba3a8d5bae",
+      "bytes": 168
+    },
+    "antlr/sql/plsql/examples/cast_multiset08.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/cast_multiset08.sql",
+      "sha256": "f6f3ceb923e40bd4805994003c038496c2fb4e165afaf6898c7b98cbb95a9ce4",
+      "bytes": 78
+    },
+    "antlr/sql/plsql/examples/condition14.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/condition14.sql",
+      "sha256": "c4763a459c2475ae4ebdd3aa9829204a73deb90f1645868421688d5a5f3ec982",
+      "bytes": 56
+    },
+    "antlr/sql/plsql/examples/condition16.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/condition16.sql",
+      "sha256": "a77afc3a16f92cea77b834b8ad5a219e1a63cdca8a9d50636c3a125dbc7e6e91",
+      "bytes": 81
+    },
+    "antlr/sql/plsql/examples/context.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/context.sql",
+      "sha256": "7dd2c74202566f6280a84022bfbe9aa629277a08c4bcf6f0e0f122f323ad452e",
+      "bytes": 44
+    },
+    "antlr/sql/plsql/examples/create_diskgroup.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/create_diskgroup.sql",
+      "sha256": "7d8781f9242b547e2cb5a24e032355f06bf55cd8f68a6a08ac3da8ecd5d4eef4",
+      "bytes": 77
+    },
+    "antlr/sql/plsql/examples/create_analytic_view_dim_key.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/create_analytic_view_dim_key.sql",
+      "sha256": "434422dbb862d3687e4bc19ac58788ee6ee8a0c0f1c93ffa0b399ab7017a6c6e",
+      "bytes": 378
+    },
+    "antlr/sql/plsql/examples/create_edition.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/create_edition.sql",
+      "sha256": "0066e5ebf75b7768a52a2983926c3de17cb08ce9783c834d5dc7851c5687197a",
+      "bytes": 24
+    },
+    "antlr/sql/tsql/examples/Column_Elem.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/Column_Elem.sql",
+      "sha256": "3da1fae32e96151befdd51f32860d1ebe62662ed262bc04f834666a69c4de168",
+      "bytes": 457
+    },
+    "antlr/sql/tsql/examples/analytic_windowed_functions.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/analytic_windowed_functions.sql",
+      "sha256": "ad03e91d0a3a70b131105a94993fbdc5b82c293d976cbb03fa5549e029527110",
+      "bytes": 2705
+    },
+    "antlr/sql/tsql/examples/Set.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/Set.sql",
+      "sha256": "8deda005a5be3d2b05983325219fd4765570c193620df35dc9d086d1475f8894",
+      "bytes": 53
+    },
+    "antlr/sql/tsql/examples/applicaton_roles.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/applicaton_roles.sql",
+      "sha256": "bc85fa2bf6570802a31ea36d21357cb101f6b75c3361f907803e7606612970d9",
+      "bytes": 320
+    },
+    "antlr/sql/tsql/examples/assemblies.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/assemblies.sql",
+      "sha256": "6ca1ac53c50502d816230692a0599673c3730b52281e726dd09deae3dde8dd4b",
+      "bytes": 676
+    },
+    "antlr/sql/tsql/examples/asymmetric_keys.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/asymmetric_keys.sql",
+      "sha256": "4d2ec72731eb89578701d9ffee7e5101c0625155476a12010bbf3b66ec5fdbb5",
+      "bytes": 889
+    },
+    "antlr/sql/tsql/examples/authorizations.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/authorizations.sql",
+      "sha256": "6be91c59cc5a52e6c5c810f90382a96a611718cf2ec99aad3b06dfa844e0f0ad",
+      "bytes": 878
+    },
+    "antlr/sql/tsql/examples/availability_group.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/availability_group.sql",
+      "sha256": "13235f3890af9eda705092f6859473b555eeeb4db3fd5a9398eb0b2d85626241",
+      "bytes": 2531
+    },
+    "antlr/sql/tsql/examples/azure_synapse_analytics.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/azure_synapse_analytics.sql",
+      "sha256": "1529369cc0f429f4c3e0bedda2d15dc1ab371b02687b0fe23dff00dd2b5870a7",
+      "bytes": 387
+    },
+    "antlr/sql/tsql/examples/backup.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/backup.sql",
+      "sha256": "946df20fd9ad2ed1633aff7f2363616635af8ae30b52c0cfc918e1a76f150f3d",
+      "bytes": 1979
+    },
+    "antlr/sql/tsql/examples/backup_master_key.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/backup_master_key.sql",
+      "sha256": "47cfce6492cfd35e18c8597a1cfcabd3de199f4c4d9b992ba7f0364426bb5c0d",
+      "bytes": 117
+    },
+    "antlr/sql/tsql/examples/backup_certificate.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/backup_certificate.sql",
+      "sha256": "b9174de511c6c00918c2804fb821ee8cd525e38c20ab92e27d7ee10ff2ca9461",
+      "bytes": 707
+    },
+    "antlr/sql/tsql/examples/backup_service_master_key.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/backup_service_master_key.sql",
+      "sha256": "ceca60536a2376a707e29b40baf9ba0a0e3113518b0aa2f337a9a425667e0bdc",
+      "bytes": 133
+    },
+    "antlr/sql/tsql/examples/broker_priority.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/broker_priority.sql",
+      "sha256": "139884c3874aa535aad995d06cdca6f27c83fd928aae78011f7e6cc4865883d6",
+      "bytes": 3327
+    },
+    "antlr/sql/tsql/examples/built_in_functions_cryptographic.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/built_in_functions_cryptographic.sql",
+      "sha256": "9cf2a4fece82f55413c3704fd8cca28fe8f68d20c3b583817904eed324870332",
+      "bytes": 39
+    },
+    "antlr/sql/tsql/examples/built_in_functions_cursor.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/built_in_functions_cursor.sql",
+      "sha256": "2e244cab066cdf91cb35a0c1ba3d89ab30cf73de9d928961329de5ee4a4290a8",
+      "bytes": 1089
+    },
+    "antlr/sql/tsql/examples/built_in_functions_data_type.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/built_in_functions_data_type.sql",
+      "sha256": "85036d3b364649f30ed9ca93e81327512c5bdcd3761c25ffc71e058871983064",
+      "bytes": 3358
+    },
+    "antlr/sql/tsql/examples/built_in_functions_date.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/built_in_functions_date.sql",
+      "sha256": "fc2883cf5434367cc9368e6de49ce8ce0ebe1640cc9d19445795d813780d8b9a",
+      "bytes": 6800
+    },
+    "antlr/sql/tsql/examples/built_in_functions_json.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/built_in_functions_json.sql",
+      "sha256": "0c55e565b08cb8778fd71ede7214cac36b6eeba9b2bfb1e22f9434b0844d24b1",
+      "bytes": 4472
+    },
+    "antlr/sql/tsql/examples/built_in_functions_logical.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/built_in_functions_logical.sql",
+      "sha256": "4945d847a53addb7c5230bd06cf9a0dd7bf210d7aacc6ae2b124f6f56d512ea8",
+      "bytes": 2586
+    },
+    "antlr/sql/tsql/examples/built_in_functions_math.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/built_in_functions_math.sql",
+      "sha256": "2c309078022750737f14d0e804fa0a3bab485f89eb16b0716c8bae94b917b8a3",
+      "bytes": 2521
+    },
+    "antlr/sql/tsql/examples/built_in_functions_metadata.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/built_in_functions_metadata.sql",
+      "sha256": "f0ed240333255c3119e366311455debb94b2a3db52661a16d09563b51be3ea2a",
+      "bytes": 13343
+    },
+    "antlr/sql/tsql/examples/built_in_functions_security.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/built_in_functions_security.sql",
+      "sha256": "82ee1f070dc6805aceb1e840d20f83825536e597b958700d57da58a17542026b",
+      "bytes": 8663
+    },
+    "antlr/sql/tsql/examples/built_in_functions_string.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/built_in_functions_string.sql",
+      "sha256": "ce1e70086f3b4920934378334ff05c363da137bfb17a4c570fb8e079406e3fa1",
+      "bytes": 18519
+    },
+    "antlr/sql/tsql/examples/built_in_functions_system.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/built_in_functions_system.sql",
+      "sha256": "4f7057e4494791b42bfe89ce05309649f32be1bc15b295edccc9a2310ab57039",
+      "bytes": 11727
+    },
+    "antlr/sql/sqlite/examples/WindowsFunctionsForSqLite.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/examples/WindowsFunctionsForSqLite.sql",
+      "sha256": "cd37716f8e54ae08801820feccee3cbaef8181be466478f920f77963d1e7cd5a",
+      "bytes": 4862
+    },
+    "antlr/sql/sqlite/examples/alter-table.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/examples/alter-table.sql",
+      "sha256": "26265adacce6f340d52f92cd37f9bcd471518bdbabff89d301b5cb2dc866975e",
+      "bytes": 402
+    },
+    "antlr/sql/sqlite/examples/empty.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/examples/empty.sql",
+      "sha256": "fd523dd115d80b194d401c042e0fc33d2dc1442611975fd6a22954e2f0762cb1",
+      "bytes": 4
+    },
+    "antlr/sql/sqlite/examples/cte.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/examples/cte.sql",
+      "sha256": "477bf4e635b058122868dc62431285b95951844187cd83c1f320750e5a69155c",
+      "bytes": 206
+    },
+    "antlr/sql/sqlite/examples/frame_spec_2937.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/examples/frame_spec_2937.sql",
+      "sha256": "3875e2de66736697d193b5bd902b3d3a24e4ac92bbc0d2269b1891dc6f4c427a",
+      "bytes": 393
+    },
+    "antlr/sql/sqlite/examples/identifiers.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/examples/identifiers.sql",
+      "sha256": "62c49d613d198c61c7061e871fe814308d81abc6efab142a6f080fbcc79cac45",
+      "bytes": 284
+    },
+    "antlr/sql/sqlite/examples/insert.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/examples/insert.sql",
+      "sha256": "e06a40cb6f105d46db229591f8fff19c8e54cd37bffb1c07ef62abcabe6ddfa2",
+      "bytes": 157
+    },
+    "antlr/sql/sqlite/examples/join-operators.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/examples/join-operators.sql",
+      "sha256": "de05981e99240765525bc002c95ece88b078587ccdd809fedf34931310bfb0cc",
+      "bytes": 658
+    },
+    "antlr/sql/sqlite/examples/null_test.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/examples/null_test.sql",
+      "sha256": "4c4d8249d108d5bcce82301583bdba27d2401cbb95910d85c5562b9e933f56a9",
+      "bytes": 202
+    },
+    "antlr/sql/sqlite/examples/operators.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/examples/operators.sql",
+      "sha256": "543187118a3851d0ee54ba66560918ba750a59f21a2dd42a64c0562b32ad70a4",
+      "bytes": 671
+    },
+    "antlr/sql/sqlite/examples/pragma.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/examples/pragma.sql",
+      "sha256": "e87430a082e8b2d63f4bc114b882c6b610a4dda4aa34e27d2f2c80fb789d8c81",
+      "bytes": 243
+    },
+    "antlr/sql/sqlite/examples/returning.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/examples/returning.sql",
+      "sha256": "cb839d90a891e9c875564e8b769c223e1d782257781d8dc7f5418a05adc000d6",
+      "bytes": 1329
+    },
+    "antlr/sql/sqlite/examples/sql1.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/examples/sql1.sql",
+      "sha256": "de2e58828bb2ff890e100a6fb777d533636e64ba6a0fd4a69fcae30c06815846",
+      "bytes": 17
+    },
+    "antlr/sql/sqlite/examples/sql2.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/examples/sql2.sql",
+      "sha256": "b4dcbb113880724c22744ca7eb254b482e40db7d7bef32995d421cd30760e71b",
+      "bytes": 1300
+    },
+    "antlr/sql/sqlite/examples/sql3.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/examples/sql3.sql",
+      "sha256": "fdaf91e400ab36a2b1ec97cea78dc67b162ef2299d4ac6785a1a8ab3dd59dde0",
+      "bytes": 718
+    },
+    "antlr/sql/sqlite/examples/triggers.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/examples/triggers.sql",
+      "sha256": "276b3174b8444904140f5e97cce9c2307e5f9e97d59715f810d3357aa406dac7",
+      "bytes": 184
+    },
+    "antlr/sql/sqlite/examples/values.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/sqlite/examples/values.sql",
+      "sha256": "ebe4932f88273fadede48a54ac7007112ad1b388b5b9ddb4e7fdb22ee19e2ce0",
+      "bytes": 488
+    },
+    "mysql/mysql-test/t/select_all.test": {
+      "url": "https://raw.githubusercontent.com/mysql/mysql-server/14f6f5119f993f74a8514352108d9337182d5be5/mysql-test/t/select_all.test",
+      "sha256": "d036f02a680fa2f297e2caf6d205a638125919e8fd9ec1f779902f3f7e7148c0",
+      "bytes": 358
+    },
+    "mysql/mysql-test/t/with_recursive.test": {
+      "url": "https://raw.githubusercontent.com/mysql/mysql-server/14f6f5119f993f74a8514352108d9337182d5be5/mysql-test/t/with_recursive.test",
+      "sha256": "705b4e90173491bf213736ac7c63cae1fd376518bf064f705c59afa2a6e50367",
+      "bytes": 167
+    },
+    "mysql/sql/lex.h": {
+      "url": "https://raw.githubusercontent.com/mysql/mysql-server/14f6f5119f993f74a8514352108d9337182d5be5/sql/lex.h",
+      "sha256": "840953f229edea7af4e9bfe214e44ae1982c8d3efbc6ff68c8f2bd0356faa2cf",
+      "bytes": 33048
+    },
+    "mysql/sql/sql_lex.cc": {
+      "url": "https://raw.githubusercontent.com/mysql/mysql-server/14f6f5119f993f74a8514352108d9337182d5be5/sql/sql_lex.cc",
+      "sha256": "5694e2b8d3b4720c7196e9609dfc04c0d48f9f88b495adb6cc8b245060e1a1f7",
+      "bytes": 176935
+    },
+    "mariadb/sql/lex.h": {
+      "url": "https://raw.githubusercontent.com/MariaDB/server/0ca9410e1e5163fa7361eb8b9cceecfaa37842a4/sql/lex.h",
+      "sha256": "dbeb8ca816ef961808667fd59b12aa8808af7661791ac111bbc476127fc97608",
+      "bytes": 29990
+    },
+    "mariadb/sql/sql_lex.cc": {
+      "url": "https://raw.githubusercontent.com/MariaDB/server/0ca9410e1e5163fa7361eb8b9cceecfaa37842a4/sql/sql_lex.cc",
+      "sha256": "06ea3ef492fd4d917cef493106eddb1d83c073a368ed2638757cef4e4d556aa3",
+      "bytes": 388270
+    },
+    "tidb/pkg/parser/go.mod": {
+      "url": "https://raw.githubusercontent.com/pingcap/tidb/a3ad25ec1c13667ade6e531ea25d8549df49e319/pkg/parser/go.mod",
+      "sha256": "6e83485b627e10644c45f2831174f86e529f1dafe2349e3e73fbe29c70a3eda5",
+      "bytes": 1252
+    },
+    "tidb/pkg/parser/lexer.go": {
+      "url": "https://raw.githubusercontent.com/pingcap/tidb/a3ad25ec1c13667ade6e531ea25d8549df49e319/pkg/parser/lexer.go",
+      "sha256": "8fb7a7e7f2a171e39c43c0762761a61dd77bc59a3e4ed9435dbbb92f5d3c52ac",
+      "bytes": 26306
+    },
+    "tidb/pkg/parser/misc.go": {
+      "url": "https://raw.githubusercontent.com/pingcap/tidb/a3ad25ec1c13667ade6e531ea25d8549df49e319/pkg/parser/misc.go",
+      "sha256": "2c3ccab78583fb0caf3b1ca01450299b0ea45bcbc189acf5830279a55b9c680a",
+      "bytes": 42083
+    },
+    "tidb/pkg/expression/builtin_time.go": {
+      "url": "https://raw.githubusercontent.com/pingcap/tidb/a3ad25ec1c13667ade6e531ea25d8549df49e319/pkg/expression/builtin_time.go",
+      "sha256": "6435108b93880b6ae9c13ea68ceee2c23bee8f72c21688ad0a307b76ab280907",
+      "bytes": 219308
+    },
+    "tidb/pkg/expression/builtin_time_test.go": {
+      "url": "https://raw.githubusercontent.com/pingcap/tidb/a3ad25ec1c13667ade6e531ea25d8549df49e319/pkg/expression/builtin_time_test.go",
+      "sha256": "ddc324e3dd81182b5dc3312bed11f217b0eccb661116d1779702b325ecdbdb9b",
+      "bytes": 132026
+    },
+    "sqlserver/SqlScriptDom/Parser/TSql/TSql100ParserBaseInternal.cs": {
+      "url": "https://raw.githubusercontent.com/microsoft/SqlScriptDOM/3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb/SqlScriptDom/Parser/TSql/TSql100ParserBaseInternal.cs",
+      "sha256": "9f78bd3e70e295b8faee7087f46d0c5e6b0bcb590e0e168c5b802c040bf8fadb",
+      "bytes": 12123
+    },
+    "sqlserver/SqlScriptDom/Parser/TSql/TSql80ParserBaseInternal.cs": {
+      "url": "https://raw.githubusercontent.com/microsoft/SqlScriptDOM/3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb/SqlScriptDom/Parser/TSql/TSql80ParserBaseInternal.cs",
+      "sha256": "9bcc8aa915601bf1a5bf694fcb533e766ffb63ceb7bf31e2ec6529d56719bb1e",
+      "bytes": 109705
+    },
+    "sqlserver/SqlScriptDom/Parser/TSql/TSql170.g": {
+      "url": "https://raw.githubusercontent.com/microsoft/SqlScriptDOM/3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb/SqlScriptDom/Parser/TSql/TSql170.g",
+      "sha256": "8cf64865e155550639cafd026fc3d0823e97c87ffe447106f3f08a4cdc4532f1",
+      "bytes": 1211862
+    },
+    "postgresql/src/include/parser/kwlist.h": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/include/parser/kwlist.h",
+      "sha256": "fdcdf3694513cba63b4016f63032472b686e381bb35f17c5d645bc2f6f1dac16",
+      "bytes": 31620
+    },
+    "mysql/mysql-test/include/with_recursive.inc": {
+      "url": "https://raw.githubusercontent.com/mysql/mysql-server/14f6f5119f993f74a8514352108d9337182d5be5/mysql-test/include/with_recursive.inc",
+      "sha256": "78064a84c71bd1b34525cd52fc51fcbb01ff2b12ab8f13c794d36d00e3895330",
+      "bytes": 26915
+    },
+    "mysql/mysql-test/include/select.inc": {
+      "url": "https://raw.githubusercontent.com/mysql/mysql-server/14f6f5119f993f74a8514352108d9337182d5be5/mysql-test/include/select.inc",
+      "sha256": "78a5e6926f458b13e7d26af8e94cc5ddba80784c5111707630d86e7dfbb41725",
+      "bytes": 202532
+    },
+    "postgresql/src/backend/commands/define.c": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/backend/commands/define.c",
+      "sha256": "cd5be5527ab70c4c974dd14435cbb05b6b9a6dfb7451aba83affbaa370bbe289",
+      "bytes": 8761
+    },
+    "postgresql/src/include/nodes/parsenodes.h": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/include/nodes/parsenodes.h",
+      "sha256": "ce2aa8f8a22d68ebff9534b11ded863b4a9474a9682705bb3948d587aa862cc1",
+      "bytes": 148431
+    },
+    "antlr/sql/postgresql/examples/copyselect.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/copyselect.sql",
+      "sha256": "f219b573c4fa0a102050dcec508abe3bb2ff4b766dc377582dcf7c014ceadfec",
+      "bytes": 2204
+    },
+    "antlr/sql/postgresql/examples/conversion.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/conversion.sql",
+      "sha256": "abe3ea33d5cc9ad9747ddd39b51bf238578ad615e617909b8a725dacbc240aab",
+      "bytes": 1100
+    },
+    "antlr/sql/postgresql/examples/create_aggregate.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/create_aggregate.sql",
+      "sha256": "38aa55fff26a3bf624cd4e49d0c8ea36927ba2cc038d2dc7d8b61742f0a33244",
+      "bytes": 8327
+    },
+    "antlr/sql/postgresql/examples/copydml.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/copydml.sql",
+      "sha256": "4ffc6e67634568d74e933d3e4ddc1b0b520cd5e228d26167586f14044b2e0fa8",
+      "bytes": 3889
+    },
+    "antlr/sql/postgresql/examples/create_cast.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/create_cast.sql",
+      "sha256": "2e2f50d0c536650786ecad17f61afc109b6d48591cfaaf7bdd7a218fd32358d2",
+      "bytes": 1596
+    },
+    "antlr/sql/postgresql/examples/create_function_3.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/create_function_3.sql",
+      "sha256": "05cc016876250abdda17a802fc7aa9cca2ec5823e34d55fdb046dc58bd9e4c5b",
+      "bytes": 7876
+    },
+    "antlr/sql/postgresql/examples/create_am.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/create_am.sql",
+      "sha256": "1f58cb1809c221769674a757ecf399b325f59c66d92bd8a102f081d88a007e58",
+      "bytes": 6712
+    },
+    "antlr/sql/postgresql/examples/create_index.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/create_index.sql",
+      "sha256": "82155bcb9d8b72669ecc0ffb2cad1258f5266c669ee500f1bbd0cb1d385950e3",
+      "bytes": 42219
+    },
+    "antlr/sql/postgresql/examples/create_index_spgist.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/create_index_spgist.sql",
+      "sha256": "7700d758fb06b0f85d036159462ce8f63cd0191031cedd62686a8ae1d05cd719",
+      "bytes": 16301
+    },
+    "antlr/sql/postgresql/examples/create_misc.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/create_misc.sql",
+      "sha256": "a69b436a1be1d7c6e21778c62400ff02d9ce273f28ec05b52c70125a343b0739",
+      "bytes": 5535
+    },
+    "antlr/sql/postgresql/examples/create_operator.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/create_operator.sql",
+      "sha256": "bb2a7a67fc822901ea9cd6b9c86579758340fdaa4c4e43e8f4e2394a95d586d7",
+      "bytes": 5935
+    },
+    "antlr/sql/postgresql/examples/create_procedure.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/create_procedure.sql",
+      "sha256": "79dc8aca004f1b5c56edb5aa52a1d4856d58eb8a44dca755434bc6d72e4be665",
+      "bytes": 3265
+    },
+    "antlr/sql/postgresql/examples/create_table.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/create_table.sql",
+      "sha256": "7ce721e9c888e0e3cf271d1b52e23c6f318ee24429517182d47f4cd25e5e3adb",
+      "bytes": 32670
+    },
+    "antlr/sql/postgresql/examples/create_table_like.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/create_table_like.sql",
+      "sha256": "534873e3465118b214b0023fc54cd30043ad7f95f6acbb832d3f21b4046d63a1",
+      "bytes": 7905
+    },
+    "antlr/sql/postgresql/examples/create_type.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/create_type.sql",
+      "sha256": "519b85dafea532c12627f60f9d27de8267e4a5afa44a440a49d89110d7e9a2ee",
+      "bytes": 6443
+    },
+    "antlr/sql/postgresql/examples/create_view.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/create_view.sql",
+      "sha256": "a7b68c13e9889d2b94343fd630dd83a07f36dabda11383e05f234cec3fdcc19b",
+      "bytes": 19833
+    },
+    "antlr/sql/postgresql/examples/dbsize.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/dbsize.sql",
+      "sha256": "0e136be5598f570667df54831ec2c44b7db9f7319bc37bc0b74dd911d3c4ded4",
+      "bytes": 2035
+    },
+    "antlr/sql/postgresql/examples/date.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/date.sql",
+      "sha256": "f24b0600e3e15b174ae4d842be555942604226f2cd8cc2420005e62face28ce2",
+      "bytes": 10852
+    },
+    "antlr/sql/postgresql/examples/delete.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/delete.sql",
+      "sha256": "14c8bdd0e7f50e3a6693b27daa326bc4fcd8416db261b948c53deded8f9c4fcf",
+      "bytes": 671
+    },
+    "antlr/sql/postgresql/examples/dependency.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/dependency.sql",
+      "sha256": "ddddad2c0236cc644fdf08b9bbf6d5150cdeb6f5dbe3741f666fffbfd8662fd9",
+      "bytes": 3630
+    },
+    "antlr/sql/postgresql/examples/domain.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/domain.sql",
+      "sha256": "159cd2a50c800f1f0dd428cc7ea570433ce3a529a1c9da74b94329349e6c4157",
+      "bytes": 22214
+    },
+    "antlr/sql/postgresql/examples/drop_if_exists.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/drop_if_exists.sql",
+      "sha256": "5d494ad36fb8e8de8287fd697a9bc34a897ec60fca7181f9f20a630c3aa4289c",
+      "bytes": 8932
+    },
+    "antlr/sql/postgresql/examples/drop_operator.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/drop_operator.sql",
+      "sha256": "95fdf3006ec22036067625e31c20ada538e93251f83905f6614a87c1fc1cdcaa",
+      "bytes": 1367
+    },
+    "antlr/sql/postgresql/examples/enum.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/enum.sql",
+      "sha256": "9025f2615e5495872e6ea8a265897a87f9794ba41f69be08b400cc852d953f2c",
+      "bytes": 9526
+    },
+    "antlr/sql/postgresql/examples/equivclass.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/equivclass.sql",
+      "sha256": "0658a60a2f2314b73c989460cf793474dce3f0bf10614b487f9247e9a7dd02e1",
+      "bytes": 8888
+    },
+    "antlr/sql/postgresql/examples/explain.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/explain.sql",
+      "sha256": "91d242069ff28f54fbb4656911f318999cb418caa50273ea22b9a41943af3c3c",
+      "bytes": 3631
+    },
+    "antlr/sql/postgresql/examples/event_trigger.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/event_trigger.sql",
+      "sha256": "2e26509517b5d769e2845986ee4c0aaeb5caa81350cfd51a3b4338563151e15f",
+      "bytes": 14633
+    },
+    "antlr/sql/postgresql/examples/expressions.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/expressions.sql",
+      "sha256": "d62368c59a8f6b6fab4753cb925829af6401f720f7961a92670ef45b1504bfaa",
+      "bytes": 1853
+    },
+    "antlr/sql/postgresql/examples/float4.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/float4.sql",
+      "sha256": "df9bdd786fa836e7edb8d792b1027477364fef6c7234287039174d6e889c0bac",
+      "bytes": 11491
+    },
+    "antlr/sql/postgresql/examples/float8.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/float8.sql",
+      "sha256": "21f818e24fa6af38d52252a0d5a7cb995f27471069667268f4b7bdb2f0227280",
+      "bytes": 16459
+    },
+    "antlr/sql/postgresql/examples/fast_default.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/fast_default.sql",
+      "sha256": "bb81d4183095be1beff578cf57dd4329e8401d797ac1c9e259915080f66aeefc",
+      "bytes": 15872
+    },
+    "antlr/sql/postgresql/examples/foreign_data.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/foreign_data.sql",
+      "sha256": "cc48ede32f84eaf4d672af3f620ae17123ba2f4671d00a423cf6a1c808b9bfda",
+      "bytes": 35461
+    },
+    "antlr/sql/postgresql/examples/functional_deps.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/functional_deps.sql",
+      "sha256": "343b5a7f02d4beb3748c57a85ad2875e07c73e039def8d60bf423797f046ff97",
+      "bytes": 5389
+    },
+    "antlr/sql/postgresql/examples/generated.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/generated.sql",
+      "sha256": "0bce4fda937e2019592a15cb818efeeadfd1c087f8cbe1d4fa214f6791591867",
+      "bytes": 18183
+    },
+    "antlr/sql/postgresql/examples/generated_virtual.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/generated_virtual.sql",
+      "sha256": "be89cdd14e100736357ef37ef3ea98c915b7a04a0ef3fe4eb8edcc256da987b5",
+      "bytes": 8575
+    },
+    "antlr/sql/postgresql/examples/foreign_key.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/foreign_key.sql",
+      "sha256": "804dce71728eafb47d3d495d4a9049e7a93ec84ce0431da2f1c277e63d1af37e",
+      "bytes": 62955
+    },
+    "antlr/sql/postgresql/examples/geometry.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/geometry.sql",
+      "sha256": "4cdc9cea5c4d19e41490a8ef9f0126d4e013f5e6747a496a44d279186126747c",
+      "bytes": 14311
+    },
+    "antlr/sql/postgresql/examples/gin.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/gin.sql",
+      "sha256": "ecb9e071ec83e6589a6623b6195e5d4afb44463407a8c9a8731a353fb2adcc85",
+      "bytes": 4292
+    },
+    "antlr/sql/postgresql/examples/groupingsets.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/groupingsets.sql",
+      "sha256": "f3356df6f2866673b5a2296b03a721d2988437cb1e2ff063c2e77d2dafbf9142",
+      "bytes": 18568
+    },
+    "antlr/sql/postgresql/examples/gist.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/gist.sql",
+      "sha256": "454b71187182f355a462313023d801388d7d3de3df410eb330d30dbcf803e21c",
+      "bytes": 4891
+    },
+    "antlr/sql/postgresql/examples/hash_index.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/hash_index.sql",
+      "sha256": "172a5adf033ba7f56de35945618ed54a692b4461410858de1881d4c6279fc8fd",
+      "bytes": 4727
+    },
+    "antlr/sql/postgresql/examples/hash_part.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/hash_part.sql",
+      "sha256": "cf267b0e07568253d22c69e4b0b47b9d92debc8a91421961afb6cf1b36580c71",
+      "bytes": 3126
+    },
+    "antlr/sql/postgresql/examples/hash_func.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/hash_func.sql",
+      "sha256": "4a180d2ad360dffd94b168f225bcb7ec6098d64a067006a3d1d76598be5b8dcf",
+      "bytes": 11334
+    },
+    "antlr/sql/postgresql/examples/guc.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/guc.sql",
+      "sha256": "d84dd2946dbab1e55426ce90062743e3d2b5ff3b85ed7fb860e095d0e63cd871",
+      "bytes": 7763
+    },
+    "antlr/sql/postgresql/examples/horology.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/horology.sql",
+      "sha256": "79936562283212c764a35988e2af769e73f79c6d268c7b657e330b40e34a01d0",
+      "bytes": 22826
+    },
+    "antlr/sql/postgresql/examples/hs_primary_extremes.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/hs_primary_extremes.sql",
+      "sha256": "a4febed3306fefc8153991064a7dc3abc192bebd99b74d7eb91e59abbdf99e1d",
+      "bytes": 1440
+    },
+    "antlr/sql/postgresql/examples/hs_primary_setup.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/hs_primary_setup.sql",
+      "sha256": "be81c2524f0882cf94f8e4109e72e07c0699f44c7d19ea3af180a47c62837b63",
+      "bytes": 526
+    },
+    "antlr/sql/postgresql/examples/hs_standby_allowed.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/hs_standby_allowed.sql",
+      "sha256": "9929aec8d3a3b1491c62f11803b8566e5dfff2906013112b627b640b1726e894",
+      "bytes": 2071
+    },
+    "antlr/sql/postgresql/examples/hs_standby_check.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/hs_standby_check.sql",
+      "sha256": "944e181a09742d00ef68052b3116415dbbb888b4bf1180ded4c96df3a82c7fc8",
+      "bytes": 492
+    },
+    "antlr/sql/postgresql/examples/hs_standby_disallowed.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/hs_standby_disallowed.sql",
+      "sha256": "5c4e6dacb257566a3ed3f130b0fa7910182fc543896df294008c612f96ec6ff3",
+      "bytes": 1406
+    },
+    "antlr/sql/postgresql/examples/hs_standby_functions.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/hs_standby_functions.sql",
+      "sha256": "0ec0b56b571f94bd4d7bc10b47a2507de6a5c264d36dca79b2f79b24a07f6458",
+      "bytes": 501
+    },
+    "antlr/sql/postgresql/examples/identity.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/identity.sql",
+      "sha256": "163882590483b1baddd3cea697d977d64b88371eef07ac8f20157bad5d17c02b",
+      "bytes": 9904
+    },
+    "antlr/sql/postgresql/examples/index_including.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/index_including.sql",
+      "sha256": "4a196efafbe0e3d840a9308bb83d4cb198cfe50cb461ab856e54b0d599947671",
+      "bytes": 10166
+    },
+    "antlr/sql/postgresql/examples/incremental_sort.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/incremental_sort.sql",
+      "sha256": "76dc63f9410a7c436ccdc99b7655ec802d4555a5ead9e26f21d165cac77132f5",
+      "bytes": 9660
+    },
+    "antlr/sql/postgresql/examples/index_including_gist.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/index_including_gist.sql",
+      "sha256": "34361d47d7b8285764e0e8f9960733ad49a5421e99e0f087af92083cfe866d87",
+      "bytes": 3872
+    },
+    "antlr/sql/postgresql/examples/indexing.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/indexing.sql",
+      "sha256": "4eb9915abd132e21154dd3125d7814f548cd4aba060c3490574a68facc8a9aa2",
+      "bytes": 36443
+    },
+    "antlr/sql/postgresql/examples/indirect_toast.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/indirect_toast.sql",
+      "sha256": "2dfa9977403d0778102a4f293525438fe331528e9a6ca94120198ac0dfeb496f",
+      "bytes": 2776
+    },
+    "antlr/sql/postgresql/examples/inet.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/inet.sql",
+      "sha256": "a37d7f0d273345f7ab66d0e776c7e58b919a8e8d69cf23b3160f606b93b741f6",
+      "bytes": 10434
+    },
+    "antlr/sql/postgresql/examples/inherit.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/inherit.sql",
+      "sha256": "178b9cf1ec6d6f352be1a8fc8445038a14f719de18875acadd2e5c25ca880f2b",
+      "bytes": 42045
+    },
+    "antlr/sql/postgresql/examples/init_privs.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/init_privs.sql",
+      "sha256": "74620e61670d18c10874c641ae663ed30984f7847cccd9b612c046bbd194a4f6",
+      "bytes": 364
+    },
+    "antlr/sql/postgresql/examples/insert_conflict.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/insert_conflict.sql",
+      "sha256": "ea213737147436ad8c94b1e334f93cc93bb62cfa262c01af20bb3c193a02df13",
+      "bytes": 28201
+    },
+    "antlr/sql/postgresql/examples/insert.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/insert.sql",
+      "sha256": "4405c21dc1e8e2048dd5d3294759e7c0bf27248d7b0f24a7593177d5fb37c8a2",
+      "bytes": 25746
+    },
+    "antlr/sql/postgresql/examples/int2.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/int2.sql",
+      "sha256": "22e0166adac02e1b4466de8d32c297b4a320de94f340b971e90a4d2750138b0c",
+      "bytes": 3243
+    },
+    "antlr/sql/postgresql/examples/int4.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/int4.sql",
+      "sha256": "1db3bf20801a4235799385ef0f74077b30d3ffe27b86576111ed47b36d99997a",
+      "bytes": 5127
+    },
+    "antlr/sql/postgresql/examples/int8.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/int8.sql",
+      "sha256": "c3ac9fb1581971416f34d776fca89ca4f4143b83e11875e8bd1090d750ab0bae",
+      "bytes": 9978
+    },
+    "antlr/sql/postgresql/examples/interval.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/interval.sql",
+      "sha256": "e629363b3de9b919f46008e44ce280a4bb85b6fca03c20a4b8af4fef17440410",
+      "bytes": 13283
+    },
+    "antlr/sql/postgresql/examples/join.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/join.sql",
+      "sha256": "621ca3207a04ebe87142fff02a22e18730c63ece25b9a660a085a929c13e4892",
+      "bytes": 63823
+    },
+    "antlr/sql/postgresql/examples/join_hash.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/join_hash.sql",
+      "sha256": "11872118056e6ad867faead5aca646c86e5ec8d014103815224d1947cc5e46d9",
+      "bytes": 19616
+    },
+    "antlr/sql/postgresql/examples/json_encoding.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/json_encoding.sql",
+      "sha256": "2b2b69bd8ff28f30361c571749718cf952e12118114053f75a599f12dd51f805",
+      "bytes": 3589
+    },
+    "antlr/sql/postgresql/examples/json.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/json.sql",
+      "sha256": "834eca93330429b01d34a0d204d07e6841c5fdbd14af8d1ad3b0cf6d5fb6a0cd",
+      "bytes": 35362
+    },
+    "antlr/sql/postgresql/examples/jsonb.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/jsonb.sql",
+      "sha256": "02d8f632910258c777433b60e711c65957832d4a98e68e6773a549a7bbeddc88",
+      "bytes": 62996
+    },
+    "antlr/sql/postgresql/examples/jsonb_jsonpath.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/jsonb_jsonpath.sql",
+      "sha256": "87fb7b73823489854eee3894eadc171eb3684767a027aa08c64b9d1d3665ce00",
+      "bytes": 36272
+    },
+    "antlr/sql/postgresql/examples/jsonpath.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/jsonpath.sql",
+      "sha256": "c393cb459965f1cbe846a7097ce3070f8ccd50d047293aec4aa353ddaf3cd9b0",
+      "bytes": 6355
+    },
+    "antlr/sql/postgresql/examples/jsonpath_encoding.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/jsonpath_encoding.sql",
+      "sha256": "d8e04dfae84da0643d6401d272be0e03dbfbeabb7dec613a01a05b64b7b157ad",
+      "bytes": 2404
+    },
+    "antlr/sql/postgresql/examples/limit.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/postgresql/examples/limit.sql",
+      "sha256": "99a9c39f4afc2946ee7145ec4161262bf185a090a7ab592080ff3d14bdc70ad8",
+      "bytes": 5913
+    },
+    "antlr/sql/plsql/examples/create_function03.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/create_function03.sql",
+      "sha256": "ee96fd1b7fbc905841921790d3283e08f5f8faced2a32a361cec00f3cd5186f7",
+      "bytes": 111
+    },
+    "antlr/sql/plsql/examples/create_index.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/create_index.sql",
+      "sha256": "cd548c4b45884e8994a02f2718be8f5000b98f68b62da04d0f49a321ea13bf14",
+      "bytes": 89
+    },
+    "antlr/sql/plsql/examples/create_lockdown_profile.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/create_lockdown_profile.sql",
+      "sha256": "2c66d1a12b6dab3c48961c182d64795bcabb0c9504d1c9b974dec104a5e3df96",
+      "bytes": 57
+    },
+    "antlr/sql/plsql/examples/create_materialized_view_log.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/create_materialized_view_log.sql",
+      "sha256": "f1d6dda874e0143160826360c359b38017ce6e156f6cd37a3c7947aa1e44801e",
+      "bytes": 1006
+    },
+    "antlr/sql/plsql/examples/create_sequence.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/create_sequence.sql",
+      "sha256": "29bfac246bac1ef301ec2b75d81af98a08761e07ff91a94c7e1e805537ca3f60",
+      "bytes": 6674
+    },
+    "antlr/sql/plsql/examples/create_synonym01.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/create_synonym01.sql",
+      "sha256": "4ff7c0c5da23f3e94a028074b8fb0bc47efe99faab2833816c609fca205fc446",
+      "bytes": 43
+    },
+    "antlr/sql/plsql/examples/create_synonym02.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/create_synonym02.sql",
+      "sha256": "fbece999e837dbe054b2d9bf67263502e5f3803ba3a9d343e263899cbf60cd51",
+      "bytes": 63
+    },
+    "antlr/sql/plsql/examples/create_synonym03.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/create_synonym03.sql",
+      "sha256": "e0d91bd35dc4e3ec624aa7c2011c8f1124310d6e42f2d051ff269bbdbffa50f2",
+      "bytes": 54
+    },
+    "antlr/sql/plsql/examples/create_table.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/create_table.sql",
+      "sha256": "1f161c1b9f709819e312eadcdab3ef598f4cb8e24ac8dbd2ceb4b6f9cc1c26b3",
+      "bytes": 14900
+    },
+    "antlr/sql/plsql/examples/create_xmltype_table.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/create_xmltype_table.sql",
+      "sha256": "9230b204536600a5223d46484a8ce31112ca65d8b056142d384124ed9a43c796",
+      "bytes": 256
+    },
+    "antlr/sql/plsql/examples/datetime01.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/datetime01.sql",
+      "sha256": "434a91876663e1b316cccff45b730d9211a34f5296a490a56f896ea589c4f06b",
+      "bytes": 171
+    },
+    "antlr/sql/plsql/examples/disassociate_statistics.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/disassociate_statistics.sql",
+      "sha256": "d880c7a0205cdaa8f84b7b8eb61bcbbd6e237ba07d59e0e3cf43a28e06038a44",
+      "bytes": 112
+    },
+    "antlr/sql/plsql/examples/datetime05.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/datetime05.sql",
+      "sha256": "2ba8e9898fe469363f11411f4d380e0bcd0a6612a934692c4715da548626d5a3",
+      "bytes": 35
+    },
+    "antlr/sql/plsql/examples/drop_analytic_view.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_analytic_view.sql",
+      "sha256": "276d8bfb8b6c1c71dfa47d769a8d99109e12b0d87ec4ff241c12ec7a7acdac69",
+      "bytes": 62
+    },
+    "antlr/sql/plsql/examples/drop_attribute_dimension.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_attribute_dimension.sql",
+      "sha256": "9353f8b441366d55f89fd5b06c0f13b967234ce84fbdc532368c92897b9890ff",
+      "bytes": 43
+    },
+    "antlr/sql/plsql/examples/drop_cluster.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_cluster.sql",
+      "sha256": "68510dcee96e8e8b5ba413e381571bca6fd6a982e52b19fe6163265ee0b1be30",
+      "bytes": 110
+    },
+    "antlr/sql/plsql/examples/drop_audit_policy.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_audit_policy.sql",
+      "sha256": "79e063c69504dab262e73ccf6bc563400df7124048f6e8948b2fb7e279466511",
+      "bytes": 29
+    },
+    "antlr/sql/plsql/examples/drop_context.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_context.sql",
+      "sha256": "fca0bc30405bea6cdbe0cdaab4156596ee2591f24fa8689bbb5831da89121749",
+      "bytes": 24
+    },
+    "antlr/sql/plsql/examples/drop_database.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_database.sql",
+      "sha256": "ee20885f244cf9d5fae29aa5aa543c13ecc420afd828693dd21bd2c979cfc155",
+      "bytes": 59
+    },
+    "antlr/sql/plsql/examples/drop_diskgroup.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_diskgroup.sql",
+      "sha256": "23eaa4899be82329dedc9275c93b4791a092112adfbb7994cb56a2cc58cf10cb",
+      "bytes": 45
+    },
+    "antlr/sql/plsql/examples/drop_directory.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_directory.sql",
+      "sha256": "7bcdc1c1cc42098bb4fdc3feaf0224fd03f3a868edefc2e74f7b04dcd64817d4",
+      "bytes": 26
+    },
+    "antlr/sql/plsql/examples/drop_edition.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_edition.sql",
+      "sha256": "7140c007cf477b0025b9498afaaa1c0100a9808b3a5925ed9a6c8dbce0169d7b",
+      "bytes": 22
+    },
+    "antlr/sql/plsql/examples/drop_flashback_archive.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_flashback_archive.sql",
+      "sha256": "613ac81bd75426b7b576606ae3842d8e16c67d70ef5902ddde7d4be16a625358",
+      "bytes": 38
+    },
+    "antlr/sql/plsql/examples/drop_indextype.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_indextype.sql",
+      "sha256": "6c59a70d31743c844ad36a578daa1064dd741e888d76f734be1f92256e37363d",
+      "bytes": 75
+    },
+    "antlr/sql/plsql/examples/drop_hierarchy.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_hierarchy.sql",
+      "sha256": "dc36365270b33a309b480c3371ddb6dbf85ccfe737ae3e60c995fc5281fa5cbd",
+      "bytes": 29
+    },
+    "antlr/sql/plsql/examples/drop_inmemory_join_group.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_inmemory_join_group.sql",
+      "sha256": "cb7fea45c98315f037d196c3ebf6037dab1863c2dadeced53bb50db98fd653d8",
+      "bytes": 35
+    },
+    "antlr/sql/plsql/examples/drop_java.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_java.sql",
+      "sha256": "500355eab43f9a3e95e164fd1e5635267c19d7fa591484026d5917671cdd8772",
+      "bytes": 25
+    },
+    "antlr/sql/plsql/examples/drop_library.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_library.sql",
+      "sha256": "f9a22a2aec714ac6ec7a4abbba783b4cde51e8853ccd856939762e47aa2ed9fc",
+      "bytes": 21
+    },
+    "antlr/sql/plsql/examples/drop_lockdown_profile.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_lockdown_profile.sql",
+      "sha256": "a684e310a7ce348daf7a06bc29c43d80266fef9a2339acd0d7c14fb21cd5c5ee",
+      "bytes": 31
+    },
+    "antlr/sql/plsql/examples/drop_materialized_view_log.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_materialized_view_log.sql",
+      "sha256": "d2b4a1ac490243a2075e5e122aed1ab1dc06af0d2210be8bf261705d5faadf3d",
+      "bytes": 110
+    },
+    "antlr/sql/plsql/examples/drop_materialized_zonemap.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_materialized_zonemap.sql",
+      "sha256": "9e0995cf81d09a460940b48473ba3bbd7dd32ca8f43fc40ae8cc7b0860ba01aa",
+      "bytes": 37
+    },
+    "antlr/sql/plsql/examples/drop_operator.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_operator.sql",
+      "sha256": "a2b4693c8c9811deca24811b3776554fcb0bd5f86707824485cbbe9960fabe16",
+      "bytes": 21
+    },
+    "antlr/sql/plsql/examples/drop_outline.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_outline.sql",
+      "sha256": "90a01d4d43779b304af4232fb36c84f760e4a2c8663af0dbe9bba898557300a0",
+      "bytes": 23
+    },
+    "antlr/sql/plsql/examples/drop_pmem_filestore.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_pmem_filestore.sql",
+      "sha256": "98b3897ab0cb2ba226ffa9154363eeaff70eed54fc070b63c605482350c51eef",
+      "bytes": 51
+    },
+    "antlr/sql/plsql/examples/drop_restore_point.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_restore_point.sql",
+      "sha256": "fec831fdbba05cdc73c35023eaf641e61ef10a8354ab4e72d94820e5cd5a9082",
+      "bytes": 80
+    },
+    "antlr/sql/plsql/examples/drop_rollback_segment.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_rollback_segment.sql",
+      "sha256": "16af8625e00762b6e66823a3e45af926b4bc026ee3945805e75ac4de80872e87",
+      "bytes": 30
+    },
+    "antlr/sql/plsql/examples/drop_role.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_role.sql",
+      "sha256": "9db81ea2e2a4216a4db94c7d531dda5699f998ffbaca39e7d34a463f86a490a3",
+      "bytes": 25
+    },
+    "antlr/sql/plsql/examples/drop_tablespace_set.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_tablespace_set.sql",
+      "sha256": "825fe02c10db6ca4c4c0287bb58010a9b5e64fe1fa27044212e82a90046d9720",
+      "bytes": 25
+    },
+    "antlr/sql/plsql/examples/drop_table.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_table.sql",
+      "sha256": "a84770500ff30dd5ce7fd68ab15082b67af97fd7c26693aa8dd19e7f6884ad7e",
+      "bytes": 360
+    },
+    "antlr/sql/plsql/examples/drop_user.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_user.sql",
+      "sha256": "4399aa40708398c9f8754308cb07103baa0389425fbe0b8565e0b763384894bb",
+      "bytes": 71
+    },
+    "antlr/sql/plsql/examples/drop_view.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/drop_view.sql",
+      "sha256": "e43327ad699d72c7b3a3bd5b21f0cdc36f6193fff04aa2be594d9d7dafa0e968",
+      "bytes": 88
+    },
+    "antlr/sql/plsql/examples/editionable_trigger.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/editionable_trigger.sql",
+      "sha256": "443fa58a6e4bc03ee390c355e7f9f417865663a8e0a73d984a9dd41d25e77992",
+      "bytes": 239
+    },
+    "antlr/sql/plsql/examples/flashback01.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/flashback01.sql",
+      "sha256": "c26f6e2dd0bdae50308c2e0b0d92ed6b4cd3975b5d53f7c799223d2c2c8655d4",
+      "bytes": 102
+    },
+    "antlr/sql/plsql/examples/flashback_table.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/flashback_table.sql",
+      "sha256": "6f6a33e4c00f2e32832203ebd83d1a1a27198464e24517502231684c51b1c888",
+      "bytes": 90
+    },
+    "antlr/sql/plsql/examples/function01.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/function01.sql",
+      "sha256": "98de2e2183dd1aab2a3587cdde196a0aad8fca7e0f17fe5be341e26e02bd94e5",
+      "bytes": 173
+    },
+    "antlr/sql/plsql/examples/function04.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/function04.sql",
+      "sha256": "101ffe4ffe8cef1a601857ea30069988b22e71d2c510772ecd2b4e735d82eba5",
+      "bytes": 31
+    },
+    "antlr/sql/plsql/examples/function02.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/function02.sql",
+      "sha256": "55c80710dc9cc60aaef5106edb916e7fb5cb56a4565f0d86f4d1e4911f96df20",
+      "bytes": 24
+    },
+    "antlr/sql/plsql/examples/function06.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/function06.sql",
+      "sha256": "ef953c328b6e6e7997c9be2e5ae68bec7f97c0207226b16bc4a3b4d2029bd2c0",
+      "bytes": 36
+    },
+    "antlr/sql/plsql/examples/grant.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/grant.sql",
+      "sha256": "bd0b489ed97927db6b32cc47faad8a227beb668d7ae63144a0e8d1151be89ee2",
+      "bytes": 142
+    },
+    "antlr/sql/plsql/examples/interval01.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/interval01.sql",
+      "sha256": "2511c03e42600bf7ca2cccb615d4e60b8e262dca885e2a90cd15ecd946d6e019",
+      "bytes": 86
+    },
+    "antlr/sql/plsql/examples/insert_record_delimited_name.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/insert_record_delimited_name.sql",
+      "sha256": "27389d1c85eec13a3308fe8e268e34e1af3e916c9d7ff726242290a175125836",
+      "bytes": 102
+    },
+    "antlr/sql/plsql/examples/interval04.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/interval04.sql",
+      "sha256": "881b3ec6d39f8e2d72297d8058d12f8b9e14782b697abab52691ced7607bb4e4",
+      "bytes": 55
+    },
+    "antlr/sql/plsql/examples/interval02.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/interval02.sql",
+      "sha256": "174797a13c5d2377b2f9a061f9eabe62c3979eb6a841c704eb9584217bf7e1ac",
+      "bytes": 35
+    },
+    "antlr/sql/plsql/examples/join11.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/join11.sql",
+      "sha256": "9e09a01e0e0fbe681062659f2e40eb03b18e71eff156bd720fdbf121f1cb88f1",
+      "bytes": 57
+    },
+    "antlr/sql/plsql/examples/is_json_parenthesized_mode.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/is_json_parenthesized_mode.sql",
+      "sha256": "47f60aaf44b25439aad149cbd44900935ee427cdcb6274896dfea766230f1dc4",
+      "bytes": 136
+    },
+    "antlr/sql/plsql/examples/join19.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/join19.sql",
+      "sha256": "2937af479fc8063055c4fac2ee043dc09eb34ab09a230ed69b8e0a15f94ed14d",
+      "bytes": 50
+    },
+    "antlr/sql/plsql/examples/join12.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/join12.sql",
+      "sha256": "6af0add88e4df6552f980ab1708b6f8761b7eb6dfff4ff56308f467915715100",
+      "bytes": 62
+    },
+    "antlr/sql/plsql/examples/join21.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/join21.sql",
+      "sha256": "49c74fedc2f583114be76f1eb22aed51348ceb3f1f4fd2a918298774d99a029a",
+      "bytes": 47
+    },
+    "antlr/sql/plsql/examples/join20.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/join20.sql",
+      "sha256": "822d9571a12933962868b2d717545b0377c0bf2c1e2177e89846c23585e606a6",
+      "bytes": 45
+    },
+    "antlr/sql/plsql/examples/json_serialize_expression.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/json_serialize_expression.sql",
+      "sha256": "4d0a56921bc0971f7579c19a2cd60f86da275f593257992e09efc32f122f7d24",
+      "bytes": 210
+    },
+    "antlr/sql/plsql/examples/keywordasidentifier01.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/keywordasidentifier01.sql",
+      "sha256": "fa8ed95ed8b316ce29981ff2f97acff98e1ae5535b14f7d1de5cfc6ce8487181",
+      "bytes": 44
+    },
+    "antlr/sql/plsql/examples/keywordasidentifier05.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/keywordasidentifier05.sql",
+      "sha256": "0ac51ca478d0261c7876e6a8b4b71c791387d3d6c99a59a593d36b46693293c6",
+      "bytes": 31
+    },
+    "antlr/sql/plsql/examples/keywordasidentifier02.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/keywordasidentifier02.sql",
+      "sha256": "dbd87999026a9a47a978dd494af968d3d475f9b37df2045f64cc99b4e50b5d10",
+      "bytes": 26
+    },
+    "antlr/sql/plsql/examples/keywordasidentifier06.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/keywordasidentifier06.sql",
+      "sha256": "348281ba596fa3229665304d4d060bc465f1ad65f3266081bfc972976732790e",
+      "bytes": 96
+    },
+    "antlr/sql/plsql/examples/keywordasidentifier07.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/keywordasidentifier07.sql",
+      "sha256": "65d31e5ed6d830e02f7af55bfbc2346c5c40fe2e3be2bf30d7ecd5552e331d98",
+      "bytes": 103
+    },
+    "antlr/sql/plsql/examples/keywordasidentifier08.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/keywordasidentifier08.sql",
+      "sha256": "d4359a8d9bb44eecfd6daf7704e9ee886e04647c95a196e118393758428f3c82",
+      "bytes": 108
+    },
+    "antlr/sql/plsql/examples/keywordasidentifier09.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/keywordasidentifier09.sql",
+      "sha256": "26b5812b60d806bba564c1f7213e27df664759c9b34991fbdc4135ad7be4b34f",
+      "bytes": 112
+    },
+    "antlr/sql/plsql/examples/least_greatest.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/least_greatest.sql",
+      "sha256": "9c283ff27ae3a002e2a9656037ec4e2359ff0f7272f164c8c462c564b886a920",
+      "bytes": 101
+    },
+    "antlr/sql/plsql/examples/lexer01.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/lexer01.sql",
+      "sha256": "69cb80a119f39645de24d74e071c2d0a5011dc665aecbd38f65610f4446fd577",
+      "bytes": 67
+    },
+    "antlr/sql/plsql/examples/lexer02.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/lexer02.sql",
+      "sha256": "2695603bd10dc15959ab7d38b27a29f75af66af6900954afc5321a2a4d908a27",
+      "bytes": 123
+    },
+    "antlr/sql/plsql/examples/lexer03.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/lexer03.sql",
+      "sha256": "a33c0a445f1670ab29e2ecb2f35daa65735fe6f37a800d65a9cd13538d64faad",
+      "bytes": 81
+    },
+    "antlr/sql/plsql/examples/lexer05.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/lexer05.sql",
+      "sha256": "2b0accf0758084face6d5a6b3ad69f52c027c020fac88e633cacd237d53ff6f5",
+      "bytes": 78
+    },
+    "antlr/sql/plsql/examples/lexer04.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/lexer04.sql",
+      "sha256": "fb394161cd2c79d6c5c65247085d900cbb213a0d7e29e234abfb28527f16a65c",
+      "bytes": 78
+    },
+    "antlr/sql/plsql/examples/lexer06.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/lexer06.sql",
+      "sha256": "d8a418f3a2eb8f1544f758079cb8bcb23a276d3e6d1a810b039a7db26040dddd",
+      "bytes": 27
+    },
+    "antlr/sql/plsql/examples/lob-item.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/plsql/examples/lob-item.sql",
+      "sha256": "cbeab0e0c6ae8216e8962c2153a3486445128565517c60f724fb0ec36410a7ba",
+      "bytes": 21
+    },
+    "antlr/sql/tsql/examples/certificates.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/certificates.sql",
+      "sha256": "9f6b4c74e781f68325b49ce50946be4710d7d9b51b75b8eed336397671de0644",
+      "bytes": 576
+    },
+    "antlr/sql/tsql/examples/column_encryption_key.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/column_encryption_key.sql",
+      "sha256": "12f1a3ea70d5ba7be4043848380015762c514194a4f52dd4aa6818e062eacd97",
+      "bytes": 4263
+    },
+    "antlr/sql/tsql/examples/column_master_key.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/column_master_key.sql",
+      "sha256": "06fb4a7ce7a5edd5452c752bb0d0948b143d4f52d8b3a9b639fe7998e209cf84",
+      "bytes": 688
+    },
+    "antlr/sql/tsql/examples/concat_op.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/concat_op.sql",
+      "sha256": "1ab5d0f1d4db162569aaae97ad0703272b5bf33a671c143d5a8df47f54679db3",
+      "bytes": 18
+    },
+    "antlr/sql/tsql/examples/control_flow.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/control_flow.sql",
+      "sha256": "aa4c783b1c603a3f513749f3e7f8aad763598c70eb673176a74492c983c5d865",
+      "bytes": 12115
+    },
+    "antlr/sql/tsql/examples/constants.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/constants.sql",
+      "sha256": "88efbb1c60a7c2f7c0783a620f161cffe841662aad2588568f9a82fc817e5e26",
+      "bytes": 368
+    },
+    "antlr/sql/tsql/examples/create_endpoint.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/create_endpoint.sql",
+      "sha256": "2efaaddb32f77eb18e0c61cf1b94e3e89aabfcff05db73a28e3d2684f8c65e02",
+      "bytes": 481
+    },
+    "antlr/sql/tsql/examples/create_function_optional_parens.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/create_function_optional_parens.sql",
+      "sha256": "97353ca3da1f8934a68f916ba6943f754abb13a6b712b10695069cb098b3e2c4",
+      "bytes": 139
+    },
+    "antlr/sql/tsql/examples/create_xml_index.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/create_xml_index.sql",
+      "sha256": "5b28791b942d0a326f29cdea535c141c8fce5d9d1d737cfc1789a957226e6f2e",
+      "bytes": 54
+    },
+    "antlr/sql/tsql/examples/credentials.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/credentials.sql",
+      "sha256": "6be9ec281807131a4970702488ec39647adf9caa133fe9f89162bd4ff6153df7",
+      "bytes": 405
+    },
+    "antlr/sql/tsql/examples/cryptographic_provider.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/cryptographic_provider.sql",
+      "sha256": "31f868d81460c9ab2d351c8c7ce60146a2d7ad0f9752e65fd2c4293e901b7dff",
+      "bytes": 343
+    },
+    "antlr/sql/tsql/examples/cursors.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/cursors.sql",
+      "sha256": "183247e55e4b6b573f136aea63d0d49318c75f9ed0fbfe448e3a9d784a7f722c",
+      "bytes": 8138
+    },
+    "antlr/sql/tsql/examples/database_engine_stored_procedures.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/database_engine_stored_procedures.sql",
+      "sha256": "e346249a51f82ef260038d4f339e4001a5a015829dd44970c23126063ff23e81",
+      "bytes": 1282
+    },
+    "antlr/sql/tsql/examples/database_hadr.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/database_hadr.sql",
+      "sha256": "223119aaecdb36c713018be5ae95dac4ad3298833ffe812fd7d7ec92571d990a",
+      "bytes": 71
+    },
+    "antlr/sql/tsql/examples/db_roles.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/db_roles.sql",
+      "sha256": "5b31fe731dab475df7ad21c31374a3dae1ae8ff0828a6843ddbaafcd62bd4d40",
+      "bytes": 218
+    },
+    "antlr/sql/tsql/examples/dbcc.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/dbcc.sql",
+      "sha256": "118cc349832be043e07ee1ffdf2f0e62cdc6ac678868ecdfebb84b6cb0278b68",
+      "bytes": 2819
+    },
+    "antlr/sql/tsql/examples/ddl_alter_database.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/ddl_alter_database.sql",
+      "sha256": "7e2c6a1897e0e6af354745376b3799e20c8fd47cda7a3f70710e7e37dc738736",
+      "bytes": 112
+    },
+    "antlr/sql/tsql/examples/ddl_alter_database_audit_specification.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/ddl_alter_database_audit_specification.sql",
+      "sha256": "915e8d0da187fdfaf9d2fe404461cb199482cff2cd599fc56a3bb71456998d03",
+      "bytes": 165
+    },
+    "antlr/sql/tsql/examples/ddl_alter_database_mirroring.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/ddl_alter_database_mirroring.sql",
+      "sha256": "d211723d0c91302dcdffab6e1eeff1b30042b8cdfee661c3d22fd189bf7751b4",
+      "bytes": 63
+    },
+    "antlr/sql/tsql/examples/ddl_alter_endpoint.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/ddl_alter_endpoint.sql",
+      "sha256": "f9ebdf6943acd3a82409da332dee348f740411871c1ad781189e39f7ef7dee22",
+      "bytes": 227
+    },
+    "antlr/sql/tsql/examples/ddl_alter_service.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/ddl_alter_service.sql",
+      "sha256": "149b0b232f6ec02e8b025e225bf83d9e6997ab211ff7b2931e6089d38ade2f7a",
+      "bytes": 399
+    },
+    "antlr/sql/tsql/examples/ddl_alter_table.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/ddl_alter_table.sql",
+      "sha256": "ee5e420426936fdf439cc4509b94211f5919733f6f2f84982200222e21c66907",
+      "bytes": 154
+    },
+    "antlr/sql/tsql/examples/ddl_alter_view.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/ddl_alter_view.sql",
+      "sha256": "efcd1d93a4031f8a279e4eaec76c7985cf1b5c9ba3b9d95f63bcb93c9b31eae0",
+      "bytes": 286
+    },
+    "antlr/sql/tsql/examples/ddl_alter_xml_schema_collection.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/ddl_alter_xml_schema_collection.sql",
+      "sha256": "855e3857d3a99f699df2feccc74d9f274b6ac2996aec5eddacbdc5bbd58d7f1d",
+      "bytes": 451
+    },
+    "antlr/sql/tsql/examples/ddl_create_alter_database.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/ddl_create_alter_database.sql",
+      "sha256": "cdf091a6fec4c15e6a112a17f71b3b69fbd284b013fa00262ef2f9a60faf61c0",
+      "bytes": 5015
+    },
+    "antlr/sql/tsql/examples/ddl_create_database_audit_specification.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/ddl_create_database_audit_specification.sql",
+      "sha256": "1a52945865c6372e1513dd856b4d338f3300e0ec385c5665348df36a41a3e6df",
+      "bytes": 198
+    },
+    "antlr/sql/tsql/examples/ddl_create_drop_type.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/ddl_create_drop_type.sql",
+      "sha256": "4cc9aea715091f8a2efa8516722f1956a7db4fe43a06eabbd2a0e63bd0b7d9a5",
+      "bytes": 360
+    },
+    "antlr/sql/tsql/examples/ddl_create_table.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/ddl_create_table.sql",
+      "sha256": "1e823a5a65fac57e48a8257208f52bc5c15fe6e92254e8f81c3b43429c22e9d3",
+      "bytes": 1574
+    },
+    "antlr/sql/tsql/examples/ddl_create_view.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/ddl_create_view.sql",
+      "sha256": "c8b19d16f6452417daa7d8451d72677da2fad544ed756b7872fc4e7767eb659a",
+      "bytes": 266
+    },
+    "antlr/sql/tsql/examples/ddl_function.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/ddl_function.sql",
+      "sha256": "1d73c89fd46675696c55d3c5e48b765df4e0020565e84530519ab52dc584e3db",
+      "bytes": 954
+    },
+    "antlr/sql/tsql/examples/ddl_index.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/ddl_index.sql",
+      "sha256": "84af4e66d946d141f2ccd24257f93e9d5c4e4c8184e49f98acdbdef81a6fcdb0",
+      "bytes": 4952
+    },
+    "antlr/sql/tsql/examples/ddl_procedures.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/ddl_procedures.sql",
+      "sha256": "f3369d12a9f39959fab718ddf87fdc965768ba933865fdcc7d797aa869446bbe",
+      "bytes": 928
+    },
+    "antlr/sql/tsql/examples/ddl_table.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/ddl_table.sql",
+      "sha256": "6a34229e51ad511656909bf47a5f33f8876643ac77715cc97473a1db735bae85",
+      "bytes": 6798
+    },
+    "antlr/sql/tsql/examples/dml_delete.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/dml_delete.sql",
+      "sha256": "e04e6f1dd59095bf0b6a660fb3f845043078294cc4eafc162f54e8930f989ae4",
+      "bytes": 5528
+    },
+    "antlr/sql/tsql/examples/dml_insert.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/dml_insert.sql",
+      "sha256": "2624b94be7536f0b81470ae5455e154e6dafb3d0d0976458e12fc0a213e4643d",
+      "bytes": 15570
+    },
+    "antlr/sql/tsql/examples/dml_merge.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/dml_merge.sql",
+      "sha256": "0b3eb4afc7a0230fa5a5ce4ca8e6f96c4758ecdb870697b17966e262cd431225",
+      "bytes": 573
+    },
+    "antlr/sql/tsql/examples/dml_openrowset.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/dml_openrowset.sql",
+      "sha256": "2a7c05f7a059788e4bcb370bb88bb01c1b08853322ed57bbd4faa428c8e83168",
+      "bytes": 202
+    },
+    "antlr/sql/tsql/examples/dml_select.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/dml_select.sql",
+      "sha256": "e05a2436e9b020302dc31e442c63dcf2dbe9f0701a798289a45f39dfe7a048a4",
+      "bytes": 20047
+    },
+    "antlr/sql/tsql/examples/dml_update.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/dml_update.sql",
+      "sha256": "279e2f36a902f2da2ca1081adde03a82610cb46fcac8ef6cb7a22b80759f4c1f",
+      "bytes": 16285
+    },
+    "antlr/sql/tsql/examples/drop.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/drop.sql",
+      "sha256": "c0cc872b967abb7f378ce2be7f744e1e87e0c74ce05edc08d7c35d9a8a5c44d4",
+      "bytes": 2760
+    },
+    "antlr/sql/tsql/examples/event_notification.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/event_notification.sql",
+      "sha256": "1709b1f021a0574687b04b314bac746997cf1465a888aae0a922256baf4a6bbd",
+      "bytes": 301
+    },
+    "antlr/sql/tsql/examples/event_session.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/event_session.sql",
+      "sha256": "7895c4b62fa68bdb7f8b1678e7b2a4501ccae2f9666f4b287c728e824c5badeb",
+      "bytes": 5351
+    },
+    "antlr/sql/tsql/examples/exec_first_in_batch.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/exec_first_in_batch.sql",
+      "sha256": "4c1d9b7df0de7f0b9dca9ec18cdeb15274e43749e12fb8eaedfc8f0ad32701eb",
+      "bytes": 39
+    },
+    "antlr/sql/tsql/examples/expressions.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/expressions.sql",
+      "sha256": "7dac8d6ab881e16d23d4284bda85e63e98896c0c59d7adc0c19b3093c6d6b987",
+      "bytes": 15962
+    },
+    "antlr/sql/tsql/examples/external_data_source.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/external_data_source.sql",
+      "sha256": "9089bb231261def06a486f5e7a965d9b3c2dea9d79688a94f8d95f4fd55e5ed5",
+      "bytes": 422
+    },
+    "antlr/sql/tsql/examples/external_library.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/external_library.sql",
+      "sha256": "5acdf9625ec8428cc0e1374d919da174530cd5a245264d210a0a8e485ebfef9f",
+      "bytes": 110
+    },
+    "antlr/sql/tsql/examples/full_width_chars.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/full_width_chars.sql",
+      "sha256": "3114c32bf2941a86240658bb739c9665a4a2a56bd75b16b0a930613ac20500a7",
+      "bytes": 1340
+    },
+    "antlr/sql/tsql/examples/fulltext_catalog.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/fulltext_catalog.sql",
+      "sha256": "2366b8a405ab0723db124ca9e3e038dd0d98ef09765f2b40cf09cb15fee69d5a",
+      "bytes": 158
+    },
+    "antlr/sql/tsql/examples/gogo.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/gogo.sql",
+      "sha256": "ab26a5fea3b78bea29395a7a22388c2f2ac528bf49f4891b1b5ca9247f8ec31f",
+      "bytes": 91
+    },
+    "antlr/sql/tsql/examples/hierarchyid.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/hierarchyid.sql",
+      "sha256": "8f16b4c3db25d3ea549d573b7c3ddf9e042ad00fa8458889aee1f3398e6eb3d6",
+      "bytes": 5882
+    },
+    "antlr/sql/tsql/examples/hints.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/hints.sql",
+      "sha256": "4c94d114c555c8f14f15282f24039c215e814a46fbe22b880e8c67dadcaeb2fa",
+      "bytes": 2014
+    },
+    "antlr/sql/tsql/examples/issue978.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/issue978.sql",
+      "sha256": "6def573f42f6c406301baa89ad5abbc1653d32279adc821bcc88567b08315884",
+      "bytes": 212
+    },
+    "antlr/sql/tsql/examples/issue_2282.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/issue_2282.sql",
+      "sha256": "d05ccfe0e9f63e02dc5a5eb2e70019b0c51b0a1ad5e883fa086389494b345853",
+      "bytes": 68
+    },
+    "antlr/sql/tsql/examples/issue_3300.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/issue_3300.sql",
+      "sha256": "5e3e2a723becef66d2a750e96189034f4b4acd8b4c450844f9f65364b5932cac",
+      "bytes": 91
+    },
+    "antlr/sql/tsql/examples/issue_924_925.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/issue_924_925.sql",
+      "sha256": "5a017b8071224bbe7c228ad43d51a2739d288b7748ae13370a981309b2392829",
+      "bytes": 863
+    },
+    "antlr/sql/tsql/examples/issue_927.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/issue_927.sql",
+      "sha256": "3915847f2ad50aef63456731352e76a8c482daf291c2dc127887326d4208f971",
+      "bytes": 146
+    },
+    "antlr/sql/tsql/examples/json_data_type.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/json_data_type.sql",
+      "sha256": "60556ecbc2aa6deeabb4bef946e5c1978ff4c2f79b74ed2c365503386916b115",
+      "bytes": 414
+    },
+    "antlr/sql/tsql/examples/keywords_as_id.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/keywords_as_id.sql",
+      "sha256": "f806deed2fce707082edd28212e7a0c0e74c8f706db880346d6f48192969554d",
+      "bytes": 45145
+    },
+    "antlr/sql/tsql/examples/keywords_reserved.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/keywords_reserved.sql",
+      "sha256": "d400dd6badfb65aa7489d7c295a5b520a2def51bcf5045ec28715a28b796231f",
+      "bytes": 54
+    },
+    "antlr/sql/tsql/examples/kill_statements.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/kill_statements.sql",
+      "sha256": "ffb06b127befa24dabb7c3002f2d3f1114c4161ad1524ecc33b491cf7bec940c",
+      "bytes": 204
+    },
+    "antlr/sql/tsql/examples/locktable.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/locktable.sql",
+      "sha256": "bbf3700b3573b6c8d9dcb66f0e80a8be8e28f68dcc2b91fb9bd6ec6d91568747",
+      "bytes": 41
+    },
+    "antlr/sql/tsql/examples/logins.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/logins.sql",
+      "sha256": "a949b584a74ab74b69ffeb78612a254974a16d9fb417a8cadb2ac7c4ac936c1f",
+      "bytes": 1405
+    },
+    "antlr/sql/tsql/examples/master_key.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/master_key.sql",
+      "sha256": "6ddb3a9b3edf6601a6f503529b5121f0d5589c600ff625f0a833a73d5a1fa077",
+      "bytes": 298
+    },
+    "antlr/sql/tsql/examples/message_type.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/message_type.sql",
+      "sha256": "5b7f5d92a5b13dfca6cb6007a8230eb3b951fa27ce27ba47c01f7ae464afbcfb",
+      "bytes": 110
+    },
+    "antlr/sql/tsql/examples/nestedcomment.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/nestedcomment.sql",
+      "sha256": "157a75723e510207648dc8fc4eb4aa43a3fb380b1252ec87c4247294740c5ff4",
+      "bytes": 52
+    },
+    "antlr/sql/tsql/examples/non_ansi_join.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/non_ansi_join.sql",
+      "sha256": "b455dbabb7e6ecabac755ee617523a6a83cb3d6fbb57007bfd68843dd4fd6f1e",
+      "bytes": 174
+    },
+    "antlr/sql/tsql/examples/parameters.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/parameters.sql",
+      "sha256": "37f7e2d15dcbcbe022e0c76144775b88fd41dc2b07ac607af0652ab23f07acad",
+      "bytes": 29
+    },
+    "antlr/sql/tsql/examples/parse.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/parse.sql",
+      "sha256": "1dde0b0b5d2e21d0a3c3655d15eaaa68be8cfbd333c25cac11d94f62ea1a49b5",
+      "bytes": 278
+    },
+    "antlr/sql/tsql/examples/partition_function.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/partition_function.sql",
+      "sha256": "36507282b47d31ca66f595a5b54d9728d3dcc9315f1ff371ce10a1cbf257f251",
+      "bytes": 210
+    },
+    "antlr/sql/tsql/examples/partition_scheme.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/partition_scheme.sql",
+      "sha256": "2b02f41a9615e2b5c5e48f01afdd8dd32b229fff330341e175a593509476afc4",
+      "bytes": 138
+    },
+    "antlr/sql/tsql/examples/pr754.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/pr754.sql",
+      "sha256": "a3aba0b8b2e5ae75e9fe8f4aaf88869671d9fbb6f9d8fb0742447ab9b914da2e",
+      "bytes": 258
+    },
+    "antlr/sql/tsql/examples/predicates.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/predicates.sql",
+      "sha256": "4d5c69a3d49f26458a74a49ca3a57f868257ebcea2c247d54886449f485a588e",
+      "bytes": 7614
+    },
+    "antlr/sql/tsql/examples/print_with_param.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/print_with_param.sql",
+      "sha256": "adacb104ad7967a604a75c753c54c397b322a6bf870e257835e926a49a8e248a",
+      "bytes": 82
+    },
+    "antlr/sql/tsql/examples/raiseerror.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/raiseerror.sql",
+      "sha256": "c25849b852394f1b94f2d363f2190605bbd76173a78288e03b36e65df5cce923",
+      "bytes": 155
+    },
+    "antlr/sql/tsql/examples/reconfigure_statement.sql": {
+      "url": "https://raw.githubusercontent.com/antlr/grammars-v4/de38599628d221099c046e92962f70204d852b54/sql/tsql/examples/reconfigure_statement.sql",
+      "sha256": "e51ccfd8ec33baf95974d213ee704ecfb11e0e5f28136ee49a352c0b742af940",
+      "bytes": 47
+    },
+    "sqlserver/Test/SqlDom/TestUtilities.cs": {
+      "url": "https://raw.githubusercontent.com/microsoft/SqlScriptDOM/3ea69b6fc1ed76b63eca6df868f3d1347b92e9fb/Test/SqlDom/TestUtilities.cs",
+      "sha256": "795d5de6136ce767efc0c744c257f416345da63acab74944449e5acd50cfdd1f",
+      "bytes": 20374
+    },
+    "postgresql/src/backend/parser/parse_clause.c": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/backend/parser/parse_clause.c",
+      "sha256": "fd3fb69d6ea2ed0c220eba1d4479c0b79d8713b39a28c62cc4bf1428491e8ebd",
+      "bytes": 120748
+    },
+    "postgresql/src/backend/parser/parse_target.c": {
+      "url": "https://raw.githubusercontent.com/postgres/postgres/1b87015657d39cb28a218bbf3122dac1e722bd68/src/backend/parser/parse_target.c",
+      "sha256": "4f0cda351acc3e2854bf55514e69cf8b7de6ad82e1535045e4523581ca0d943c",
+      "bytes": 58971
+    }
+  },
+  "documentation_references": [
+    {
+      "dialect": "oracle",
+      "version": "19c",
+      "title": "SELECT — inline view and lateral examples",
+      "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/SELECT.html",
+      "checked_on": "2026-11-28",
+      "pinned": false
+    },
+    {
+      "dialect": "oracle",
+      "version": "19c",
+      "title": "Using Subqueries",
+      "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/Using-Subqueries.html",
+      "checked_on": "2026-11-28",
+      "pinned": false
+    },
+    {
+      "dialect": "sqlserver",
+      "version": "2022/2025",
+      "title": "JSON_OBJECT — scalar constructors and return type",
+      "url": "https://learn.microsoft.com/en-us/sql/t-sql/functions/json-object-transact-sql?view=sql-server-ver17",
+      "checked_on": "2026-11-28",
+      "pinned": false
+    },
+    {
+      "dialect": "sqlserver",
+      "version": "2022/2025",
+      "title": "JSON_ARRAY — null policy and return type",
+      "url": "https://learn.microsoft.com/en-us/sql/t-sql/functions/json-array-transact-sql",
+      "checked_on": "2026-11-28",
+      "pinned": false
+    },
+    {
+      "dialect": "sqlserver",
+      "version": "2022/2025",
+      "title": "Create filtered indexes — predicate and conversion limits",
+      "url": "https://learn.microsoft.com/en-us/sql/relational-databases/indexes/create-filtered-indexes?view=sql-server-ver17",
+      "checked_on": "2026-11-28",
+      "pinned": false
+    },
+    {
+      "dialect": "sqlite",
+      "version": "current",
+      "title": "SELECT LIMIT/OFFSET expression and coercion rules",
+      "url": "https://www.sqlite.org/lang_select.html#limitoffset",
+      "checked_on": "2026-11-28",
+      "pinned": false
+    },
+    {
+      "dialect": "postgresql",
+      "version": "16+",
+      "title": "SELECT — optional aliases for subqueries and VALUES in FROM",
+      "url": "https://www.postgresql.org/docs/16/sql-select.html",
+      "checked_on": "2026-11-28",
+      "pinned": false
+    },
+    {
+      "dialect": "sqlserver",
+      "version": "2022/2025",
+      "title": "TOP numeric expression and bigint conversion",
+      "url": "https://learn.microsoft.com/en-us/sql/t-sql/queries/top-transact-sql?view=sql-server-ver17",
+      "checked_on": "2026-11-28",
+      "pinned": false
+    },
+    {
+      "dialect": "sqlserver",
+      "version": "2022/2025",
+      "title": "ORDER BY OFFSET/FETCH expressions, range and subquery scope",
+      "url": "https://learn.microsoft.com/en-us/sql/t-sql/queries/select-order-by-clause-transact-sql?view=sql-server-ver17",
+      "checked_on": "2026-11-28",
+      "pinned": false
+    },
+    {
+      "dialect": "sqlserver",
+      "version": "2022/2025",
+      "title": "Engine analysis errors 10741–10744: pagination constraints",
+      "url": "https://learn.microsoft.com/en-us/sql/relational-databases/errors-events/database-engine-events-and-errors-10000-to-10999?view=sql-server-ver17",
+      "checked_on": "2026-11-28",
+      "pinned": false
+    },
+    {
+      "dialect": "sqlite",
+      "version": "current",
+      "title": "Expression operators and GLOB matching/function semantics",
+      "url": "https://www.sqlite.org/lang_expr.html",
+      "checked_on": "2026-11-28",
+      "pinned": false
+    },
+    {
+      "dialect": "postgresql",
+      "version": "18",
+      "title": "CREATE INDEX — optional index name, expression keys and immutability",
+      "url": "https://www.postgresql.org/docs/18/sql-createindex.html",
+      "checked_on": "2026-11-28",
+      "pinned": false
+    },
+    {
+      "dialect": "postgresql",
+      "version": "18",
+      "title": "CREATE TABLE — zero-column definition lists",
+      "url": "https://www.postgresql.org/docs/18/sql-createtable.html",
+      "checked_on": "2026-11-28",
+      "pinned": false
+    },
+    {
+      "dialect": "postgresql",
+      "version": "18",
+      "title": "Sorting Rows — default ASC and NULL ordering",
+      "url": "https://www.postgresql.org/docs/18/queries-order.html",
+      "checked_on": "2026-11-28",
+      "pinned": false
+    }
+  ],
+  "native_parser_tools": {
+    "tidb": {
+      "module": "github.com/pingcap/tidb/pkg/parser",
+      "version": "v0.0.0-20261126093401-a3ad25ec1c13",
+      "revision": "a3ad25ec1c13667ade6e531ea25d8549df49e319",
+      "go_minimum": "1.27.3",
+      "purpose": "offline SQL recognition only; no TiDB server or SQL execution"
+    },
+    "sqlserver": {
+      "package": "microsoft.sqlserver.transactsql.scriptdom",
+      "version": "180.154.0",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.sqlserver.transactsql.scriptdom/180.154.0/microsoft.sqlserver.transactsql.scriptdom.180.154.0.nupkg",
+      "catalog_url": "https://api.nuget.org/v3/catalog0/data/2026.11.13.19.00.24/microsoft.sqlserver.transactsql.scriptdom.180.154.0.json",
+      "package_sha512_base64": "rgleqi3WbRAQeaXUqUhIZIHgYhGhr2uQWZgrGKosngE2HRpSQXk2UgAZ1yNmINdACUZVosXW07wrSuL6QxPX/A==",
+      "bytes": 21122448,
+      "assembly_path": "lib/net8.0/Microsoft.SqlServer.TransactSql.ScriptDom.dll",
+      "assembly_sha256": "2722a9c67e525bcc2ef6fe6166025e49c5ad8006b9bfc92c81952a1618733036",
+      "published": "2026-11-13T18:52:17.4Z",
+      "repository_revision": "bbfdd03c3aea61c40d339aaffe2553cec7db4b63",
+      "parser_profile": 160,
+      "purpose": "offline SQL recognition only; no SQL Server connection or SQL execution"
+    },
+    "postgresql": {
+      "adapter": "pglast",
+      "version": "8.9",
+      "repository": "lelit/pglast",
+      "repository_revision": "c17a72db9734f1fb668c67990eb1c87e81144d0b",
+      "libpg_query_revision": "776c2ac5efa2a736f45bc7f18e1fd06cb9c6504e",
+      "metadata_url": "https://pypi.org/pypi/pglast/8.9/json",
+      "license": "GPL-3.0-or-later",
+      "filename": "pglast-8.9-cp315-cp315-macosx_11_0_arm64.whl",
+      "url": "https://files.pythonhosted.org/packages/98/ce/fc496e72cc55d1b4574d24a827980e12454983bebb138541eae92ccff415/pglast-8.9-cp315-cp315-macosx_11_0_arm64.whl",
+      "sha256": "0c80661ff4f438226f761801880f0b82e3a8ababcb188c683d3285b4c7cc6616",
+      "bytes": 1709965,
+      "native_path": "pglast/parser.cpython-315-darwin.so",
+      "native_sha256": "920de229ad92aab61eb32a8b82047109f84b595d5f3fc5898842b99dc527ec9e",
+      "python_tag": "cp315",
+      "platform_tag": "macosx_11_0_arm64",
+      "purpose": "optional offline PostgreSQL raw parsing; no server connection or SQL execution; cache only, not shipped",
+      "postgresql_version": [
+        18,
+        6
+      ]
+    }
+  },
+  "documentation_file_inventory": {
+    "oracle19-select": {
+      "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/SELECT.html",
+      "sha256": "59eb4e62b4007a50d836cb369405c2bac35254cfe08e2584212a127d1194075c",
+      "bytes": 327962,
+      "cache_path": ".cache/sql-grammar-20261127/oracle-reference/select19.html",
+      "checked_on": "2026-11-28",
+      "pinned": false
+    },
+    "sqlserver-reserved-keywords": {
+      "url": "https://raw.githubusercontent.com/MicrosoftDocs/sql-docs/live/docs/t-sql/language-elements/reserved-keywords-transact-sql.md",
+      "sha256": "eae710091fd3982c0949289a27a59dd134ad1511562cce062f05801e46f1ce26",
+      "bytes": 48054,
+      "cache_path": ".cache/sql-grammar-20261127/sqlserver-reference/reserved-keywords.md",
+      "checked_on": "2026-11-28",
+      "pinned": false
+    }
+  },
+  "native_execution_environments": {
+    "postgresql18": {
+      "provider": "Docker Official Image",
+      "reference": "https://hub.docker.com/_/postgres",
+      "image_digest": "sha256:64c8b0d31e4ab6ea665e8426ea406a94bf52de3c05b3a4a8bf713704eefa9328",
+      "repo_digests": [
+        "postgres@sha256:64c8b0d31e4ab6ea665e8426ea406a94bf52de3c05b3a4a8bf713704eefa9328"
+      ],
+      "architecture": "arm64",
+      "observed_version": "18.7 (Debian 18.7-1.pgdg13+5)",
+      "isolation": "fresh tmpfs, no network, no host mounts or published ports; only independently authored SQL",
+      "distribution": "optional local test tool only; not shipped with Navidog"
+    }
+  }
+}

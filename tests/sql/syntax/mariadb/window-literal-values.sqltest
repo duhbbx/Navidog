@@ -1,0 +1,33 @@
+# Independently authored native execution restrictions; these are not syntax errors.
+
+case ntile-zero semantic-error InvalidQueryShape <<SQL
+SELECT NTILE(0) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-negative semantic-error InvalidQueryShape <<SQL
+SELECT NTILE(-1) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-null semantic-error InvalidQueryShape <<SQL
+SELECT NTILE(NULL) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-execution-max valid <<SQL
+SELECT NTILE(9223372036854775807) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-above-signed-execution-max semantic-error InvalidQueryShape <<SQL
+SELECT NTILE(9223372036854775808) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-decimal-coercion valid <<SQL
+SELECT NTILE(18446744073709551616) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-boolean-true valid <<SQL
+SELECT NTILE(TRUE) OVER(ORDER BY ABS(17));
+SQL
+
+case ntile-boolean-false semantic-error InvalidQueryShape <<SQL
+SELECT NTILE(FALSE) OVER(ORDER BY ABS(17));
+SQL

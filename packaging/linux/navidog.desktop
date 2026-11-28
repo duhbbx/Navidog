@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Navidog
+Comment=Database workbench
+Comment[zh_CN]=数据库工作台
+Exec=navidog
+Icon=navidog
+Terminal=false
+Type=Application
+Categories=Development;Database;

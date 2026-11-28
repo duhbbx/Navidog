@@ -1,0 +1,138 @@
+# Authored T-SQL pagination: ScriptDOM TSql160 + official TOP/ORDER BY docs.
+# Native parsing does not establish execution success; literal constraints are semantic.
+
+case top-arithmetic valid <<SQL
+SELECT TOP(1+1) 17;
+SQL
+
+case top-bare-projection-sign valid <<SQL
+SELECT TOP 1 +1;
+SQL
+
+case top-bare-fraction valid <<SQL
+SELECT TOP 1.5 17;
+SQL
+
+case top-parenthesized-fraction valid <<SQL
+SELECT TOP(1.5) 17;
+SQL
+
+case top-zero valid <<SQL
+SELECT TOP(0) 17;
+SQL
+
+case top-signed-zero valid <<SQL
+SELECT TOP(-0) 17;
+SQL
+
+case top-parameter-expression valid <<SQL
+SELECT TOP(@take+1) 17;
+SQL
+
+case top-modulo valid <<SQL
+SELECT TOP(9%2) 17;
+SQL
+
+case top-arithmetic-ties valid <<SQL
+SELECT TOP(1+1) WITH TIES item_id FROM audit_items ORDER BY item_id;
+SQL
+
+case offset-arithmetic valid <<SQL
+SELECT 17 ORDER BY 1 OFFSET 1+1 ROWS;
+SQL
+
+case offset-signed-zero valid <<SQL
+SELECT 17 ORDER BY 1 OFFSET -0 ROWS;
+SQL
+
+case offset-fetch-parameters valid <<SQL
+SELECT 17 ORDER BY 1 OFFSET @skip+1 ROWS FETCH NEXT @take+1 ROWS ONLY;
+SQL
+
+case offset-fetch-grouped valid <<SQL
+SELECT 17 ORDER BY 1 OFFSET (1+1)*2 ROWS FETCH FIRST (9/2) ROWS ONLY;
+SQL
+
+case update-top-arithmetic valid <<SQL
+UPDATE TOP(1+1) audit_items SET item_id=17;
+SQL
+
+case delete-top-parameter valid <<SQL
+DELETE TOP(@take+1) FROM audit_items;
+SQL
+
+case top-negative semantic-error InvalidQueryShape <<SQL
+SELECT TOP(-1) 17;
+SQL
+
+case top-negative-fraction semantic-error InvalidQueryShape <<SQL
+SELECT TOP(-1.5) 17;
+SQL
+
+case offset-negative semantic-error InvalidQueryShape <<SQL
+SELECT 17 ORDER BY 1 OFFSET -1 ROWS;
+SQL
+
+case fetch-zero semantic-error InvalidQueryShape <<SQL
+SELECT 17 ORDER BY 1 OFFSET 0 ROWS FETCH NEXT 0 ROWS ONLY;
+SQL
+
+case fetch-negative-zero semantic-error InvalidQueryShape <<SQL
+SELECT 17 ORDER BY 1 OFFSET 0 ROWS FETCH NEXT -0 ROWS ONLY;
+SQL
+
+case fetch-negative semantic-error InvalidQueryShape <<SQL
+SELECT 17 ORDER BY 1 OFFSET 0 ROWS FETCH NEXT -1 ROWS ONLY;
+SQL
+
+case top-function-gap unsupported <<SQL
+SELECT TOP(ABS(1)) 17;
+SQL
+
+case top-subquery-gap unsupported <<SQL
+SELECT TOP((SELECT 1)) 17;
+SQL
+
+case top-null-coercion-gap unsupported <<SQL
+SELECT TOP(NULL) 17;
+SQL
+
+case offset-subquery-gap unsupported <<SQL
+SELECT 17 ORDER BY 1 OFFSET (SELECT COUNT(*) FROM audit_items) ROWS;
+SQL
+
+case offset-fraction-coercion-gap unsupported <<SQL
+SELECT 17 ORDER BY 1 OFFSET 1.5 ROWS;
+SQL
+
+case offset-null-coercion-gap unsupported <<SQL
+SELECT 17 ORDER BY 1 OFFSET NULL ROWS;
+SQL
+
+case top-percent-gap unsupported <<SQL
+SELECT TOP(25) PERCENT 17;
+SQL
+
+case bare-parameter syntax-error ExpectedToken <<SQL
+SELECT TOP @take 17;
+SQL
+
+case offset-missing-order syntax-error ExpectedToken <<SQL
+SELECT 17 OFFSET 1+1 ROWS;
+SQL
+
+case fetch-missing-offset syntax-error ExpectedToken <<SQL
+SELECT 17 ORDER BY 1 FETCH NEXT 1 ROWS ONLY;
+SQL
+
+case top-with-offset-model-gap unsupported <<SQL
+SELECT TOP(1+1) 17 ORDER BY 1 OFFSET 0 ROWS;
+SQL
+
+case missing-offset-expression syntax-error ExpectedToken <<SQL
+SELECT 17 ORDER BY 1 OFFSET ROWS;
+SQL
+
+case missing-fetch-expression syntax-error ExpectedToken <<SQL
+SELECT 17 ORDER BY 1 OFFSET 0 ROWS FETCH NEXT ROWS ONLY;
+SQL

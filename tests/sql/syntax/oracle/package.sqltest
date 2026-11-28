@@ -1,0 +1,40 @@
+case typed-package-specification valid <<SQL
+CREATE OR REPLACE EDITIONABLE PACKAGE "OwnedPackage" AUTHID CURRENT_USER AS
+  public_minimum CONSTANT PLS_INTEGER := 7;
+  public_value NUMBER := public_minimum + 1;
+  FUNCTION delta(p_left NUMBER, p_right IN NUMBER DEFAULT public_minimum) RETURN NUMBER;
+  PROCEDURE reset_value(p_value IN OUT NOCOPY NUMBER);
+  PROCEDURE reset_value(p_label VARCHAR2);
+  invalid_value EXCEPTION;
+END "OwnedPackage";
+SQL
+
+case package-state-forward-reference semantic-error UnknownColumn <<SQL
+CREATE PACKAGE pending_public AS
+  value_before_ready NUMBER := ready_value;
+  ready_value NUMBER := 9;
+END pending_public;
+SQL
+
+case package-mode-only-overload semantic-error InvalidQueryShape <<SQL
+CREATE PACKAGE ambiguous_public AS
+  PROCEDURE reset_value(p_value IN NUMBER);
+  PROCEDURE reset_value(p_value OUT NUMBER);
+END ambiguous_public;
+SQL
+
+case package-incorrect-end-name semantic-error InvalidQueryShape <<SQL
+CREATE PACKAGE public_api AS
+  PROCEDURE reload;
+END other_api;
+SQL
+
+case package-uninitialized-constant semantic-error InvalidQueryShape <<SQL
+CREATE PACKAGE no_default AS
+  limit_value CONSTANT NUMBER;
+END no_default;
+SQL
+
+case drop-selected-package valid <<SQL
+DROP PACKAGE "OwnedPackage";
+SQL

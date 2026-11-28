@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "purpose": "Reviewed exact raw-tree representation differences, not SQL acceptance overrides.",
+  "native_sha256": "920de229ad92aab61eb32a8b82047109f84b595d5f3fc5898842b99dc527ec9e",
+  "fingerprint_algorithm": "postgresql-raw-tree-parseloc-v4",
+  "entries": [
+    {
+      "case": "vacuum-options",
+      "source_path": "tests/sql/syntax/postgresql/examples.sqltest",
+      "source_sql_sha256": "a603fd1f104f8c2ba6650ec1221449bd01d739777f0dc5e03cf902a0d676d6db",
+      "original_ast_sha256": "41f79cea69223d918f17637e8ffe63e3ca7119626df0212847e5b9678c54b2c1",
+      "generated_ast_sha256": "3c694e2a774b81966280823cb8578687ae9dbb80e19cc3cf6d224633cb3e3f55",
+      "reason": "Boolean VACUUM option OFF and FALSE are two accepted spellings of false; no SQL acceptance is overridden.",
+      "evidence": [
+        "Pinned PostgreSQL src/backend/commands/define.c defGetBoolean accepts both off and false."
+      ]
+    }
+  ]
+}

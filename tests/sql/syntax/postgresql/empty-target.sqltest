@@ -1,0 +1,39 @@
+# Independently authored: PostgreSQL gram.y SELECT opt_all_clause opt_target_list.
+# Empty projection is native PostgreSQL grammar, not a missing expression.
+# DISTINCT instead uses the nonempty target_list production.
+
+case empty-target-from valid <<SQL
+SELECT FROM audit_items;
+SQL
+
+case empty-target-single-row valid <<SQL
+SELECT;
+SQL
+
+case empty-target-all valid <<SQL
+SELECT ALL FROM audit_items;
+SQL
+
+case empty-target-filter valid <<SQL
+SELECT WHERE FALSE;
+SQL
+
+case empty-target-derived valid <<SQL
+SELECT FROM (VALUES (17), (23)) AS q(item_id);
+SQL
+
+case empty-target-union valid <<SQL
+SELECT UNION ALL SELECT;
+SQL
+
+case empty-target-distinct-requires-expression syntax-error ExpectedToken <<SQL
+SELECT DISTINCT FROM audit_items;
+SQL
+
+case empty-target-comma syntax-error ExpectedToken <<SQL
+SELECT , FROM audit_items;
+SQL
+
+case empty-target-missing-from-source syntax-error ExpectedToken <<SQL
+SELECT FROM;
+SQL

@@ -1,0 +1,43 @@
+# Independently authored explicit LIKE ESCAPE positive/negative boundaries.
+# Reference: SQL pattern expressions in the fixed native/ANTLR grammar sources.
+# See docs/sql-grammar-corpus.md; no queries are submitted to user databases.
+
+case explicit-escape valid <<SQL
+SELECT 'a_b' LIKE 'a!_b' ESCAPE '!';
+SQL
+
+case negated-escape valid <<SQL
+SELECT 'a%b' NOT LIKE 'a!%b' ESCAPE '!';
+SQL
+
+case escape-filter valid <<SQL
+SELECT label FROM audit_items WHERE label LIKE 'a!_%' ESCAPE '!';
+SQL
+
+case escape-null valid <<SQL
+SELECT 'alpha' LIKE 'a%' ESCAPE NULL;
+SQL
+
+case escape-unicode valid <<SQL
+SELECT 'a_b' LIKE 'a§_b' ESCAPE '§';
+SQL
+
+case escape-two-characters semantic-error InvalidQueryShape <<SQL
+SELECT 'alpha' LIKE 'a%' ESCAPE '!!';
+SQL
+
+case escape-missing-value syntax-error ExpectedToken <<SQL
+SELECT label FROM audit_items WHERE label LIKE 'a%' ESCAPE;
+SQL
+
+case escape-incomplete-pattern syntax-error ExpectedToken <<SQL
+SELECT label FROM audit_items WHERE label LIKE ESCAPE '!';
+SQL
+
+case escape-incomplete-boolean syntax-error ExpectedToken <<SQL
+SELECT label FROM audit_items WHERE label LIKE 'a%' ESCAPE '!' AND;
+SQL
+
+case escape-empty semantic-error InvalidQueryShape <<SQL
+SELECT 'alpha' LIKE 'a%' ESCAPE '';
+SQL

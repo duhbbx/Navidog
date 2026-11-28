@@ -1,0 +1,34 @@
+catalog row_trigger_schema <<DDL
+CREATE TABLE inventory (id INT PRIMARY KEY, quantity INT);
+CREATE TABLE inventory_events (prior_quantity INT, next_quantity INT);
+DDL
+
+case old-and-new-trigger-rows valid catalog=row_trigger_schema <<SQL
+CREATE DEFINER = 'trigger_user'@'localhost' TRIGGER inventory_log AFTER UPDATE ON inventory
+FOR EACH ROW INSERT INTO inventory_events VALUES (OLD.quantity, NEW.quantity);
+SQL
+
+case compound-trigger valid catalog=row_trigger_schema <<SQL
+CREATE TRIGGER inventory_clamp BEFORE INSERT ON inventory
+FOR EACH ROW BEGIN
+  SET NEW.quantity = CASE WHEN NEW.quantity < 0 THEN 0 ELSE NEW.quantity END;
+  SET @inserted_qty = NEW.quantity;
+END;
+SELECT 1;
+SQL
+
+case invalid-old-in-insert semantic-error UnknownColumn catalog=row_trigger_schema <<SQL
+CREATE TRIGGER invalid_old BEFORE INSERT ON inventory FOR EACH ROW SET NEW.quantity = OLD.quantity;
+SQL
+
+case invalid-new-column semantic-error UnknownColumn catalog=row_trigger_schema <<SQL
+CREATE TRIGGER invalid_column BEFORE INSERT ON inventory FOR EACH ROW SET NEW.missing = 0;
+SQL
+
+case invalid-after-new-assignment semantic-error InvalidQueryShape catalog=row_trigger_schema <<SQL
+CREATE TRIGGER invalid_after AFTER INSERT ON inventory FOR EACH ROW SET NEW.quantity = 0;
+SQL
+
+case delete-trigger-with-if-exists valid <<SQL
+DROP TRIGGER IF EXISTS inventory_log;
+SQL

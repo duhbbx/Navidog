@@ -1,0 +1,47 @@
+# Independently authored; native lex.h/sql_lex.cc and isolated MySQL probes.
+# Default lexical mode does not treat separated function-name tokens as builtins.
+
+case adjacent-native valid <<SQL
+SELECT SUM(17);
+SQL
+
+case space-native unsupported <<SQL
+SELECT SUM (17);
+SQL
+
+case space-temporal unsupported <<SQL
+SELECT CURDATE ();
+SQL
+
+case tab-native unsupported <<SQL
+SELECT SUM	(17);
+SQL
+
+case newline-native unsupported <<SQL
+SELECT SUM
+(17);
+SQL
+
+case comment-native unsupported <<SQL
+SELECT SUM/**/(17);
+SQL
+
+case generic-qualified valid <<SQL
+SELECT audit_tools.sum (17);
+SQL
+
+case space-ordinary-scalar valid <<SQL
+SELECT ABS (-17);
+SQL
+
+case space-keyword-function valid <<SQL
+SELECT UTC_TIME ();
+SQL
+
+case quoted-native unsupported <<SQL
+SELECT `SUM`(17);
+SQL
+
+case bare-function-name-column valid <<SQL
+SELECT sum,curdate FROM audit_clock;
+SQL
